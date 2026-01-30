@@ -535,31 +535,43 @@ async def import_pedidos(file: UploadFile = File(...), current_user: dict = Depe
         else:
             raise HTTPException(status_code=400, detail="Formato de arquivo não suportado. Use CSV ou Excel.")
         
-        # Mapping for Tabelão WeConnect format
-        # Maps field name -> list of possible column names (case insensitive)
+        # Mapping for Tabelão WeConnect format - based on actual file structure
+        # Format: field_name -> list of possible column names (case insensitive)
         column_mapping = {
-            'numero_pedido': ['entrega ped.', 'entrega', 'numero_pedido', 'pedido', 'order_number'],
-            'data_emissao': ['dt. emissao', 'dt.emissao', 'data_emissao', 'data emissão'],
-            'nome_cliente': ['nome', 'cliente'],
+            'numero_pedido': ['ped. cliente', 'entrega', 'numero_pedido', 'pedido'],
+            'pedido_externo': ['ped. externo'],
+            'data_emissao': ['dt. emissao', 'dt.emissao', 'data_emissao'],
+            'nome_cliente': ['nome'],
             'cpf_cliente': ['cpf'],
             'cep': ['cep'],
             'cidade': ['cidade'],
-            'uf': ['uf', 'estado'],
-            'status_pedido': ['ult. ponto nome', 'status_pedido', 'status', 'situação', 'situacao'],
-            'data_status': ['dt.ult.ponto de controle', 'data_status'],
-            'transportadora': ['transportadora nome', 'transportadora', 'carrier'],
-            'produto': ['depto nome', 'produto', 'item'],
-            'fornecedor': ['setor nome', 'fornecedor'],
-            'codigo_item_vtex': ['cód. terceiro', 'cod. terceiro', 'codigo_vtex'],
-            'codigo_item_bseller': ['ncm', 'codigo_bseller'],
-            'quantidade': ['qtde pedido', 'quantidade', 'qty'],
-            'preco_final': ['preço final', 'preco final', 'preco_final', 'price'],
-            'nota_fiscal': ['nota série', 'nota serie', 'nota_fiscal', 'nf', 'invoice'],
-            'serie_nf': ['série', 'serie', 'serie_nf'],
-            'chave_nota': ['chave acesso', 'chave_nota', 'chave_nf'],
-            'canal_vendas': ['canal de vendas nome', 'canal_vendas', 'canal'],
-            'filial': ['etiqueta filial', 'filial'],
-            'codigo_rastreio': ['codigo_rastreio', 'rastreio', 'tracking']
+            'uf': ['uf'],
+            'email_cliente': ['e-mail', 'email'],
+            'fone_cliente': ['fone', 'telefone'],
+            'status_pedido': ['nome.1'],  # "Entregue ao Cliente", etc
+            'data_status': ['dt.ult.ponto de controle'],
+            'transportadora': ['nome.3'],  # Transportadora name
+            'codigo_transportadora': ['transportadora'],
+            'produto': ['nome.4'],  # Product name
+            'codigo_produto': ['item'],
+            'departamento': ['nome.5'],
+            'setor': ['nome.6'],
+            'familia': ['nome.7'],
+            'subfamilia': ['nome.8'],
+            'codigo_item_vtex': ['c?d. terceiro', 'cod. terceiro', 'cód. terceiro'],
+            'codigo_item_bseller': ['ncm'],
+            'situacao': ['situa??o', 'situação', 'situacao'],
+            'quantidade': ['qtde pedido'],
+            'preco_final': ['pre?o final', 'preço final', 'preco final'],
+            'frete': ['frete'],
+            'nota_fiscal': ['nota'],
+            'serie_nf': ['s?rie', 'série', 'serie'],
+            'chave_nota': ['chave acesso'],
+            'data_emissao_nf': ['data emissao nf'],
+            'canal_vendas': ['nome canal de vendas'],
+            'id_canal_vendas': ['id canal de vendas'],
+            'filial': ['filial'],
+            'codigo_rastreio': ['etiqueta'],  # Tracking code is in "Etiqueta" column
         }
         
         # Normalize column names (strip whitespace and lowercase)
