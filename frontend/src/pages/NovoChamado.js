@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -9,6 +9,7 @@ import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
 import { Switch } from '../components/ui/switch';
 import { Badge } from '../components/ui/badge';
+import { Separator } from '../components/ui/separator';
 import {
   Select,
   SelectContent,
@@ -17,7 +18,11 @@ import {
   SelectValue,
 } from '../components/ui/select';
 import { toast } from 'sonner';
-import { Loader2, Search, Package, FileText, Truck, AlertCircle } from 'lucide-react';
+import { 
+  Loader2, Search, Package, Truck, User, MapPin, 
+  Phone, Mail, Calendar, CreditCard, ShoppingBag, 
+  FileText, Hash, Building, AlertCircle, CheckCircle
+} from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -33,6 +38,7 @@ const STATUS_CHAMADO = [
 const NovoChamado = () => {
   const [loading, setLoading] = useState(false);
   const [searchingPedido, setSearchingPedido] = useState(false);
+  const [pedidoNotFound, setPedidoNotFound] = useState(false);
   const [users, setUsers] = useState([]);
   const [pedidoErp, setPedidoErp] = useState(null);
   
@@ -58,6 +64,20 @@ const NovoChamado = () => {
     fetchUsers();
   }, []);
 
+  // Debounced search for pedido
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (formData.numero_pedido.trim().length >= 3) {
+        searchPedido(formData.numero_pedido.trim());
+      } else {
+        setPedidoErp(null);
+        setPedidoNotFound(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [formData.numero_pedido]);
+
   const fetchUsers = async () => {
     try {
       const response = await axios.get(`${API_URL}/api/users`, { headers: getAuthHeader() });
@@ -67,20 +87,22 @@ const NovoChamado = () => {
     }
   };
 
-  const searchPedido = async () => {
-    if (!formData.numero_pedido.trim()) return;
-    
+  const searchPedido = async (numeroPedido) => {
     setSearchingPedido(true);
     setPedidoErp(null);
+    setPedidoNotFound(false);
     
     try {
       const response = await axios.get(
-        `${API_URL}/api/pedidos-erp/${formData.numero_pedido}`,
+        `${API_URL}/api/pedidos-erp/${numeroPedido}`,
         { headers: getAuthHeader() }
       );
       setPedidoErp(response.data);
+      setPedidoNotFound(false);
     } catch (error) {
-      if (error.response?.status !== 404) {
+      if (error.response?.status === 404) {
+        setPedidoNotFound(true);
+      } else {
         toast.error('Erro ao buscar pedido');
       }
     } finally {
@@ -136,8 +158,18 @@ const NovoChamado = () => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  const getStatusBadgeColor = (status) => {
+    if (!status) return 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400';
+    const statusLower = status.toLowerCase();
+    if (statusLower.includes('entreg')) return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400';
+    if (statusLower.includes('trânsito') || statusLower.includes('transito') || statusLower.includes('enviado')) return 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400';
+    if (statusLower.includes('aguardando') || statusLower.includes('pendente')) return 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400';
+    if (statusLower.includes('cancel') || statusLower.includes('devol')) return 'bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-400';
+    return 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400';
+  };
+
   return (
-    <div className="max-w-3xl mx-auto space-y-6" data-testid="novo-chamado-page">
+    <div className="max-w-4xl mx-auto space-y-6" data-testid="novo-chamado-page">
       {/* Page Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight font-['Plus_Jakarta_Sans']">Novo Chamado</h1>
@@ -145,263 +177,378 @@ const NovoChamado = () => {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Pedido Info */}
+        {/* Step 1: Buscar Pedido */}
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Informações do Pedido</CardTitle>
-            <CardDescription>Vincule o chamado ao número do pedido</CardDescription>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Hash className="h-5 w-5" />
+              1. Identificar o Pedido
+            </CardTitle>
+            <CardDescription>Digite o número do pedido para carregar as informações automaticamente</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent>
             <div className="flex gap-2">
               <div className="flex-1">
-                <Label htmlFor="numero_pedido">Número do Pedido *</Label>
                 <Input
                   id="numero_pedido"
                   value={formData.numero_pedido}
                   onChange={(e) => handleChange('numero_pedido', e.target.value)}
-                  placeholder="Ex: 12345"
+                  placeholder="Digite o número do pedido (ex: 761005)"
+                  className="text-lg h-12"
                   data-testid="input-numero-pedido"
                 />
               </div>
-              <div className="flex items-end">
-                <Button 
-                  type="button" 
-                  variant="secondary"
-                  onClick={searchPedido}
-                  disabled={searchingPedido || !formData.numero_pedido.trim()}
-                  data-testid="btn-buscar-pedido"
-                >
-                  {searchingPedido ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Search className="h-4 w-4" />
-                  )}
-                </Button>
-              </div>
-            </div>
-
-            {pedidoErp && (
-              <div className="p-4 rounded-lg bg-muted/50 border space-y-3" data-testid="pedido-erp-info">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <Package className="h-4 w-4" />
-                  Dados do ERP
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Status:</span>
-                    <span className="ml-2 font-medium">{pedidoErp.status_pedido || '-'}</span>
+              <div className="flex items-center">
+                {searchingPedido && (
+                  <div className="h-12 w-12 flex items-center justify-center">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                   </div>
-                  <div>
-                    <span className="text-muted-foreground">Cliente:</span>
-                    <span className="ml-2 font-medium">{pedidoErp.nome_cliente || '-'}</span>
+                )}
+                {!searchingPedido && pedidoErp && (
+                  <div className="h-12 w-12 flex items-center justify-center">
+                    <CheckCircle className="h-5 w-5 text-emerald-500" />
                   </div>
-                  <div>
-                    <span className="text-muted-foreground">Transportadora:</span>
-                    <span className="ml-2 font-medium">{pedidoErp.transportadora || '-'}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Rastreio:</span>
-                    <span className="ml-2 font-medium">{pedidoErp.codigo_rastreio || '-'}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Nota Fiscal:</span>
-                    <span className="ml-2 font-medium">{pedidoErp.nota_fiscal || '-'}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Canal:</span>
-                    <span className="ml-2 font-medium">{pedidoErp.canal_vendas || '-'}</span>
-                  </div>
-                </div>
-                {pedidoErp.produto && (
-                  <div className="text-sm pt-2 border-t">
-                    <span className="text-muted-foreground">Produto:</span>
-                    <span className="ml-2 font-medium">{pedidoErp.produto}</span>
+                )}
+                {!searchingPedido && pedidoNotFound && (
+                  <div className="h-12 w-12 flex items-center justify-center">
+                    <AlertCircle className="h-5 w-5 text-amber-500" />
                   </div>
                 )}
               </div>
+            </div>
+            
+            {pedidoNotFound && (
+              <p className="text-sm text-amber-600 mt-2">
+                Pedido não encontrado no ERP. Você pode continuar criando o chamado manualmente.
+              </p>
             )}
-
-            <div>
-              <Label htmlFor="id_externo">ID Externo (opcional)</Label>
-              <Input
-                id="id_externo"
-                value={formData.id_externo}
-                onChange={(e) => handleChange('id_externo', e.target.value)}
-                placeholder="ID do ticket no sistema de origem"
-                data-testid="input-id-externo"
-              />
-            </div>
           </CardContent>
         </Card>
 
-        {/* Classificação */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Classificação</CardTitle>
-            <CardDescription>Categorize o chamado</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Label>Canal de Origem *</Label>
-                <Select value={formData.canal_origem} onValueChange={(v) => handleChange('canal_origem', v)}>
-                  <SelectTrigger data-testid="select-canal">
-                    <SelectValue placeholder="Selecione o canal" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CANAIS.map(canal => (
-                      <SelectItem key={canal} value={canal}>{canal}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+        {/* Dados do Pedido - Exibidos quando encontrado */}
+        {pedidoErp && (
+          <Card className="border-emerald-200 dark:border-emerald-800 bg-emerald-50/30 dark:bg-emerald-950/20" data-testid="pedido-erp-info">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Package className="h-5 w-5 text-emerald-600" />
+                  Dados do Pedido #{pedidoErp.numero_pedido}
+                </CardTitle>
+                <Badge className={getStatusBadgeColor(pedidoErp.status_pedido)}>
+                  {pedidoErp.status_pedido || 'Sem status'}
+                </Badge>
               </div>
-
-              <div>
-                <Label>Categoria *</Label>
-                <Select value={formData.categoria} onValueChange={(v) => handleChange('categoria', v)}>
-                  <SelectTrigger data-testid="select-categoria">
-                    <SelectValue placeholder="Selecione a categoria" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CATEGORIAS.map(cat => (
-                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label>Prioridade</Label>
-                <Select value={formData.prioridade} onValueChange={(v) => handleChange('prioridade', v)}>
-                  <SelectTrigger data-testid="select-prioridade">
-                    <SelectValue placeholder="Selecione a prioridade" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PRIORIDADES.map(prio => (
-                      <SelectItem key={prio} value={prio}>{prio}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <Label>Status do Chamado</Label>
-                <Select value={formData.status_chamado} onValueChange={(v) => handleChange('status_chamado', v)}>
-                  <SelectTrigger data-testid="select-status-chamado">
-                    <SelectValue placeholder="Selecione o status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {STATUS_CHAMADO.map(status => (
-                      <SelectItem key={status} value={status}>{status}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="sm:col-span-2">
-                <Label>Responsável</Label>
-                <Select value={formData.responsavel_id || "none"} onValueChange={(v) => handleChange('responsavel_id', v === "none" ? "" : v)}>
-                  <SelectTrigger data-testid="select-responsavel">
-                    <SelectValue placeholder="Selecione o responsável" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Sem responsável</SelectItem>
-                    {users.map(user => (
-                      <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Descrição */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Descrição do Problema</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Textarea
-              value={formData.sintese_problema}
-              onChange={(e) => handleChange('sintese_problema', e.target.value)}
-              placeholder="Descreva detalhadamente o problema relatado pelo cliente..."
-              rows={5}
-              data-testid="textarea-sintese"
-            />
-          </CardContent>
-        </Card>
-
-        {/* Reversa */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Truck className="h-5 w-5" />
-              Reversa (Devolução)
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label htmlFor="precisa_reversa">Precisa de reversa?</Label>
-                <p className="text-sm text-muted-foreground">Marque se o cliente precisa devolver o produto</p>
-              </div>
-              <Switch
-                id="precisa_reversa"
-                checked={formData.precisa_reversa}
-                onCheckedChange={(v) => handleChange('precisa_reversa', v)}
-                data-testid="switch-reversa"
-              />
-            </div>
-
-            {formData.precisa_reversa && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t">
-                <div>
-                  <Label htmlFor="reversa_codigo">Código da Reversa</Label>
-                  <Input
-                    id="reversa_codigo"
-                    value={formData.reversa_codigo}
-                    onChange={(e) => handleChange('reversa_codigo', e.target.value)}
-                    placeholder="Código de autorização"
-                    data-testid="input-reversa-codigo"
-                  />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Cliente */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <h4 className="font-medium text-sm flex items-center gap-2">
+                    <User className="h-4 w-4" /> Cliente
+                  </h4>
+                  <div className="pl-6 space-y-1 text-sm">
+                    <p className="font-medium">{pedidoErp.nome_cliente || '-'}</p>
+                    {pedidoErp.cpf_cliente && (
+                      <p className="text-muted-foreground">CPF: {pedidoErp.cpf_cliente}</p>
+                    )}
+                    {pedidoErp.email_cliente && (
+                      <p className="text-muted-foreground flex items-center gap-1">
+                        <Mail className="h-3 w-3" /> {pedidoErp.email_cliente}
+                      </p>
+                    )}
+                    {pedidoErp.fone_cliente && (
+                      <p className="text-muted-foreground flex items-center gap-1">
+                        <Phone className="h-3 w-3" /> {pedidoErp.fone_cliente}
+                      </p>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <Label htmlFor="reversa_validade">Validade da Reversa</Label>
-                  <Input
-                    id="reversa_validade"
-                    value={formData.reversa_validade}
-                    onChange={(e) => handleChange('reversa_validade', e.target.value)}
-                    placeholder="Ex: 30 dias"
-                    data-testid="input-reversa-validade"
-                  />
+
+                <div className="space-y-3">
+                  <h4 className="font-medium text-sm flex items-center gap-2">
+                    <MapPin className="h-4 w-4" /> Endereço de Entrega
+                  </h4>
+                  <div className="pl-6 space-y-1 text-sm">
+                    {pedidoErp.cidade && pedidoErp.uf ? (
+                      <p className="font-medium">{pedidoErp.cidade} - {pedidoErp.uf}</p>
+                    ) : (
+                      <p className="text-muted-foreground">-</p>
+                    )}
+                    {pedidoErp.cep && (
+                      <p className="text-muted-foreground">CEP: {pedidoErp.cep}</p>
+                    )}
+                  </div>
                 </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
 
-        {/* Actions */}
-        <div className="flex justify-end gap-3">
-          <Button 
-            type="button" 
-            variant="outline" 
-            onClick={() => navigate('/chamados')}
-            data-testid="btn-cancelar"
-          >
-            Cancelar
-          </Button>
-          <Button type="submit" disabled={loading} data-testid="btn-salvar">
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Salvando...
-              </>
-            ) : (
-              'Criar Chamado'
-            )}
-          </Button>
-        </div>
+              <Separator />
+
+              {/* Produto e Pedido */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <h4 className="font-medium text-sm flex items-center gap-2">
+                    <ShoppingBag className="h-4 w-4" /> Produto
+                  </h4>
+                  <div className="pl-6 space-y-1 text-sm">
+                    <p className="font-medium">{pedidoErp.produto || '-'}</p>
+                    {pedidoErp.codigo_produto && (
+                      <p className="text-muted-foreground">Código: {pedidoErp.codigo_produto}</p>
+                    )}
+                    {pedidoErp.quantidade && (
+                      <p className="text-muted-foreground">Quantidade: {pedidoErp.quantidade}</p>
+                    )}
+                    {pedidoErp.preco_final && (
+                      <p className="text-muted-foreground">
+                        Valor: R$ {parseFloat(pedidoErp.preco_final).toFixed(2)}
+                        {pedidoErp.frete && ` + R$ ${parseFloat(pedidoErp.frete).toFixed(2)} frete`}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-medium text-sm flex items-center gap-2">
+                    <Calendar className="h-4 w-4" /> Informações do Pedido
+                  </h4>
+                  <div className="pl-6 space-y-1 text-sm">
+                    {pedidoErp.data_emissao && (
+                      <p><span className="text-muted-foreground">Emissão:</span> {pedidoErp.data_emissao}</p>
+                    )}
+                    {pedidoErp.data_status && (
+                      <p><span className="text-muted-foreground">Última atualização:</span> {pedidoErp.data_status}</p>
+                    )}
+                    {pedidoErp.situacao && (
+                      <p><span className="text-muted-foreground">Situação:</span> {pedidoErp.situacao}</p>
+                    )}
+                    {pedidoErp.canal_vendas && (
+                      <p><span className="text-muted-foreground">Canal:</span> {pedidoErp.canal_vendas}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Entrega */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-3">
+                  <h4 className="font-medium text-sm flex items-center gap-2">
+                    <Truck className="h-4 w-4" /> Entrega
+                  </h4>
+                  <div className="pl-6 space-y-1 text-sm">
+                    <p className="font-medium">{pedidoErp.transportadora || '-'}</p>
+                    {pedidoErp.codigo_rastreio && (
+                      <p className="text-muted-foreground">Rastreio: <span className="font-mono">{pedidoErp.codigo_rastreio}</span></p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-medium text-sm flex items-center gap-2">
+                    <FileText className="h-4 w-4" /> Nota Fiscal
+                  </h4>
+                  <div className="pl-6 space-y-1 text-sm">
+                    {pedidoErp.nota_fiscal && (
+                      <p><span className="text-muted-foreground">NF:</span> {pedidoErp.nota_fiscal}</p>
+                    )}
+                    {pedidoErp.chave_nota && (
+                      <p className="text-muted-foreground text-xs break-all">
+                        Chave: {pedidoErp.chave_nota}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Step 2: Classificação - só aparece se pedido foi buscado ou digitou algo */}
+        {(pedidoErp || pedidoNotFound || formData.numero_pedido.length >= 3) && (
+          <>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Building className="h-5 w-5" />
+                  2. Classificação do Chamado
+                </CardTitle>
+                <CardDescription>Categorize o chamado para direcionamento correto</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div>
+                    <Label>Canal de Origem *</Label>
+                    <Select value={formData.canal_origem} onValueChange={(v) => handleChange('canal_origem', v)}>
+                      <SelectTrigger data-testid="select-canal">
+                        <SelectValue placeholder="Selecione o canal" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CANAIS.map(canal => (
+                          <SelectItem key={canal} value={canal}>{canal}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label>Categoria *</Label>
+                    <Select value={formData.categoria} onValueChange={(v) => handleChange('categoria', v)}>
+                      <SelectTrigger data-testid="select-categoria">
+                        <SelectValue placeholder="Selecione a categoria" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CATEGORIAS.map(cat => (
+                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label>Prioridade</Label>
+                    <Select value={formData.prioridade} onValueChange={(v) => handleChange('prioridade', v)}>
+                      <SelectTrigger data-testid="select-prioridade">
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {PRIORIDADES.map(prio => (
+                          <SelectItem key={prio} value={prio}>{prio}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label>Status do Chamado</Label>
+                    <Select value={formData.status_chamado} onValueChange={(v) => handleChange('status_chamado', v)}>
+                      <SelectTrigger data-testid="select-status-chamado">
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {STATUS_CHAMADO.map(status => (
+                          <SelectItem key={status} value={status}>{status}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label>Responsável</Label>
+                    <Select value={formData.responsavel_id || "none"} onValueChange={(v) => handleChange('responsavel_id', v === "none" ? "" : v)}>
+                      <SelectTrigger data-testid="select-responsavel">
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Sem responsável</SelectItem>
+                        {users.map(user => (
+                          <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label>ID Externo</Label>
+                    <Input
+                      value={formData.id_externo}
+                      onChange={(e) => handleChange('id_externo', e.target.value)}
+                      placeholder="ID do ticket de origem"
+                      data-testid="input-id-externo"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Step 3: Descrição */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">3. Descrição do Problema</CardTitle>
+                <CardDescription>Descreva detalhadamente o problema relatado pelo cliente</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Textarea
+                  value={formData.sintese_problema}
+                  onChange={(e) => handleChange('sintese_problema', e.target.value)}
+                  placeholder="Ex: Cliente relata que o produto chegou com defeito na embalagem..."
+                  rows={4}
+                  data-testid="textarea-sintese"
+                />
+              </CardContent>
+            </Card>
+
+            {/* Step 4: Reversa */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Truck className="h-5 w-5" />
+                  4. Reversa (Devolução)
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="precisa_reversa">Precisa de reversa?</Label>
+                    <p className="text-sm text-muted-foreground">Marque se o cliente precisa devolver o produto</p>
+                  </div>
+                  <Switch
+                    id="precisa_reversa"
+                    checked={formData.precisa_reversa}
+                    onCheckedChange={(v) => handleChange('precisa_reversa', v)}
+                    data-testid="switch-reversa"
+                  />
+                </div>
+
+                {formData.precisa_reversa && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t">
+                    <div>
+                      <Label htmlFor="reversa_codigo">Código da Reversa</Label>
+                      <Input
+                        id="reversa_codigo"
+                        value={formData.reversa_codigo}
+                        onChange={(e) => handleChange('reversa_codigo', e.target.value)}
+                        placeholder="Código de autorização"
+                        data-testid="input-reversa-codigo"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="reversa_validade">Validade da Reversa</Label>
+                      <Input
+                        id="reversa_validade"
+                        value={formData.reversa_validade}
+                        onChange={(e) => handleChange('reversa_validade', e.target.value)}
+                        placeholder="Ex: 30 dias"
+                        data-testid="input-reversa-validade"
+                      />
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Actions */}
+            <div className="flex justify-end gap-3 pb-6">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => navigate('/chamados')}
+                data-testid="btn-cancelar"
+              >
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={loading} size="lg" data-testid="btn-salvar">
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  'Criar Chamado'
+                )}
+              </Button>
+            </div>
+          </>
+        )}
       </form>
     </div>
   );
