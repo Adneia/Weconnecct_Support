@@ -612,15 +612,6 @@ async def import_pedidos(file: UploadFile = File(...), current_user: dict = Depe
             "updated": updated,
             "errors": errors
         }
-                updated += 1
-            else:
-                pedido = PedidoERP(**pedido_data)
-                pedido_dict = pedido.model_dump()
-                pedido_dict['ultima_atualizacao'] = pedido_dict['ultima_atualizacao'].isoformat()
-                await db.pedidos_erp.insert_one(pedido_dict)
-                imported += 1
-        
-        return {"message": f"Importação concluída: {imported} novos, {updated} atualizados"}
     
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Erro ao processar arquivo: {str(e)}")
