@@ -1,0 +1,161 @@
+{
+  "design_system": {
+    "identity": {
+      "name": "WeConnect Support",
+      "archetype": "The Soft Utility",
+      "core_philosophy": "Linear-esque Efficiency. Density without clutter. Speed is a feature.",
+      "emotional_tone": "Calm, Reliable, Professional, Fast"
+    },
+    "typography": {
+      "font_family": {
+        "headings": "Plus Jakarta Sans, sans-serif",
+        "body": "Inter, sans-serif",
+        "mono": "JetBrains Mono, monospace"
+      },
+      "scale": {
+        "h1": "text-3xl font-bold tracking-tight",
+        "h2": "text-2xl font-semibold tracking-tight",
+        "h3": "text-xl font-semibold tracking-tight",
+        "body_large": "text-base leading-relaxed",
+        "body_default": "text-sm leading-normal",
+        "caption": "text-xs text-muted-foreground"
+      },
+      "rules": [
+        "Headings must use tight tracking (-0.02em).",
+        "Data tables must use 'Inter' with tabular-nums feature.",
+        "Never center-align text in dashboards unless it's a standalone empty state.",
+        "Use font-medium (500) for data labels, font-normal (400) for values."
+      ]
+    },
+    "colors": {
+      "theme_strategy": "Dual Theme (Light/Dark) with Toggle",
+      "palette": {
+        "primary": {
+          "light": "slate-900",
+          "dark": "slate-50",
+          "brand": "blue-600"
+        },
+        "background": {
+          "light": "white",
+          "dark": "slate-950",
+          "subtle_light": "slate-50",
+          "subtle_dark": "slate-900"
+        },
+        "status": {
+          "open": {
+            "bg": "bg-blue-50 dark:bg-blue-950/50",
+            "text": "text-blue-700 dark:text-blue-400",
+            "border": "border-blue-200 dark:border-blue-800"
+          },
+          "in_progress": {
+            "bg": "bg-amber-50 dark:bg-amber-950/50",
+            "text": "text-amber-700 dark:text-amber-400",
+            "border": "border-amber-200 dark:border-amber-800"
+          },
+          "waiting": {
+            "bg": "bg-orange-50 dark:bg-orange-950/50",
+            "text": "text-orange-700 dark:text-orange-400",
+            "border": "border-orange-200 dark:border-orange-800"
+          },
+          "resolved": {
+            "bg": "bg-emerald-50 dark:bg-emerald-950/50",
+            "text": "text-emerald-700 dark:text-emerald-400",
+            "border": "border-emerald-200 dark:border-emerald-800"
+          }
+        },
+        "priority": {
+          "low": "text-slate-500",
+          "medium": "text-blue-500",
+          "high": "text-orange-500",
+          "urgent": "text-red-600 font-bold"
+        }
+      }
+    },
+    "layout": {
+      "structure": "Sidebar Navigation + Main Content Area",
+      "grid_system": "Bento Grid for Dashboard (Asymmetric)",
+      "spacing": {
+        "container_padding": "p-6 md:p-8",
+        "card_padding": "p-6",
+        "gap_default": "gap-6",
+        "gap_tight": "gap-4"
+      },
+      "sidebar": {
+        "width": "w-64",
+        "collapsed_width": "w-16",
+        "bg": "bg-slate-50 dark:bg-slate-900",
+        "border": "border-r border-border"
+      },
+      "z_index": {
+        "header": "z-40",
+        "sidebar": "z-50",
+        "modal": "z-50",
+        "toast": "z-60"
+      }
+    },
+    "components": {
+      "buttons": {
+        "primary": "bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm h-9 px-4 py-2 rounded-md text-sm font-medium transition-colors",
+        "secondary": "bg-secondary text-secondary-foreground hover:bg-secondary/80 h-9 px-4 py-2 rounded-md text-sm font-medium",
+        "ghost": "hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 rounded-md text-sm font-medium",
+        "destructive": "bg-destructive text-destructive-foreground hover:bg-destructive/90 h-9 px-4 py-2 rounded-md text-sm font-medium"
+      },
+      "cards": {
+        "style": "bg-card text-card-foreground rounded-lg border shadow-sm",
+        "hover": "transition-all duration-200 hover:border-primary/20"
+      },
+      "inputs": {
+        "style": "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+      },
+      "tables": {
+        "header": "text-xs uppercase tracking-wider text-muted-foreground font-medium bg-muted/50",
+        "row": "border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted",
+        "cell": "p-4 align-middle [&:has([role=checkbox])]:pr-0"
+      }
+    },
+    "visual_enhancers": {
+      "glassmorphism": "backdrop-blur-md bg-background/80 border-b",
+      "borders": "border border-border",
+      "shadows": "shadow-sm",
+      "radius": "rounded-md"
+    },
+    "motion": {
+      "transitions": "transition-all duration-200 ease-in-out",
+      "hover_lift": "hover:-translate-y-0.5",
+      "page_transition": "animate-in fade-in slide-in-from-bottom-4 duration-500"
+    },
+    "accessibility": {
+      "contrast": "Ensure 4.5:1 for normal text. Use APCA for subtle grays.",
+      "focus_states": "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+      "aria": "All interactive elements must have aria-labels if no text is present."
+    },
+    "assets": {
+      "logo_url": "https://images.pexels.com/photos/28428591/pexels-photo-28428591.jpeg",
+      "avatars": [
+        "https://images.unsplash.com/photo-1758518730523-c9f6336ebdae?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzl8MHwxfHNlYXJjaHwxfHxvZmZpY2UlMjB0ZWFtJTIwcG9ydHJhaXRzfGVufDB8fHx8MTc2OTc5NjAwMXww&ixlib=rb-4.1.0&q=85",
+        "https://images.unsplash.com/photo-1645220127528-a4ffca2d2057?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzl8MHwxfHNlYXJjaHwyfHxvZmZpY2UlMjB0ZWFtJTIwcG9ydHJhaXRzfGVufDB8fHx8MTc2OTc5NjAwMXww&ixlib=rb-4.1.0&q=85",
+        "https://images.unsplash.com/photo-1763550662603-78aa2f2033bf?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzl8MHwxfHNlYXJjaHwzfHxvZmZpY2UlMjB0ZWFtJTIwcG9ydHJhaXRzfGVufDB8fHx8MTc2OTc5NjAwMXww&ixlib=rb-4.1.0&q=85"
+      ],
+      "icons_library": "lucide-react"
+    },
+    "instructions_to_main_agent": [
+      "Use 'lucide-react' for all icons.",
+      "Implement a 'Layout' component that handles the Sidebar and Header structure.",
+      "Use 'recharts' for the dashboard charts (BarChart, LineChart).",
+      "Use 'react-hook-form' + 'zod' for the New Ticket form.",
+      "Use 'tanstack/react-table' for the Ticket List (sorting, filtering).",
+      "Ensure the 'Status' and 'Priority' badges use the specific color mappings defined in 'colors.status' and 'colors.priority'.",
+      "The 'Reverse Logistics' section should be a distinct module, possibly a tab in the Ticket Details or a separate page.",
+      "For the 'Timeline', use a vertical list with connecting lines (border-l) and relative positioning.",
+      "Implement Dark Mode using the 'next-themes' or a simple React Context that toggles the 'dark' class on the html element."
+    ],
+    "universal_guidelines": [
+      "Do not use gradients for backgrounds. Use solid colors or subtle noise textures.",
+      "Do not center-align the main app container. Use full width with a max-width constraint for content.",
+      "Use 'sonner' for toast notifications.",
+      "Add 'data-testid' to all interactive elements.",
+      "Ensure all inputs have associated labels.",
+      "Use 'Skeleton' components for loading states."
+    ]
+  }
+}
