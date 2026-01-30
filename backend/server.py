@@ -107,7 +107,8 @@ class Chamado(ChamadoBase):
 
 # Pedido ERP Models
 class PedidoERPBase(BaseModel):
-    numero_pedido: str
+    numero_pedido: str  # Entrega (número principal)
+    pedido_cliente: Optional[str] = None  # Ped. Cliente (secundário)
     pedido_externo: Optional[str] = None
     data_emissao: Optional[str] = None
     nome_cliente: Optional[str] = None
