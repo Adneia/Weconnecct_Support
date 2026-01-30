@@ -286,12 +286,12 @@ const NovoChamado = () => {
 
               <div className="sm:col-span-2">
                 <Label>Responsável</Label>
-                <Select value={formData.responsavel_id} onValueChange={(v) => handleChange('responsavel_id', v)}>
+                <Select value={formData.responsavel_id || "none"} onValueChange={(v) => handleChange('responsavel_id', v === "none" ? "" : v)}>
                   <SelectTrigger data-testid="select-responsavel">
                     <SelectValue placeholder="Selecione o responsável" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Sem responsável</SelectItem>
+                    <SelectItem value="none">Sem responsável</SelectItem>
                     {users.map(user => (
                       <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
                     ))}

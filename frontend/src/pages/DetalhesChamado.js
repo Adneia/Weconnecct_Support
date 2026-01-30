@@ -369,12 +369,12 @@ const DetalhesChamado = () => {
                 </div>
                 <div>
                   <Label>Responsável</Label>
-                  <Select value={chamado.responsavel_id || ''} onValueChange={(v) => handleChange('responsavel_id', v)}>
+                  <Select value={chamado.responsavel_id || "none"} onValueChange={(v) => handleChange('responsavel_id', v === "none" ? "" : v)}>
                     <SelectTrigger data-testid="select-responsavel">
                       <SelectValue placeholder="Selecione" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Sem responsável</SelectItem>
+                      <SelectItem value="none">Sem responsável</SelectItem>
                       {users.map(u => <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>)}
                     </SelectContent>
                   </Select>

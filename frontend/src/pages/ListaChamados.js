@@ -276,60 +276,60 @@ const ListaChamados = () => {
 
             {showFilters && (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 pt-4 border-t">
-                <Select value={filters.status_atendimento} onValueChange={(v) => setFilters(f => ({ ...f, status_atendimento: v }))}>
+                <Select value={filters.status_atendimento || "all"} onValueChange={(v) => setFilters(f => ({ ...f, status_atendimento: v === "all" ? "" : v }))}>
                   <SelectTrigger data-testid="filter-status">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos</SelectItem>
+                    <SelectItem value="all">Todos</SelectItem>
                     {STATUS_ATENDIMENTO.map(s => (
                       <SelectItem key={s} value={s}>{s}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
 
-                <Select value={filters.categoria} onValueChange={(v) => setFilters(f => ({ ...f, categoria: v }))}>
+                <Select value={filters.categoria || "all"} onValueChange={(v) => setFilters(f => ({ ...f, categoria: v === "all" ? "" : v }))}>
                   <SelectTrigger data-testid="filter-categoria">
                     <SelectValue placeholder="Categoria" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todas</SelectItem>
+                    <SelectItem value="all">Todas</SelectItem>
                     {CATEGORIAS.map(c => (
                       <SelectItem key={c} value={c}>{c}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
 
-                <Select value={filters.canal} onValueChange={(v) => setFilters(f => ({ ...f, canal: v }))}>
+                <Select value={filters.canal || "all"} onValueChange={(v) => setFilters(f => ({ ...f, canal: v === "all" ? "" : v }))}>
                   <SelectTrigger data-testid="filter-canal">
                     <SelectValue placeholder="Canal" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos</SelectItem>
+                    <SelectItem value="all">Todos</SelectItem>
                     {CANAIS.map(c => (
                       <SelectItem key={c} value={c}>{c}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
 
-                <Select value={filters.prioridade} onValueChange={(v) => setFilters(f => ({ ...f, prioridade: v }))}>
+                <Select value={filters.prioridade || "all"} onValueChange={(v) => setFilters(f => ({ ...f, prioridade: v === "all" ? "" : v }))}>
                   <SelectTrigger data-testid="filter-prioridade">
                     <SelectValue placeholder="Prioridade" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todas</SelectItem>
+                    <SelectItem value="all">Todas</SelectItem>
                     {PRIORIDADES.map(p => (
                       <SelectItem key={p} value={p}>{p}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
 
-                <Select value={filters.responsavel_id} onValueChange={(v) => setFilters(f => ({ ...f, responsavel_id: v }))}>
+                <Select value={filters.responsavel_id || "all"} onValueChange={(v) => setFilters(f => ({ ...f, responsavel_id: v === "all" ? "" : v }))}>
                   <SelectTrigger data-testid="filter-responsavel">
                     <SelectValue placeholder="Responsável" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Todos</SelectItem>
+                    <SelectItem value="all">Todos</SelectItem>
                     {users.map(u => (
                       <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
                     ))}
