@@ -535,45 +535,83 @@ async def import_pedidos(file: UploadFile = File(...), current_user: dict = Depe
         else:
             raise HTTPException(status_code=400, detail="Formato de arquivo não suportado. Use CSV ou Excel.")
         
-        # Expected columns mapping
+        # Mapping for Tabelão WeConnect format
+        # Maps field name -> list of possible column names (case insensitive)
         column_mapping = {
-            'numero_pedido': ['numero_pedido', 'pedido', 'order_number', 'num_pedido', 'Número do Pedido'],
-            'status_pedido': ['status_pedido', 'status', 'Status do Pedido'],
-            'nota_fiscal': ['nota_fiscal', 'nf', 'invoice', 'Nota Fiscal'],
-            'chave_nota': ['chave_nota', 'chave_nf', 'Chave da Nota'],
-            'codigo_rastreio': ['codigo_rastreio', 'rastreio', 'tracking', 'Código de Rastreio'],
-            'transportadora': ['transportadora', 'carrier', 'Transportadora']
+            'numero_pedido': ['entrega ped.', 'entrega', 'numero_pedido', 'pedido', 'order_number'],
+            'data_emissao': ['dt. emissao', 'dt.emissao', 'data_emissao', 'data emissão'],
+            'nome_cliente': ['nome', 'cliente'],
+            'cpf_cliente': ['cpf'],
+            'cep': ['cep'],
+            'cidade': ['cidade'],
+            'uf': ['uf', 'estado'],
+            'status_pedido': ['ult. ponto nome', 'status_pedido', 'status', 'situação', 'situacao'],
+            'data_status': ['dt.ult.ponto de controle', 'data_status'],
+            'transportadora': ['transportadora nome', 'transportadora', 'carrier'],
+            'produto': ['depto nome', 'produto', 'item'],
+            'fornecedor': ['setor nome', 'fornecedor'],
+            'codigo_item_vtex': ['cód. terceiro', 'cod. terceiro', 'codigo_vtex'],
+            'codigo_item_bseller': ['ncm', 'codigo_bseller'],
+            'quantidade': ['qtde pedido', 'quantidade', 'qty'],
+            'preco_final': ['preço final', 'preco final', 'preco_final', 'price'],
+            'nota_fiscal': ['nota série', 'nota serie', 'nota_fiscal', 'nf', 'invoice'],
+            'serie_nf': ['série', 'serie', 'serie_nf'],
+            'chave_nota': ['chave acesso', 'chave_nota', 'chave_nf'],
+            'canal_vendas': ['canal de vendas nome', 'canal_vendas', 'canal'],
+            'filial': ['etiqueta filial', 'filial'],
+            'codigo_rastreio': ['codigo_rastreio', 'rastreio', 'tracking']
         }
         
-        # Normalize column names
+        # Normalize column names (strip whitespace and lowercase)
         df.columns = df.columns.str.strip().str.lower()
+        original_columns = list(df.columns)
         
         imported = 0
         updated = 0
+        errors = 0
         
-        for _, row in df.iterrows():
-            pedido_data = {}
-            
-            for field, possible_names in column_mapping.items():
-                for name in possible_names:
-                    name_lower = name.lower()
-                    if name_lower in df.columns:
-                        value = row.get(name_lower)
-                        if pd.notna(value):
-                            pedido_data[field] = str(value)
-                        break
-            
-            if 'numero_pedido' not in pedido_data or not pedido_data['numero_pedido']:
+        for idx, row in df.iterrows():
+            try:
+                pedido_data = {}
+                
+                for field, possible_names in column_mapping.items():
+                    for name in possible_names:
+                        name_lower = name.lower()
+                        if name_lower in original_columns:
+                            value = row.get(name_lower)
+                            if pd.notna(value):
+                                pedido_data[field] = str(value).strip()
+                            break
+                
+                # Skip if no numero_pedido
+                if 'numero_pedido' not in pedido_data or not pedido_data['numero_pedido']:
+                    continue
+                
+                existing = await db.pedidos_erp.find_one({"numero_pedido": pedido_data['numero_pedido']})
+                
+                if existing:
+                    pedido_data['ultima_atualizacao'] = datetime.now(timezone.utc).isoformat()
+                    await db.pedidos_erp.update_one(
+                        {"numero_pedido": pedido_data['numero_pedido']},
+                        {"$set": pedido_data}
+                    )
+                    updated += 1
+                else:
+                    pedido = PedidoERP(**pedido_data)
+                    pedido_dict = pedido.model_dump()
+                    pedido_dict['ultima_atualizacao'] = pedido_dict['ultima_atualizacao'].isoformat()
+                    await db.pedidos_erp.insert_one(pedido_dict)
+                    imported += 1
+            except Exception as e:
+                errors += 1
                 continue
-            
-            existing = await db.pedidos_erp.find_one({"numero_pedido": pedido_data['numero_pedido']})
-            
-            if existing:
-                pedido_data['ultima_atualizacao'] = datetime.now(timezone.utc).isoformat()
-                await db.pedidos_erp.update_one(
-                    {"numero_pedido": pedido_data['numero_pedido']},
-                    {"$set": pedido_data}
-                )
+        
+        return {
+            "message": f"Importação concluída: {imported} novos, {updated} atualizados, {errors} erros",
+            "imported": imported,
+            "updated": updated,
+            "errors": errors
+        }
                 updated += 1
             else:
                 pedido = PedidoERP(**pedido_data)
