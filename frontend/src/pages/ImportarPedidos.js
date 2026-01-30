@@ -183,19 +183,25 @@ const ImportarPedidos = () => {
       {/* Instructions */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Instruções</CardTitle>
+          <CardTitle className="text-lg">Instruções - Tabelão WeConnect</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4 text-sm">
-            <p>O arquivo deve conter as seguintes colunas (com os nomes exatos ou similares):</p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <p>O sistema reconhece automaticamente o arquivo <strong>Tabelão de Pedidos Vendas</strong> do ERP. Colunas mapeadas:</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
               {[
-                { name: 'numero_pedido', desc: 'Número do pedido (obrigatório)' },
-                { name: 'status_pedido', desc: 'Status atual no ERP' },
-                { name: 'nota_fiscal', desc: 'Número da NF' },
-                { name: 'chave_nota', desc: 'Chave de acesso da NF-e' },
-                { name: 'codigo_rastreio', desc: 'Código de rastreio' },
-                { name: 'transportadora', desc: 'Nome da transportadora' }
+                { name: 'Entrega Ped.', desc: 'Número do pedido' },
+                { name: 'Dt. Emissao', desc: 'Data emissão' },
+                { name: 'Nome', desc: 'Nome do cliente' },
+                { name: 'Ult. Ponto Nome', desc: 'Status do pedido' },
+                { name: 'Transportadora Nome', desc: 'Transportadora' },
+                { name: 'Depto Nome', desc: 'Produto' },
+                { name: 'Nota Série', desc: 'Nota fiscal' },
+                { name: 'Chave Acesso', desc: 'Chave NF-e' },
+                { name: 'Canal de vendas Nome', desc: 'Canal de vendas' },
+                { name: 'CEP/Cidade/UF', desc: 'Localização' },
+                { name: 'Qtde Pedido', desc: 'Quantidade' },
+                { name: 'Preço Final', desc: 'Valor' }
               ].map(col => (
                 <div key={col.name} className="p-3 rounded-lg bg-muted/50">
                   <code className="text-xs font-medium">{col.name}</code>
