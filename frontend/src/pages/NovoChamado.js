@@ -186,24 +186,38 @@ const NovoChamado = () => {
                   <Package className="h-4 w-4" />
                   Dados do ERP
                 </div>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
                   <div>
                     <span className="text-muted-foreground">Status:</span>
                     <span className="ml-2 font-medium">{pedidoErp.status_pedido || '-'}</span>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">Nota Fiscal:</span>
-                    <span className="ml-2 font-medium">{pedidoErp.nota_fiscal || '-'}</span>
+                    <span className="text-muted-foreground">Cliente:</span>
+                    <span className="ml-2 font-medium">{pedidoErp.nome_cliente || '-'}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Transportadora:</span>
+                    <span className="ml-2 font-medium">{pedidoErp.transportadora || '-'}</span>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Rastreio:</span>
                     <span className="ml-2 font-medium">{pedidoErp.codigo_rastreio || '-'}</span>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">Transportadora:</span>
-                    <span className="ml-2 font-medium">{pedidoErp.transportadora || '-'}</span>
+                    <span className="text-muted-foreground">Nota Fiscal:</span>
+                    <span className="ml-2 font-medium">{pedidoErp.nota_fiscal || '-'}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Canal:</span>
+                    <span className="ml-2 font-medium">{pedidoErp.canal_vendas || '-'}</span>
                   </div>
                 </div>
+                {pedidoErp.produto && (
+                  <div className="text-sm pt-2 border-t">
+                    <span className="text-muted-foreground">Produto:</span>
+                    <span className="ml-2 font-medium">{pedidoErp.produto}</span>
+                  </div>
+                )}
               </div>
             )}
 
