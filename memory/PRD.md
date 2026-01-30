@@ -12,7 +12,7 @@ Sistema de controle de chamados para a equipe de atendimento da WeConnect, uma e
 - Categorizar tipo de problema (Acompanhamento, Falha de Compras, Falha de Produção, Falha de Transporte, Reversa, Outro)
 - Acompanhar diariamente até a resolução
 - Gerenciar processos de reversa (devolução via Correios)
-- Importação manual de dados do ERP via CSV/Excel
+- Importação manual de dados do ERP via CSV/Excel (Tabelão)
 - Autenticação JWT com login/registro
 - Temas claro e escuro
 
@@ -29,7 +29,7 @@ Sistema de controle de chamados para a equipe de atendimento da WeConnect, uma e
 - ✅ CRUD completo para Chamados
 - ✅ CRUD para Reversas
 - ✅ CRUD para Histórico de atendimento
-- ✅ Import de Pedidos ERP via CSV/Excel
+- ✅ Import de Pedidos ERP via CSV/Excel (Tabelão WeConnect)
 - ✅ Dashboard statistics (métricas, gráficos 7 dias)
 - ✅ Filtros avançados por status, categoria, canal, responsável
 
@@ -44,10 +44,26 @@ Sistema de controle de chamados para a equipe de atendimento da WeConnect, uma e
 - ✅ Tema claro/escuro com toggle
 - ✅ Layout responsivo (mobile-friendly)
 
-### Tabelas MongoDB
+### Tabelão WeConnect - Campos Importados
+- numero_pedido (Ped. Cliente)
+- pedido_externo (Ped. Externo)
+- data_emissao (Dt. Emissao)
+- nome_cliente (Nome)
+- cpf_cliente (CPF)
+- cep, cidade, uf (Localização)
+- status_pedido (Nome.1 - ex: "Entregue ao Cliente")
+- data_status (Dt.Ult.Ponto de Controle)
+- transportadora (Nome.3)
+- produto (Nome.4)
+- nota_fiscal (Nota)
+- chave_nota (Chave Acesso)
+- canal_vendas (Nome Canal de vendas)
+- codigo_rastreio (Etiqueta)
+
+### Database Collections
 - users - Usuários do sistema
 - chamados - Chamados de atendimento
-- pedidos_erp - Dados importados do ERP
+- pedidos_erp - Dados importados do ERP (2326 pedidos)
 - reversas - Processos de devolução
 - historico - Log de ações por chamado
 
@@ -57,7 +73,7 @@ Sistema de controle de chamados para a equipe de atendimento da WeConnect, uma e
 - [x] Sistema de autenticação
 - [x] CRUD de chamados
 - [x] Dashboard básico
-- [x] Importação manual de pedidos
+- [x] Importação do Tabelão WeConnect
 
 ### P1 - High Priority (Future)
 - [ ] Integração SharePoint via Microsoft Graph API
@@ -75,9 +91,12 @@ Sistema de controle de chamados para a equipe de atendimento da WeConnect, uma e
 - [ ] Relatórios avançados e exportação
 - [ ] Notificações em tempo real
 
-## Next Tasks
-1. Popular base de dados com dados de teste para demonstração
-2. Configurar integração SharePoint quando credenciais estiverem disponíveis
-3. Adicionar validações de campos mais robustas
-4. Implementar notificações de chamados pendentes
+## Credenciais de Acesso
+- Email: atendente@weconnect.com
+- Senha: teste123
 
+## Next Tasks
+1. Configurar integração SharePoint quando credenciais estiverem disponíveis
+2. Adicionar mais validações de campos
+3. Implementar notificações de chamados pendentes
+4. Criar dashboard de métricas por atendente
