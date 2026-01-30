@@ -410,35 +410,49 @@ const DetalhesChamado = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 text-sm">
                   <div>
                     <span className="text-muted-foreground">Status:</span>
                     <p className="font-medium">{chamado.pedido_erp.status_pedido || '-'}</p>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">Nota Fiscal:</span>
-                    <p className="font-medium">{chamado.pedido_erp.nota_fiscal || '-'}</p>
+                    <span className="text-muted-foreground">Data Status:</span>
+                    <p className="font-medium">{chamado.pedido_erp.data_status || '-'}</p>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">Chave NF:</span>
-                    <p className="font-medium text-xs break-all">{chamado.pedido_erp.chave_nota || '-'}</p>
+                    <span className="text-muted-foreground">Cliente:</span>
+                    <p className="font-medium">{chamado.pedido_erp.nome_cliente || '-'}</p>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">Rastreio:</span>
-                    <p className="font-medium">{chamado.pedido_erp.codigo_rastreio || '-'}</p>
+                    <span className="text-muted-foreground">Cidade/UF:</span>
+                    <p className="font-medium">{chamado.pedido_erp.cidade || ''} {chamado.pedido_erp.uf ? `- ${chamado.pedido_erp.uf}` : ''}</p>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Transportadora:</span>
                     <p className="font-medium">{chamado.pedido_erp.transportadora || '-'}</p>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">Última Atualização:</span>
-                    <p className="font-medium">
-                      {chamado.pedido_erp.ultima_atualizacao 
-                        ? new Date(chamado.pedido_erp.ultima_atualizacao).toLocaleDateString('pt-BR')
-                        : '-'}
-                    </p>
+                    <span className="text-muted-foreground">Rastreio:</span>
+                    <p className="font-medium">{chamado.pedido_erp.codigo_rastreio || '-'}</p>
                   </div>
+                  <div>
+                    <span className="text-muted-foreground">Nota Fiscal:</span>
+                    <p className="font-medium">{chamado.pedido_erp.nota_fiscal || '-'}</p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Canal:</span>
+                    <p className="font-medium">{chamado.pedido_erp.canal_vendas || '-'}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-muted-foreground">Produto:</span>
+                    <p className="font-medium">{chamado.pedido_erp.produto || '-'}</p>
+                  </div>
+                  {chamado.pedido_erp.chave_nota && (
+                    <div className="col-span-2 lg:col-span-4">
+                      <span className="text-muted-foreground">Chave NF:</span>
+                      <p className="font-medium text-xs break-all">{chamado.pedido_erp.chave_nota}</p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
