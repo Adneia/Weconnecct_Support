@@ -550,7 +550,8 @@ async def import_pedidos(file: UploadFile = File(...), current_user: dict = Depe
         # Mapping for Tabelão WeConnect format - based on actual file structure
         # Format: field_name -> list of possible column names (case insensitive)
         column_mapping = {
-            'numero_pedido': ['ped. cliente', 'entrega', 'numero_pedido', 'pedido'],
+            'numero_pedido': ['entrega', 'numero_pedido', 'pedido'],  # Entrega é o número principal
+            'pedido_cliente': ['ped. cliente'],  # Número do pedido do cliente (secundário)
             'pedido_externo': ['ped. externo'],
             'data_emissao': ['dt. emissao', 'dt.emissao', 'data_emissao'],
             'nome_cliente': ['nome'],
