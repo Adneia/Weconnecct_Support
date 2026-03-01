@@ -1067,6 +1067,7 @@ async def import_pedidos(file: UploadFile = File(...), current_user: dict = Depe
             'frete': ['frete'],  # Coluna U
             'filial': ['uf.1'],  # Coluna V
             'nota_fiscal': ['nota'],  # Coluna W
+            'serie_nf': ['série', 'serie'],  # Série da NF (1=SC, 6=SP, 2=ES)
             'chave_nota': ['chave acesso'],  # Coluna X
             'pedido_troca': ['pedido troca'],  # Coluna Y
             'codigo_fornecedor': ['cód. fornecedor'],  # Coluna Z
