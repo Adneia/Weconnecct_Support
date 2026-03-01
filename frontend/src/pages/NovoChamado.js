@@ -388,6 +388,26 @@ const NovoAtendimento = () => {
     setShowTextoDialog(true);
   };
 
+  const loadTextoFalhaProducao = (tipoFalha) => {
+    let texto = TEXTOS_FALHA_PRODUCAO[tipoFalha] || '';
+    // Substituir placeholders
+    if (formData.atendente) {
+      texto = texto.replace(/\[ASSINATURA\]/g, formData.atendente);
+    }
+    if (pedidoErp?.nota_fiscal) {
+      texto = texto.replace(/\[NOTA_FISCAL\]/g, pedidoErp.nota_fiscal);
+    }
+    if (pedidoErp?.chave_nota) {
+      texto = texto.replace(/\[CHAVE_ACESSO\]/g, pedidoErp.chave_nota);
+    }
+    if (pedidoErp?.codigo_rastreio) {
+      texto = texto.replace(/\[CÓDIGO_RASTREIO\]/g, pedidoErp.codigo_rastreio);
+    }
+    setTextoPadrao(texto);
+    setSelectedFalhaProducao(tipoFalha);
+    setShowTextoDialog(true);
+  };
+
   const gerarCodigoReversa = async () => {
     if (!formData.numero_pedido) {
       toast.error('Selecione um pedido primeiro');
