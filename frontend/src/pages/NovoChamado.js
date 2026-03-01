@@ -405,7 +405,7 @@ const NovoAtendimento = () => {
               <Search className="h-5 w-5" />
               1. Buscar Pedido
             </CardTitle>
-            <CardDescription>Busque por número de Entrega, CPF ou Nome do cliente</CardDescription>
+            <CardDescription>Busque por CPF, Pedido, Nome ou Entrega</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex gap-2">
@@ -414,9 +414,10 @@ const NovoAtendimento = () => {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="entrega">Entrega</SelectItem>
                   <SelectItem value="cpf">CPF</SelectItem>
+                  <SelectItem value="pedido">Pedido</SelectItem>
                   <SelectItem value="nome">Nome</SelectItem>
+                  <SelectItem value="entrega">Entrega</SelectItem>
                 </SelectContent>
               </Select>
               
@@ -425,9 +426,10 @@ const NovoAtendimento = () => {
                   value={searchValue}
                   onChange={(e) => setSearchValue(e.target.value)}
                   placeholder={
-                    searchType === 'entrega' ? 'Digite o número da Entrega' : 
                     searchType === 'cpf' ? 'Digite o CPF do cliente' : 
-                    'Digite o nome do cliente'
+                    searchType === 'pedido' ? 'Digite o número do pedido externo' : 
+                    searchType === 'nome' ? 'Digite o nome do cliente' :
+                    'Digite o número da Entrega'
                   }
                   className="text-lg h-12 pr-12"
                   data-testid="input-search"
