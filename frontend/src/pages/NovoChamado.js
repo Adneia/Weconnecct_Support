@@ -55,8 +55,104 @@ const MOTIVOS_PENDENCIA = [
   "Ag. Bseller",
   "Ag. Barrar",
   "Aguardando",
-  "Em devolução"
+  "Em devolução",
+  "Ag. Confirmação de Entrega",
+  "Ag. Parceiro"
 ];
+
+// Textos para Motivo da Pendência
+const TEXTOS_MOTIVO_PENDENCIA = {
+  "Ag. Confirmação de Entrega": `Prezado(a) Sr(a). [PRIMEIRO_NOME]
+
+Estamos entrando em contato para confirmar o recebimento do seu pedido: [PRODUTO] ([ENTREGA]). Poderia, por gentileza, nos informar se o produto já foi entregue?
+
+1 - Sim
+2 - Não
+
+Aguardamos sua resposta.
+
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Confirmação - Extravio": `Agradecemos pelo retorno e lamentamos pelo ocorrido.
+
+Não recebemos a confirmação de entrega por parte da transportadora, e por isso consideramos o pedido extraviado.
+
+Por gentileza, poderia confirmar o endereço de entrega e ponto de referencia para o reenvio?
+
+Permanecemos à disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Confirmação - Reenvio": `Seguiremos com um novo envio do pedido. 
+
+Solicitaremos prioridade na entrega.
+
+Muito obrigada pelo retorno.
+
+Atenciosamente,
+Equipe de Atendimento Weconnect`,
+
+  "Ag. Confirmação - Confirmado": `Agradecemos a confirmação.
+
+Atenciosamente,
+Equipe de Atendimento Weconnect`,
+
+  "Ag. Parceiro - Estorno": `Olá, 
+
+Pedido cancelado, por favor seguir com o estorno ao cliente e encerramento do chamado.
+
+Seguimos a disposição.
+Atenciosamente! 
+[ASSINATURA]`,
+
+  "Ag. Parceiro - Confirmação Encerramento": `Olá, 
+
+Poderia confirmar se podemos proceder com o encerramento do chamado?
+
+Seguimos a disposição.
+Atenciosamente, 
+[ASSINATURA]`,
+
+  "Ag. Parceiro - Encerramento": `Olá, Bom dia.
+
+Estamos seguindo com o encerramento do pedido como entregue.
+
+Seguimos a disposição, caso haja qualquer necessidade dentro dos prazo de atuação.
+Atenciosamente!
+[ASSINATURA]`,
+
+  "Em devolução - Ag. Devolução": `Olá, 
+
+O pedido segue em processo de devolução, conforme link de rastreamento abaixo:
+
+Rastreio: [CÓDIGO_REVERSA]
+
+https://rastreamento.correios.com.br/app/index.php
+
+Assim que o item der entrada em nosso galpão, daremos sequência a tratativa.
+
+Permanecemos à disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Em devolução - Liberar Estorno": `Olá,
+
+Pedido em processo de devolução. Em caráter de exceção, por favor seguir com o estorno ao cliente.
+
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Em devolução - Confirmar Reenvio": `Bom dia!
+
+Infelizmente, a transportadora direcionou o pedido para devolução, em razão de insucesso na entrega. No momento, o pedido encontra-se em retorno para o nosso galpão.
+
+Lamentamos muito o ocorrido e os transtornos causados. Gostaríamos de saber se podemos prosseguir com um novo envio do produto assim que ele for recebido em nosso galpão.
+
+Seguimos à disposição.
+Atenciosamente,
+[ASSINATURA]`
+};
 
 // Função para detectar categoria e motivo baseado no status do pedido
 const getCategoriaPorStatus = (statusPedido) => {
