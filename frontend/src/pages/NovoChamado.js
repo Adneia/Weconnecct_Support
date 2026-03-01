@@ -1426,6 +1426,169 @@ const NovoAtendimento = () => {
                           </div>
                         </div>
                       </div>
+                    ) : formData.categoria === 'Arrependimento' ? (
+                      <div className="space-y-3">
+                        {/* Gerar Código Reversa */}
+                        <div className="flex items-center gap-2 p-2 rounded bg-blue-50 dark:bg-blue-950/30">
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="sm"
+                            onClick={gerarCodigoReversa}
+                            data-testid="btn-gerar-reversa"
+                          >
+                            <RotateCcw className="h-4 w-4 mr-2" />
+                            Gerar Código Reversa
+                          </Button>
+                          {codigoReversa && (
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-sm font-medium">{codigoReversa}</span>
+                              <Button type="button" variant="ghost" size="sm" onClick={() => copyToClipboard(codigoReversa)}>
+                                <Copy className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Reversa */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Reversa</Label>
+                          <div className="flex flex-wrap gap-2">
+                            <Button 
+                              type="button" 
+                              variant={selectedArrependimento === '1ª Reversa' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoArrependimento('1ª Reversa')}
+                            >
+                              1ª Reversa
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant={selectedArrependimento === '2ª Reversa' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoArrependimento('2ª Reversa')}
+                            >
+                              2ª Reversa
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant={selectedArrependimento === 'Reversa Irá Vencer' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoArrependimento('Reversa Irá Vencer')}
+                            >
+                              Irá Vencer
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant={selectedArrependimento === 'Reversa Expirada' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoArrependimento('Reversa Expirada')}
+                            >
+                              Expirada
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Em Devolução */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Em Devolução</Label>
+                          <div className="flex flex-wrap gap-2">
+                            <Button 
+                              type="button" 
+                              variant={selectedArrependimento === 'Em Devolução - Sem Estorno' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoArrependimento('Em Devolução - Sem Estorno')}
+                            >
+                              Sem Estorno
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant={selectedArrependimento === 'Em Devolução - Com Estorno' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoArrependimento('Em Devolução - Com Estorno')}
+                            >
+                              Com Estorno
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Devolvido */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Devolvido</Label>
+                          <div className="flex flex-wrap gap-2">
+                            <Button 
+                              type="button" 
+                              variant={selectedArrependimento === 'Devolvido - Com Estorno' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoArrependimento('Devolvido - Com Estorno')}
+                            >
+                              Com Estorno
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant={selectedArrependimento === 'Devolvido - Com Reenvio' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoArrependimento('Devolvido - Com Reenvio')}
+                            >
+                              Com Reenvio
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Bloqueio */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Bloqueio/Barragem</Label>
+                          <div className="flex flex-wrap gap-2">
+                            <Button 
+                              type="button" 
+                              variant={selectedArrependimento === 'Bloqueio da Entrega' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoArrependimento('Bloqueio da Entrega')}
+                            >
+                              Bloqueio OK
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant={selectedArrependimento === 'Enviado Sem Bloqueio' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoArrependimento('Enviado Sem Bloqueio')}
+                            >
+                              Sem Bloqueio
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant={selectedArrependimento === 'Em Separação' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoArrependimento('Em Separação')}
+                            >
+                              Em Separação
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Outros */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Outros</Label>
+                          <div className="flex flex-wrap gap-2">
+                            <Button 
+                              type="button" 
+                              variant={selectedArrependimento === 'Impossibilidade Coleta' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoArrependimento('Impossibilidade Coleta')}
+                            >
+                              Sem Coleta
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant={selectedArrependimento === 'Prazo Expirado' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoArrependimento('Prazo Expirado')}
+                            >
+                              Prazo Expirado
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
                     ) : (
                       <div className="flex gap-2">
                         <Button 
@@ -1438,19 +1601,6 @@ const NovoAtendimento = () => {
                           <MessageSquare className="h-4 w-4 mr-2" />
                           Ver Texto Padrão
                         </Button>
-                        
-                        {formData.categoria === 'Arrependimento' && (
-                          <Button 
-                            type="button" 
-                            variant="outline" 
-                            size="sm"
-                            onClick={gerarCodigoReversa}
-                            data-testid="btn-gerar-reversa"
-                          >
-                            <RotateCcw className="h-4 w-4 mr-2" />
-                            Gerar Código Reversa
-                          </Button>
-                        )}
                       </div>
                     )}
                   </div>
