@@ -1605,25 +1605,6 @@ const NovoAtendimento = () => {
                     )}
                   </div>
                 )}
-
-                {codigoReversa && (
-                  <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-blue-700 dark:text-blue-400">Código de Reversa Gerado</p>
-                        <p className="font-mono text-lg">{codigoReversa}</p>
-                      </div>
-                      <Button 
-                        type="button" 
-                        variant="ghost" 
-                        size="sm"
-                        onClick={() => copyToClipboard(codigoReversa)}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                )}
               </CardContent>
             </Card>
 
