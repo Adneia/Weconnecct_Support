@@ -864,7 +864,14 @@ const NovoAtendimento = () => {
                       </div>
                     ) : formData.categoria === 'Falha Produção' ? (
                       <div className="space-y-2">
-                        <Label>Tipo de Resposta</Label>
+                        <div className="flex items-center gap-2">
+                          <Label>Tipo de Resposta</Label>
+                          {transportadoraDetectada && pedidoErp?.transportadora && (
+                            <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                              Transportadora: {pedidoErp.transportadora}
+                            </Badge>
+                          )}
+                        </div>
                         <div className="flex flex-wrap gap-2">
                           <Button 
                             type="button" 
@@ -877,30 +884,33 @@ const NovoAtendimento = () => {
                           </Button>
                           <Button 
                             type="button" 
-                            variant={selectedFalhaProducao === 'Com Rastreio - Total Express' ? 'default' : 'outline'}
+                            variant={selectedFalhaProducao === 'Com Rastreio - Total Express' ? 'default' : (transportadoraDetectada === 'Com Rastreio - Total Express' ? 'secondary' : 'outline')}
                             size="sm"
                             onClick={() => loadTextoFalhaProducao('Com Rastreio - Total Express')}
                             data-testid="btn-producao-total"
+                            className={transportadoraDetectada === 'Com Rastreio - Total Express' ? 'ring-2 ring-blue-400' : ''}
                           >
-                            Total Express
+                            Total Express {transportadoraDetectada === 'Com Rastreio - Total Express' && '✓'}
                           </Button>
                           <Button 
                             type="button" 
-                            variant={selectedFalhaProducao === 'Com Rastreio - J&T Express' ? 'default' : 'outline'}
+                            variant={selectedFalhaProducao === 'Com Rastreio - J&T Express' ? 'default' : (transportadoraDetectada === 'Com Rastreio - J&T Express' ? 'secondary' : 'outline')}
                             size="sm"
                             onClick={() => loadTextoFalhaProducao('Com Rastreio - J&T Express')}
                             data-testid="btn-producao-jt"
+                            className={transportadoraDetectada === 'Com Rastreio - J&T Express' ? 'ring-2 ring-blue-400' : ''}
                           >
-                            J&T Express
+                            J&T Express {transportadoraDetectada === 'Com Rastreio - J&T Express' && '✓'}
                           </Button>
                           <Button 
                             type="button" 
-                            variant={selectedFalhaProducao === 'Com Rastreio - ASAP Log' ? 'default' : 'outline'}
+                            variant={selectedFalhaProducao === 'Com Rastreio - ASAP Log' ? 'default' : (transportadoraDetectada === 'Com Rastreio - ASAP Log' ? 'secondary' : 'outline')}
                             size="sm"
                             onClick={() => loadTextoFalhaProducao('Com Rastreio - ASAP Log')}
                             data-testid="btn-producao-asap"
+                            className={transportadoraDetectada === 'Com Rastreio - ASAP Log' ? 'ring-2 ring-blue-400' : ''}
                           >
-                            ASAP Log
+                            ASAP Log {transportadoraDetectada === 'Com Rastreio - ASAP Log' && '✓'}
                           </Button>
                         </div>
                       </div>
