@@ -2687,29 +2687,73 @@ const NovoAtendimento = () => {
                   {/* Campo oculto para manter compatibilidade */}
                   <input type="hidden" value={formData.anotacoes} />
                 </div>
+
+                {/* Checkbox Retornar Chamado */}
+                <div className="flex items-center justify-between p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="retornar-chamado"
+                      checked={retornarChamado}
+                      onChange={(e) => setRetornarChamado(e.target.checked)}
+                      className="w-5 h-5 rounded border-amber-400 text-amber-600 focus:ring-amber-500"
+                      data-testid="checkbox-retornar"
+                    />
+                    <Label htmlFor="retornar-chamado" className="text-amber-800 dark:text-amber-200 font-medium cursor-pointer">
+                      Retornar Chamado (precisa atuação)
+                    </Label>
+                  </div>
+                  {retornarChamado && (
+                    <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300">
+                      Aguardando retorno
+                    </Badge>
+                  )}
+                </div>
               </CardContent>
             </Card>
 
             {/* Ações */}
-            <div className="flex justify-end gap-3 pb-6">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => navigate('/chamados')}
-                data-testid="btn-cancelar"
-              >
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={loading} size="lg" data-testid="btn-criar">
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {isEditMode ? 'Atualizando...' : 'Criando...'}
-                  </>
-                ) : (
-                  isEditMode ? 'Atualizar Atendimento' : 'Criar Atendimento'
+            <div className="flex justify-between pb-6">
+              <div>
+                {isEditMode && formData.pendente !== false && (
+                  <Button 
+                    type="button" 
+                    variant="destructive"
+                    onClick={handleEncerrar}
+                    disabled={loading}
+                    data-testid="btn-encerrar"
+                  >
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Encerrar Atendimento
+                  </Button>
                 )}
-              </Button>
+                {isEditMode && formData.pendente === false && (
+                  <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-300 py-2 px-4">
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Atendimento Encerrado
+                  </Badge>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => navigate('/chamados')}
+                  data-testid="btn-cancelar"
+                >
+                  Cancelar
+                </Button>
+                <Button type="submit" disabled={loading} size="lg" data-testid="btn-criar">
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      {isEditMode ? 'Atualizando...' : 'Criando...'}
+                    </>
+                  ) : (
+                    isEditMode ? 'Atualizar Atendimento' : 'Criar Atendimento'
+                  )}
+                </Button>
+              </div>
             </div>
           </>
         )}
