@@ -942,7 +942,11 @@ Atenciosamente!
 };
 
 const NovoAtendimento = () => {
+  const { id: atendimentoId } = useParams(); // ID do atendimento para edição
+  const isEditMode = !!atendimentoId;
+  
   const [loading, setLoading] = useState(false);
+  const [loadingAtendimento, setLoadingAtendimento] = useState(false);
   const [searchingPedido, setSearchingPedido] = useState(false);
   const [pedidoNotFound, setPedidoNotFound] = useState(false);
   const [pedidoErp, setPedidoErp] = useState(null);
@@ -951,6 +955,7 @@ const NovoAtendimento = () => {
   const [showTextoDialog, setShowTextoDialog] = useState(false);
   const [textoPadrao, setTextoPadrao] = useState('');
   const [codigoReversa, setCodigoReversa] = useState('');
+  const [atendimentoOriginal, setAtendimentoOriginal] = useState(null);
   
   // Data de vencimento da reversa - inicializa com hoje +10 dias
   const getDefaultVencimento = () => {
