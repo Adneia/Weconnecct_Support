@@ -1515,34 +1515,41 @@ const NovoAtendimento = () => {
 
     setLoading(true);
     try {
-      // Adicionar motivo da pendência nas anotações
-      let anotacoesCompletas = formData.anotacoes || '';
-      if (motivoPendencia) {
-        const prefixo = anotacoesCompletas ? '\n\n' : '';
-        anotacoesCompletas += `${prefixo}Motivo da pendência: ${motivoPendencia}`;
-      }
-      
       const payload = {
         ...formData,
-        anotacoes: anotacoesCompletas,
-        reversa_codigo: codigoReversa || null
+        motivo_pendencia: motivoPendencia || null,
+        codigo_reversa: codigoReversa || null,
+        data_vencimento_reversa: dataVencimentoReversa || null
       };
       
-      const response = await axios.post(
-        `${API_URL}/api/chamados`,
-        payload,
-        { headers: getAuthHeader() }
-      );
-      
-      toast.success(
-        <div className="flex flex-col gap-1">
-          <span className="font-semibold">{response.data.id_atendimento} criado com sucesso!</span>
-          <span className="text-xs opacity-80">Sincronizando com Google Sheets...</span>
-        </div>
-      );
-      navigate(`/chamados/${response.data.id}`);
+      if (isEditMode && atendimentoId) {
+        // Atualizar atendimento existente
+        await axios.put(
+          `${API_URL}/api/chamados/${atendimentoId}`,
+          payload,
+          { headers: getAuthHeader() }
+        );
+        
+        toast.success('Atendimento atualizado com sucesso!');
+        navigate('/chamados');
+      } else {
+        // Criar novo atendimento
+        const response = await axios.post(
+          `${API_URL}/api/chamados`,
+          payload,
+          { headers: getAuthHeader() }
+        );
+        
+        toast.success(
+          <div className="flex flex-col gap-1">
+            <span className="font-semibold">{response.data.id_atendimento} criado com sucesso!</span>
+            <span className="text-xs opacity-80">Sincronizando com Google Sheets...</span>
+          </div>
+        );
+        navigate(`/chamados/${response.data.id}`);
+      }
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Erro ao criar atendimento');
+      toast.error(error.response?.data?.detail || `Erro ao ${isEditMode ? 'atualizar' : 'criar'} atendimento`);
     } finally {
       setLoading(false);
     }
