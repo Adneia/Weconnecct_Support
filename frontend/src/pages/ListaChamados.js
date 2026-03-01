@@ -278,7 +278,7 @@ const ListaAtendimentos = () => {
                     <TableRow
                       key={atd.id}
                       className="cursor-pointer hover:bg-muted/50 transition-colors"
-                      onClick={() => navigate(`/chamados/${atd.id}`)}
+                      onClick={() => navigate(`/chamados/editar/${atd.id}`)}
                       data-testid={`row-${atd.id}`}
                     >
                       <TableCell className="font-mono text-sm font-medium">
