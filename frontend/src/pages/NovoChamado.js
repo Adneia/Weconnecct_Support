@@ -1243,9 +1243,10 @@ const NovoAtendimento = () => {
 
   const loadTextoReclameAqui = (tipo) => {
     let texto = TEXTOS_RECLAME_AQUI[tipo] || '';
-    // Substituir nome do cliente
+    // Substituir nome do cliente (apenas primeiro nome)
     if (pedidoErp?.nome_cliente) {
-      texto = texto.replace(/\[NOME_CLIENTE\]/g, pedidoErp.nome_cliente);
+      const primeiroNome = pedidoErp.nome_cliente.split(' ')[0];
+      texto = texto.replace(/\[NOME_CLIENTE\]/g, primeiroNome);
     }
     setTextoPadrao(texto);
     setSelectedReclameAqui(tipo);
