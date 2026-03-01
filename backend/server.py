@@ -100,18 +100,15 @@ class ChamadoCreate(ChamadoBase):
 
 class ChamadoUpdate(BaseModel):
     numero_pedido: Optional[str] = None
-    canal_origem: Optional[str] = None
+    solicitacao: Optional[str] = None
+    parceiro: Optional[str] = None
     categoria: Optional[str] = None
-    sintese_problema: Optional[str] = None
-    status_atendimento: Optional[str] = None
-    status_chamado: Optional[str] = None
-    responsavel_id: Optional[str] = None
-    responsavel_nome: Optional[str] = None
-    prioridade: Optional[str] = None
-    precisa_reversa: Optional[bool] = None
+    motivo: Optional[str] = None
+    anotacoes: Optional[str] = None
+    pendente: Optional[bool] = None
+    status_cliente: Optional[str] = None
     reversa_codigo: Optional[str] = None
-    reversa_validade: Optional[str] = None
-    id_externo: Optional[str] = None
+    atendente: Optional[str] = None
 
 class Chamado(ChamadoBase):
     model_config = ConfigDict(extra="ignore")
