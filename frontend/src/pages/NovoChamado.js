@@ -559,6 +559,14 @@ const NovoAtendimento = () => {
   const [textoPadrao, setTextoPadrao] = useState('');
   const [codigoReversa, setCodigoReversa] = useState('');
   
+  // Data de vencimento da reversa - inicializa com hoje +10 dias
+  const getDefaultVencimento = () => {
+    const date = new Date();
+    date.setDate(date.getDate() + 10);
+    return date.toISOString().split('T')[0];
+  };
+  const [dataVencimentoReversa, setDataVencimentoReversa] = useState(getDefaultVencimento());
+  
   const [searchType, setSearchType] = useState('cpf'); // 'cpf', 'pedido', 'nome', 'entrega'
   const [searchValue, setSearchValue] = useState('');
   const [selectedAvaria, setSelectedAvaria] = useState('');
