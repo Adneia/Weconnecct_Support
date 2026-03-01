@@ -563,8 +563,20 @@ async def get_chamado(chamado_id: str, current_user: dict = Depends(get_current_
     
     return chamado
 
+def sync_update_to_google_sheets(id_atendimento: str, updates: dict):
+    """Background task to sync atendimento updates to Google Sheets"""
+    try:
+        sheets_client.update_atendimento(id_atendimento, updates)
+    except Exception as e:
+        logger.error(f"Error syncing update to Google Sheets: {e}")
+
 @api_router.put("/chamados/{chamado_id}", response_model=dict)
-async def update_chamado(chamado_id: str, chamado_data: ChamadoUpdate, current_user: dict = Depends(get_current_user)):
+async def update_chamado(
+    chamado_id: str, 
+    chamado_data: ChamadoUpdate, 
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user)
+):
     existing = await db.chamados.find_one({"id": chamado_id})
     if not existing:
         raise HTTPException(status_code=404, detail="Chamado não encontrado")
@@ -575,23 +587,32 @@ async def update_chamado(chamado_id: str, chamado_data: ChamadoUpdate, current_u
     if update_data.get('status_atendimento') == 'Fechado' and existing.get('status_atendimento') != 'Fechado':
         update_data['data_resolucao'] = datetime.now(timezone.utc).isoformat()
     
+    # Check if pendente changed to False (encerramento)
+    if 'pendente' in update_data and not update_data['pendente'] and existing.get('pendente', True):
+        update_data['data_fechamento'] = datetime.now(timezone.utc).isoformat()
+    
     if update_data:
         await db.chamados.update_one({"id": chamado_id}, {"$set": update_data})
         
         # Create history entry for status change
-        if 'status_atendimento' in update_data or 'status_chamado' in update_data:
+        if 'status_atendimento' in update_data or 'status_chamado' in update_data or 'pendente' in update_data:
             historico = Historico(
                 chamado_id=chamado_id,
                 tipo_acao="Atualização de Status",
-                descricao=f"Status atualizado: {update_data.get('status_atendimento', '')} / {update_data.get('status_chamado', '')}",
+                descricao=f"Status atualizado: {update_data.get('status_atendimento', '')} / Pendente: {'NÃO' if not update_data.get('pendente', True) else 'SIM'}",
                 usuario_id=current_user['id'],
                 usuario_nome=current_user['name']
             )
             hist_dict = historico.model_dump()
             hist_dict['data_hora'] = hist_dict['data_hora'].isoformat()
             await db.historico.insert_one(hist_dict)
+        
+        # Sync to Google Sheets in background
+        id_atendimento = existing.get('id_atendimento')
+        if id_atendimento:
+            background_tasks.add_task(sync_update_to_google_sheets, id_atendimento, update_data)
     
-    return {"message": "Chamado atualizado com sucesso"}
+    return {"message": "Chamado atualizado com sucesso", "google_sheets_sync": "queued"}
 
 @api_router.delete("/chamados/{chamado_id}", response_model=dict)
 async def delete_chamado(chamado_id: str, current_user: dict = Depends(get_current_user)):
