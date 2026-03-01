@@ -227,6 +227,167 @@ Atenciosamente,
 [ASSINATURA]`
 };
 
+// Textos de Falha Transporte
+const TEXTOS_FALHA_TRANSPORTE = {
+  "Rastreio - Total Express": `Olá, Boa tarde.
+
+Pedido em processo de entrega, podendo ser entregue a qualquer momento.
+
+Segue rastreio para acompanhamento:
+Rastreio: [CÓDIGO_RASTREIO]
+Previsão de entrega até dia [DATA_PREVISAO]
+
+https://totalconecta.totalexpress.com.br/rastreamento
+
+Seguimos a disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Rastreio - J&T Express": `Olá, Boa tarde.
+
+Pedido em processo de entrega, podendo ser entregue a qualquer momento.
+
+Segue rastreio para acompanhamento:
+Chave de acesso: [CHAVE_ACESSO]
+Previsão de entrega até dia [DATA_PREVISAO]
+
+https://www.jtexpress.com.br/
+
+Seguimos a disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Rastreio - ASAP Log": `Olá, Boa tarde.
+
+Pedido em processo de entrega, podendo ser entregue a qualquer momento.
+
+Acionado transportadora para seguir com a entrega com prioridade.
+
+Segue rastreio para acompanhamento:
+Nota Fiscal: [NOTA_FISCAL]
+Previsão de entrega até dia [DATA_PREVISAO]
+
+https://rastreio.asaplog.com.br/
+
+Seguimos a disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Rastreio - Correios": `Olá, Boa tarde.
+
+Pedido em processo de entrega, podendo ser entregue a qualquer momento.
+
+Segue link para rastreio:
+https://rastreamento.correios.com.br/app/index.php
+Rastreio: [CÓDIGO_RASTREIO]
+Previsão de entrega até dia [DATA_PREVISAO]
+
+Seguimos a disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Bloqueio da Entrega": `Olá, Boa tarde.
+
+Acionamos a transportadora com o bloqueio de entrega. Poderia, por favor orientar o cliente que em caso de tentativa de entrega, recusar o recebimento.
+
+Assim que entrar em devolução, entraremos em contato.
+
+Seguimos a disposição.
+Atenciosamente!
+[ASSINATURA]`,
+
+  "Não é Possível Bloqueio": `Olá, Boa tarde.
+
+Acionamos a transportadora com a solicitação de bloqueio da entrega. No entanto, identificamos que o pedido encontra-se em rota de entrega, o que significa que pode não ser possível impedir a entrega a tempo.
+
+Por gentileza, oriente o cliente a recusar o recebimento, caso a tentativa de entrega ocorra.
+
+Caso a entrega seja concluída, nos acionar novamente para que possamos seguir com a emissão da reversa para devolução do pedido.
+
+Assim que o pedido retornar ao nosso centro de distribuição, entraremos em contato.
+
+Permanecemos à disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Extravio": `Olá, Boa tarde.
+
+O pedido foi extraviado pela transportadora. Iniciamos a preparação para envio de um novo item ao cliente, assim que possível disponibilizaremos o link para rastreio.
+Pedimos a gentileza de solicitar ao cliente que em caso de entrega nos acione para darmos as devidas tratativas.
+
+Seguimos a disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Extravio com Previsão": `Olá, Boa tarde.
+
+O pedido foi extraviado pela transportadora, iniciamos uma nova preparação para envio ao cliente. A previsão atual de entrega é para o dia [DATA_PREVISAO]. Poderia, por gentileza, confirmar junto ao cliente a nova previsão?
+
+Pedimos a gentileza de solicitar ao cliente que em caso de entrega nos acione para darmos as devidas tratativas.
+
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Extravio com Cancelamento": `Olá, Bom dia.
+
+Informamos que o item [PRODUTO] ([ENTREGA]) foi extraviado pela transportadora. Pedimos a gentileza de seguir com o cancelamento e estorno devido a indisponibilidade de reposição.
+
+Pedimos sinceras desculpas pelo ocorrido.
+
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Falta Comprovante": `Olá, Boa tarde.
+
+Solicitamos o comprovante de entrega assinado ou o início do processo de acareação da entrega. Assim que possível, encaminharemos as informações.
+
+Pedimos, por gentileza, que, ao entrar em contato com a cliente, seja solicitado que nos informe caso o pedido seja entregue.
+
+Seguimos à disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Desconhece Entrega - No Prazo": `Olá, Boa tarde.
+
+Informamos que o pedido foi entregue em [DATA_ENTREGA]. Por favor confirmar entrega junto ao cliente.
+
+Ressaltamos que o prazo para contestação da entrega ou solicitação de acareação é de até 10 dias corridos, contados da data da entrega. Caso haja qualquer divergência, pedimos que nos informe dentro desse período para que possamos realizar as devidas análises.
+
+Na ausência de manifestação dentro do prazo informado, seguiremos com o encerramento do chamado.
+
+Podemos encerrar o atendimento?
+
+Permanecemos à disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Desconhece Entrega - Fora Prazo": `Olá, Boa tarde.
+
+Informamos que o pedido foi entregue em [DATA_ENTREGA]. Encaminhamos em anexo o comprovante de entrega para sua conferência.
+
+Ressaltamos que o prazo para contestação da entrega ou solicitação de acareação é de até 10 dias corridos, contados a partir da data da entrega. Dessa forma, informamos que o prazo para solicitação de acareação já se encontra expirado.
+
+Diante disso, prosseguiremos com o encerramento do chamado.
+
+Permanecemos à disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "CSU - Comprovante Email": `Olá, Boa tarde.
+
+Informamos que o pedido foi entregue em [DATA_ENTREGA]. Por favor confirmar entrega junto ao cliente e seguir com o encerramento do chamado. Comprovante enviado via e-mail.
+
+Assunto: Ocorrência: [NUMERO_OCORRENCIA]
+
+Ressaltamos que o prazo para contestação da entrega ou solicitação de acareação é de até 10 dias corridos, contados da data da entrega. Caso haja qualquer divergência, pedimos que nos informe dentro desse período para que possamos realizar as devidas análises.
+
+Na ausência de manifestação dentro do prazo informado, seguiremos com o encerramento do chamado.
+
+Permanecemos à disposição.
+Atenciosamente,
+[ASSINATURA]`
+};
+
 const NovoAtendimento = () => {
   const [loading, setLoading] = useState(false);
   const [searchingPedido, setSearchingPedido] = useState(false);
