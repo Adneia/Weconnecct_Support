@@ -2211,6 +2211,33 @@ const NovoAtendimento = () => {
                 <CardDescription>Registre o histórico e observações do atendimento</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Dados da Reversa */}
+                <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 space-y-3">
+                  <Label className="text-sm font-medium text-blue-800 dark:text-blue-200">Dados da Reversa</Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Número da Reversa</Label>
+                      <Input
+                        value={codigoReversa}
+                        onChange={(e) => setCodigoReversa(e.target.value)}
+                        placeholder="Digite o código da reversa"
+                        className="mt-1"
+                        data-testid="input-numero-reversa"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Data de Vencimento</Label>
+                      <Input
+                        type="date"
+                        value={dataVencimentoReversa}
+                        onChange={(e) => setDataVencimentoReversa(e.target.value)}
+                        className="mt-1"
+                        data-testid="input-data-vencimento-reversa"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <div>
                   <Label>Motivo da Pendência</Label>
                   <Select value={motivoPendencia} onValueChange={setMotivoPendencia}>
