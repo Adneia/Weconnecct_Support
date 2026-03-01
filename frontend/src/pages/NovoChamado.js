@@ -851,6 +851,23 @@ const NovoAtendimento = () => {
     return null;
   };
 
+  const loadTextoArrependimento = (tipo) => {
+    let texto = TEXTOS_ARREPENDIMENTO[tipo] || '';
+    // Substituir placeholders
+    if (formData.atendente) {
+      texto = texto.replace(/\[ASSINATURA\]/g, formData.atendente);
+    }
+    if (pedidoErp?.nome_cliente) {
+      texto = texto.replace(/\[NOME_CLIENTE\]/g, pedidoErp.nome_cliente);
+    }
+    if (codigoReversa) {
+      texto = texto.replace(/\[CÓDIGO_REVERSA\]/g, codigoReversa);
+    }
+    setTextoPadrao(texto);
+    setSelectedArrependimento(tipo);
+    setShowTextoDialog(true);
+  };
+
   const gerarCodigoReversa = async () => {
     if (!formData.numero_pedido) {
       toast.error('Selecione um pedido primeiro');
