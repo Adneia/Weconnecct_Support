@@ -28,10 +28,10 @@ import {
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/chamados/novo', label: 'Novo Chamado', icon: Plus },
-  { path: '/chamados', label: 'Chamados', icon: List },
+  { path: '/chamados/novo', label: 'Novo Atendimento', icon: Plus },
+  { path: '/chamados', label: 'Atendimentos', icon: List },
   { path: '/reversas', label: 'Reversas', icon: RotateCcw },
-  { path: '/importar', label: 'Importar Pedidos', icon: Upload },
+  { path: '/importar', label: 'Base Emergent', icon: Upload },
 ];
 
 export const Layout = ({ children }) => {
