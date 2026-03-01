@@ -1305,14 +1305,36 @@ const NovoAtendimento = () => {
                 <CardTitle className="text-lg">3. Anotações</CardTitle>
                 <CardDescription>Registre o histórico e observações do atendimento</CardDescription>
               </CardHeader>
-              <CardContent>
-                <Textarea
-                  value={formData.anotacoes}
-                  onChange={(e) => handleChange('anotacoes', e.target.value)}
-                  placeholder="Descreva o histórico do atendimento..."
-                  rows={5}
-                  data-testid="textarea-anotacoes"
-                />
+              <CardContent className="space-y-4">
+                <div>
+                  <Label>Motivo da Pendência</Label>
+                  <Select value={motivoPendencia} onValueChange={setMotivoPendencia}>
+                    <SelectTrigger data-testid="select-motivo-pendencia">
+                      <SelectValue placeholder="Selecione o motivo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MOTIVOS_PENDENCIA.map(m => (
+                        <SelectItem key={m} value={m}>{m}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {pedidoErp?.status_pedido && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Status atual: {pedidoErp.status_pedido}
+                    </p>
+                  )}
+                </div>
+                
+                <div>
+                  <Label>Anotações</Label>
+                  <Textarea
+                    value={formData.anotacoes}
+                    onChange={(e) => handleChange('anotacoes', e.target.value)}
+                    placeholder="Descreva o histórico do atendimento..."
+                    rows={5}
+                    data-testid="textarea-anotacoes"
+                  />
+                </div>
               </CardContent>
             </Card>
 
