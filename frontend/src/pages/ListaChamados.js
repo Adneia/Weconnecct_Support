@@ -186,10 +186,28 @@ const ListaAtendimentos = () => {
         <CardContent className="p-4">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col sm:flex-row gap-2">
+              <Select value={searchType} onValueChange={setSearchType}>
+                <SelectTrigger className="w-40" data-testid="select-search-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  <SelectItem value="solicitacao">Solicitação</SelectItem>
+                  <SelectItem value="entrega">Entrega</SelectItem>
+                  <SelectItem value="cpf">CPF</SelectItem>
+                  <SelectItem value="nome">Nome</SelectItem>
+                </SelectContent>
+              </Select>
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar por entrega, CPF, nome ou ID..."
+                  placeholder={
+                    searchType === 'solicitacao' ? 'Buscar por nº da solicitação...' :
+                    searchType === 'entrega' ? 'Buscar por nº da entrega...' :
+                    searchType === 'cpf' ? 'Buscar por CPF do cliente...' :
+                    searchType === 'nome' ? 'Buscar por nome do cliente...' :
+                    'Buscar por entrega, CPF, nome, solicitação...'
+                  }
                   value={globalFilter}
                   onChange={(e) => setGlobalFilter(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
