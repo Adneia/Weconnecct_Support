@@ -50,7 +50,7 @@ const ATENDENTES = ["Letícia Martelo", "Adnéia Campos"];
 
 // Textos de Avaria organizados
 const TEXTOS_AVARIA = {
-  "Avaria - Necessário Evidência": `Olá,
+  "Avaria - Necessário Evidência": `Olá, Boa tarde.
 
 Para darmos continuidade à tratativa, solicitamos, por gentileza, o envio das seguintes evidências:
 
@@ -65,7 +65,7 @@ Estamos à disposição para quaisquer dúvidas e aguardamos seu retorno.
 Atenciosamente,
 [ASSINATURA]`,
 
-  "Avaria - Transporte até R$250": `Olá
+  "Avaria - Transporte até R$250": `Olá, Boa tarde.
 
 Informamos que iniciamos a preparação e o envio de um novo produto para o cliente.
 
@@ -77,7 +77,7 @@ Permanecemos à disposição para qualquer dúvida.
 Atenciosamente,
 [ASSINATURA]`,
 
-  "Avaria - Reversa": `Olá, boa tarde
+  "Avaria - Reversa": `Olá, Boa tarde.
 
 Sentimos muito pelo ocorrido, poderia confirmar com o cliente se após a devolução seguiremos com reenvio ou cancelamento?
 
