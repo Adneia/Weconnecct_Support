@@ -519,14 +519,18 @@ async def list_pendentes(
 
 @api_router.get("/chamados/{chamado_id}", response_model=dict)
 async def get_chamado(chamado_id: str, current_user: dict = Depends(get_current_user)):
-    chamado = await db.chamados.find_one({"id": chamado_id}, {"_id": 0})
+    # Buscar por ID ou por id_atendimento (ATD-2026-XXX)
+    chamado = await db.chamados.find_one(
+        {"$or": [{"id": chamado_id}, {"id_atendimento": chamado_id}]}, 
+        {"_id": 0}
+    )
     if not chamado:
-        raise HTTPException(status_code=404, detail="Chamado não encontrado")
+        raise HTTPException(status_code=404, detail="Atendimento não encontrado")
     
     # Calculate days open
     now = datetime.now(timezone.utc)
     data_abertura = datetime.fromisoformat(chamado['data_abertura'].replace('Z', '+00:00')) if isinstance(chamado['data_abertura'], str) else chamado['data_abertura']
-    if chamado['status_atendimento'] != 'Fechado':
+    if chamado.get('pendente', True):
         chamado['dias_aberto'] = (now - data_abertura).days
     else:
         chamado['dias_aberto'] = 0
@@ -537,7 +541,7 @@ async def get_chamado(chamado_id: str, current_user: dict = Depends(get_current_
         chamado['pedido_erp'] = pedido
     
     # Get reversa if exists
-    reversa = await db.reversas.find_one({"chamado_id": chamado_id}, {"_id": 0})
+    reversa = await db.reversas.find_one({"chamado_id": chamado['id']}, {"_id": 0})
     if reversa:
         chamado['reversa'] = reversa
     
