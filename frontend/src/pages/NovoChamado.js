@@ -1241,6 +1241,46 @@ const NovoAtendimento = () => {
     return null;
   };
 
+  const loadTextoReclameAqui = (tipo) => {
+    let texto = TEXTOS_RECLAME_AQUI[tipo] || '';
+    // Substituir nome do cliente
+    if (pedidoErp?.nome_cliente) {
+      texto = texto.replace(/\[NOME_CLIENTE\]/g, pedidoErp.nome_cliente);
+    }
+    setTextoPadrao(texto);
+    setSelectedReclameAqui(tipo);
+    setShowTextoDialog(true);
+  };
+
+  const loadTextoAssistencia = (tipo) => {
+    let texto = TEXTOS_ASSISTENCIA[tipo] || '';
+    // Substituir placeholders
+    if (formData.atendente) {
+      texto = texto.replace(/\[ASSINATURA\]/g, formData.atendente);
+    }
+    if (pedidoErp?.nome_cliente) {
+      texto = texto.replace(/\[NOME_CLIENTE\]/g, pedidoErp.nome_cliente);
+    }
+    // Código da reversa (se preenchido)
+    if (codigoReversa) {
+      texto = texto.replace(/\[CÓDIGO_REVERSA\]/g, codigoReversa);
+    }
+    // Data de emissão (hoje)
+    const hoje = new Date();
+    const dataEmissao = hoje.toLocaleDateString('pt-BR');
+    texto = texto.replace(/\[DATA_EMISSAO\]/g, dataEmissao);
+    
+    // Data de validade da reversa
+    if (dataVencimentoReversa) {
+      const dataValidade = new Date(dataVencimentoReversa + 'T00:00:00').toLocaleDateString('pt-BR');
+      texto = texto.replace(/\[DATA_VALIDADE\]/g, dataValidade);
+    }
+    
+    setTextoPadrao(texto);
+    setSelectedAssistencia(tipo);
+    setShowTextoDialog(true);
+  };
+
   const gerarCodigoReversa = async () => {
     if (!formData.numero_pedido) {
       toast.error('Selecione um pedido primeiro');
