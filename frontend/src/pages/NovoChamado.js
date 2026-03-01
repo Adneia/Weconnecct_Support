@@ -579,7 +579,12 @@ const NovoAtendimento = () => {
                       <FileText className="h-4 w-4" /> Nota Fiscal
                     </h4>
                     <div className="pl-6 space-y-1 text-sm">
-                      <p><span className="text-muted-foreground">NF:</span> {pedidoErp.nota_fiscal}</p>
+                      <div className="flex flex-wrap gap-x-6 gap-y-1">
+                        <p><span className="text-muted-foreground">NF:</span> {pedidoErp.nota_fiscal}</p>
+                        {pedidoErp.uf_galpao && pedidoErp.uf_galpao !== '-' && (
+                          <p><span className="text-muted-foreground">Galpão:</span> <span className="font-medium">{pedidoErp.uf_galpao}</span></p>
+                        )}
+                      </div>
                       {pedidoErp.chave_nota && (
                         <p className="text-xs text-muted-foreground break-all">Chave: {pedidoErp.chave_nota}</p>
                       )}
