@@ -29,7 +29,7 @@ import {
   Loader2, Search, Package, Truck, User, MapPin, 
   Phone, Mail, Calendar, ShoppingBag, Copy,
   FileText, Hash, Building, AlertCircle, CheckCircle,
-  MessageSquare, RotateCcw, Warehouse
+  MessageSquare, RotateCcw, Warehouse, Plus
 } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
