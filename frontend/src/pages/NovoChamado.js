@@ -2676,6 +2676,7 @@ const NovoAtendimento = () => {
           </>
         )}
       </form>
+      )}
 
       {/* Dialog: Lista de Pedidos (quando CPF retorna múltiplos) */}
       <Dialog open={showPedidosDialog} onOpenChange={setShowPedidosDialog}>
