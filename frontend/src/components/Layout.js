@@ -194,7 +194,7 @@ export const Layout = ({ children }) => {
               <Menu className="h-5 w-5" />
             </Button>
             <h1 className="text-lg font-semibold tracking-tight font-['Plus_Jakarta_Sans'] hidden sm:block">
-              Sistema de Chamados
+              Emergent - Sistema de Atendimentos
             </h1>
           </div>
 
