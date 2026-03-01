@@ -85,7 +85,7 @@ const ListaAtendimentos = () => {
   };
 
   const clearFilters = () => {
-    setFilters({ pendente: '', categoria: '', atendente: '' });
+    setFilters({ pendente: '', categoria: '', atendente: '', retornar_chamado: '' });
     setGlobalFilter('');
   };
 
@@ -97,10 +97,9 @@ const ListaAtendimentos = () => {
       'Falha de Compras': 'bg-orange-50 text-orange-700 dark:bg-orange-950/50 dark:text-orange-400',
       'Falha Transporte': 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400',
       'Produto com Avaria': 'bg-pink-50 text-pink-700 dark:bg-pink-950/50 dark:text-pink-400',
-      'Divergência de Produto': 'bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-400',
       'Arrependimento': 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400',
-      'Dúvida': 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/50 dark:text-cyan-400',
-      'Reclamação': 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400',
+      'Acompanhamento': 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/50 dark:text-cyan-400',
+      'Reclame Aqui': 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400',
       'Assistência Técnica': 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-400',
     };
     return colors[categoria] || 'bg-slate-100 text-slate-700';
@@ -109,6 +108,7 @@ const ListaAtendimentos = () => {
   // Stats
   const totalPendentes = atendimentos.filter(a => a.pendente).length;
   const totalResolvidos = atendimentos.filter(a => !a.pendente).length;
+  const totalRetornar = atendimentos.filter(a => a.retornar_chamado).length;
 
   if (loading) {
     return (
