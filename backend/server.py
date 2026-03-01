@@ -31,6 +31,13 @@ JWT_EXPIRATION_HOURS = 24
 
 security = HTTPBearer()
 
+# Logging setup (moved up for use in sync functions)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 # Create the main app
 app = FastAPI(title="WeConnect Support API")
 api_router = APIRouter(prefix="/api")
