@@ -2484,15 +2484,74 @@ const NovoAtendimento = () => {
                   )}
                 </div>
                 
-                <div>
+                <div className="space-y-3">
                   <Label>Anotações</Label>
-                  <Textarea
-                    value={formData.anotacoes}
-                    onChange={(e) => handleChange('anotacoes', e.target.value)}
-                    placeholder="Descreva o histórico do atendimento..."
-                    rows={5}
-                    data-testid="textarea-anotacoes"
-                  />
+                  
+                  {/* Campo para nova observação */}
+                  <div className="flex gap-2">
+                    <div className="flex-1">
+                      <Textarea
+                        id="nova-observacao"
+                        placeholder="Digite uma nova observação..."
+                        rows={2}
+                        data-testid="textarea-nova-observacao"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            const input = e.target;
+                            const novaObs = input.value.trim();
+                            if (novaObs) {
+                              const hoje = new Date().toLocaleDateString('pt-BR');
+                              const novaEntrada = `[${hoje}] ${novaObs}`;
+                              const anotacoesAtuais = formData.anotacoes;
+                              const novasAnotacoes = anotacoesAtuais 
+                                ? `${novaEntrada}\n\n${anotacoesAtuais}`
+                                : novaEntrada;
+                              handleChange('anotacoes', novasAnotacoes);
+                              input.value = '';
+                            }
+                          }
+                        }}
+                      />
+                    </div>
+                    <Button 
+                      type="button" 
+                      variant="outline"
+                      size="sm"
+                      className="self-end"
+                      onClick={() => {
+                        const input = document.getElementById('nova-observacao');
+                        const novaObs = input.value.trim();
+                        if (novaObs) {
+                          const hoje = new Date().toLocaleDateString('pt-BR');
+                          const novaEntrada = `[${hoje}] ${novaObs}`;
+                          const anotacoesAtuais = formData.anotacoes;
+                          const novasAnotacoes = anotacoesAtuais 
+                            ? `${novaEntrada}\n\n${anotacoesAtuais}`
+                            : novaEntrada;
+                          handleChange('anotacoes', novasAnotacoes);
+                          input.value = '';
+                        }
+                      }}
+                      data-testid="btn-adicionar-observacao"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Adicionar
+                    </Button>
+                  </div>
+
+                  {/* Histórico de anotações */}
+                  {formData.anotacoes && (
+                    <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-900/50 border">
+                      <Label className="text-xs text-muted-foreground mb-2 block">Histórico de Observações</Label>
+                      <div className="text-sm whitespace-pre-wrap font-mono text-slate-700 dark:text-slate-300">
+                        {formData.anotacoes}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Campo oculto para manter compatibilidade */}
+                  <input type="hidden" value={formData.anotacoes} />
                 </div>
               </CardContent>
             </Card>
