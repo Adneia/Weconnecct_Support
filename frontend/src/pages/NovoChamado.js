@@ -1121,6 +1121,133 @@ const NovoAtendimento = () => {
                           Ver Texto Padrão
                         </Button>
                       </div>
+                    ) : formData.categoria === 'Falha Transporte' ? (
+                      <div className="space-y-3">
+                        {/* Enviar Rastreio */}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Label className="text-sm font-medium">Enviar Rastreio</Label>
+                            {pedidoErp?.transportadora && (
+                              <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                {pedidoErp.transportadora}
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {['Rastreio - Total Express', 'Rastreio - J&T Express', 'Rastreio - ASAP Log', 'Rastreio - Correios'].map(tipo => {
+                              const isDetected = getRastreioTransporte() === tipo;
+                              return (
+                                <Button 
+                                  key={tipo}
+                                  type="button" 
+                                  variant={selectedFalhaTransporte === tipo ? 'default' : (isDetected ? 'secondary' : 'outline')}
+                                  size="sm"
+                                  onClick={() => loadTextoFalhaTransporte(tipo)}
+                                  className={isDetected ? 'ring-2 ring-blue-400' : ''}
+                                >
+                                  {tipo.replace('Rastreio - ', '')} {isDetected && '✓'}
+                                </Button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Bloqueio */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Bloqueio de Entrega</Label>
+                          <div className="flex flex-wrap gap-2">
+                            <Button 
+                              type="button" 
+                              variant={selectedFalhaTransporte === 'Bloqueio da Entrega' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoFalhaTransporte('Bloqueio da Entrega')}
+                            >
+                              Bloqueio OK
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant={selectedFalhaTransporte === 'Não é Possível Bloqueio' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoFalhaTransporte('Não é Possível Bloqueio')}
+                            >
+                              Não é Possível
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Extravio */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Extravio</Label>
+                          <div className="flex flex-wrap gap-2">
+                            <Button 
+                              type="button" 
+                              variant={selectedFalhaTransporte === 'Extravio' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoFalhaTransporte('Extravio')}
+                            >
+                              Extravio
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant={selectedFalhaTransporte === 'Extravio com Previsão' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoFalhaTransporte('Extravio com Previsão')}
+                            >
+                              Com Previsão
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant={selectedFalhaTransporte === 'Extravio com Cancelamento' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoFalhaTransporte('Extravio com Cancelamento')}
+                            >
+                              Com Cancelamento
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Comprovante */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Comprovante de Entrega</Label>
+                          <div className="flex flex-wrap gap-2">
+                            <Button 
+                              type="button" 
+                              variant={selectedFalhaTransporte === 'Falta Comprovante' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoFalhaTransporte('Falta Comprovante')}
+                            >
+                              Falta Comprovante
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant={selectedFalhaTransporte === 'Desconhece Entrega - No Prazo' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoFalhaTransporte('Desconhece Entrega - No Prazo')}
+                            >
+                              Desconhece (No Prazo)
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant={selectedFalhaTransporte === 'Desconhece Entrega - Fora Prazo' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoFalhaTransporte('Desconhece Entrega - Fora Prazo')}
+                            >
+                              Desconhece (Fora Prazo)
+                            </Button>
+                            {formData.parceiro?.toLowerCase().includes('csu') && (
+                              <Button 
+                                type="button" 
+                                variant={selectedFalhaTransporte === 'CSU - Comprovante Email' ? 'default' : 'outline'}
+                                size="sm"
+                                onClick={() => loadTextoFalhaTransporte('CSU - Comprovante Email')}
+                                className="bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100"
+                              >
+                                CSU - Email
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     ) : (
                       <div className="flex gap-2">
                         <Button 
