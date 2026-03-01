@@ -1,7 +1,7 @@
 # Emergent - Sistema de Atendimentos WeConnect
 
 ## Problem Statement
-Sistema de gestão de atendimentos para a equipe de atendimento da WeConnect, uma empresa de e-commerce. O sistema permite registrar atendimentos vinculados a pedidos, categorizá-los, e **sincronizar automaticamente com Google Sheets** para facilitar relatórios e compartilhamento.
+Sistema de gestão de atendimentos para a equipe de atendimento da WeConnect, uma empresa de e-commerce. O sistema permite registrar atendimentos vinculados a pedidos, categorizá-los, e **sincronizar automaticamente com Google Sheets**.
 
 ## User Personas
 1. **Letícia Martelo** - Atendente principal
@@ -9,9 +9,10 @@ Sistema de gestão de atendimentos para a equipe de atendimento da WeConnect, um
 
 ## Core Requirements (Static)
 - Registrar atendimentos vinculando ao número do pedido (Entrega)
-- Buscar dados do pedido automaticamente na Base Emergent (~152k registros)
-- Categorizar por 9 categorias: Falha Produção, Falha de Compras, Falha Transporte, Produto com Avaria, Divergência de Produto, Arrependimento, Dúvida, Reclamação, Assistência Técnica
-- **Sincronização automática com Google Sheets** (planilha "Atendimentos 2026_E")
+- Buscar dados do pedido por **Entrega, CPF ou Nome do cliente**
+- Identificar **Galpão** automaticamente pela série da NF (1=SC, 6=SP, 2=ES)
+- Categorizar por 9 categorias + textos situacionais
+- **Sincronização automática com Google Sheets**
 - Gestão de devoluções (Reversas)
 - Autenticação JWT
 - Temas claro e escuro
@@ -25,53 +26,77 @@ Sistema de gestão de atendimentos para a equipe de atendimento da WeConnect, um
 
 ## What's Been Implemented
 
+### Busca e Galpão (Mar 1, 2026) ✅
+- **Busca por Entrega, CPF ou Nome** do cliente
+- **Identificação automática do Galpão** pela série da NF extraída da chave de acesso:
+  - Série 1 = Santa Catarina (SC)
+  - Série 6 = São Paulo (SP)
+  - Série 2 = Espírito Santo (ES)
+- Badge visual mostrando Galpão no card do pedido
+
+### Textos Padrões (Mar 1, 2026) ✅
+**Categorias principais:**
+- Falha Produção, Falha de Compras, Falha Transporte
+- Produto com Avaria, Divergência de Produto
+- Arrependimento, Dúvida, Reclamação, Assistência Técnica
+
+**Situações específicas:**
+- Reversa (1ª e 2ª tentativa)
+- Em Devolução (simples e com rastreio)
+- Insucesso na Entrega
+- Estorno (simples e com descarte)
+- Extravio (Reenvio e Cancelamento)
+- Processo de Entrega (Total Express, J&T, ASAP)
+- Assistência Técnica (VENTISOL, OEX)
+
 ### Google Sheets Integration (Mar 1, 2026) ✅
 - **Module**: `/app/backend/google_sheets.py`
 - **Service Account**: `atendimento-bot-emergent@emergent-atendimento.iam.gserviceaccount.com`
 - **Spreadsheet Atendimentos**: `1cqzY_i1lqvu8sySPFrMtucQfyTo1LYm04ZpxRZNDCBs`
 - **Spreadsheet Devoluções**: `1dQbQWvG3Yv7Z6yqjivShK4-N4_pGXjs4x15jRMKVLno`
-- Sincronização automática em background ao criar atendimento
-- Endpoint de status: `GET /api/google-sheets/status`
-- Badge visual no Dashboard mostrando conexão ativa
 
 ### Backend (server.py)
 - ✅ User authentication (register/login/me)
 - ✅ CRUD completo para Atendimentos com IDs sequenciais (ATD-2026-XXX)
-- ✅ Busca de pedidos por Entrega ou CPF
+- ✅ Busca de pedidos por Entrega, CPF ou Nome
 - ✅ Import de Base Emergent via Excel (~152.000 registros)
 - ✅ Dashboard statistics
-- ✅ Textos padrão por categoria
+- ✅ Textos padrão por categoria E situação
 - ✅ Google Sheets sync on create/update
+- ✅ Identificação automática do Galpão pela série da NF
 
 ### Frontend (React)
 - ✅ Login com abas Entrar/Criar Conta
 - ✅ Dashboard com badge de status Google Sheets
-- ✅ Novo Atendimento com busca dinâmica de pedido
-- ✅ Preenchimento automático de dados do cliente/pedido
+- ✅ Novo Atendimento com busca por Entrega/CPF/Nome
+- ✅ Preenchimento automático de dados do cliente/pedido/galpão
+- ✅ Badge de Galpão (SC/SP/ES)
 - ✅ Lista de Atendimentos com filtros
 - ✅ Gestão de Reversas
 - ✅ Importar Base Emergent
 - ✅ Tema claro/escuro
 
-### Database Collections
-- **users**: Usuários do sistema
-- **chamados**: Atendimentos (vinculados a pedidos)
-- **pedidos_erp**: Base Emergent (~152.608 pedidos)
-- **reversas**: Processos de devolução
-- **historico**: Log de ações
-
 ## API Endpoints Principais
 - `POST /api/auth/login` - Login
 - `POST /api/chamados` - Criar atendimento (sync Google Sheets)
 - `GET /api/chamados` - Listar atendimentos
-- `GET /api/pedidos-erp/{numero_pedido}` - Buscar pedido
+- `GET /api/pedidos-erp/{numero_pedido}` - Buscar por Entrega
 - `GET /api/pedidos-erp/buscar/cpf/{cpf}` - Buscar por CPF
+- `GET /api/pedidos-erp/buscar/nome/{nome}` - Buscar por Nome
+- `GET /api/textos-padroes` - Textos por categoria
+- `GET /api/textos-situacionais` - Textos situacionais
 - `GET /api/google-sheets/status` - Status da conexão
-- `POST /api/google-sheets/sync-all` - Sincronizar todos
 
 ## Credenciais de Teste
 - Email: test@emergent.com
 - Senha: test123
+
+## Mapeamento de Galpão
+| Série NF | Galpão | UF |
+|----------|--------|-----|
+| 1 | Santa Catarina | SC |
+| 2 | Espírito Santo | ES |
+| 6 | São Paulo | SP |
 
 ## Prioritized Backlog
 
@@ -81,6 +106,9 @@ Sistema de gestão de atendimentos para a equipe de atendimento da WeConnect, um
 - [x] Dashboard com estatísticas
 - [x] Importação Base Emergent (~152k registros)
 - [x] **Integração Google Sheets**
+- [x] **Busca por Entrega, CPF ou Nome**
+- [x] **Identificação do Galpão pela série NF**
+- [x] **Textos padrões completos (categorias + situações)**
 
 ### P1 - High Priority (Future)
 - [ ] Fluxo completo de Devoluções (Reversas com gestão de galpão)
