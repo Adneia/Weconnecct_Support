@@ -546,6 +546,19 @@ async def update_reversa(reversa_id: str, reversa_data: ReversaUpdate, current_u
 
 # ============== PEDIDOS ERP ROUTES ==============
 
+@api_router.get("/pedidos-erp/buscar/cpf/{cpf}", response_model=List[dict])
+async def get_pedidos_by_cpf(cpf: str, current_user: dict = Depends(get_current_user)):
+    """Buscar pedidos por CPF - retorna todos os pedidos do cliente"""
+    # Limpar CPF (remover pontos e traços)
+    cpf_limpo = cpf.replace('.', '').replace('-', '').replace(' ', '')
+    
+    pedidos = await db.pedidos_erp.find(
+        {"cpf_cliente": {"$regex": cpf_limpo}}, 
+        {"_id": 0}
+    ).sort("data_status", -1).to_list(100)
+    
+    return pedidos
+
 @api_router.get("/pedidos-erp/{numero_pedido}", response_model=dict)
 async def get_pedido_erp(numero_pedido: str, current_user: dict = Depends(get_current_user)):
     pedido = await db.pedidos_erp.find_one({"numero_pedido": numero_pedido}, {"_id": 0})
