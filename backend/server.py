@@ -925,12 +925,6 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
         "ultimos_7_dias": ultimos_7_dias,
         "media_tempo_resolucao_dias": media_tempo_dias
     }
-        "por_canal": {item['_id']: item['count'] for item in por_canal if item['_id']},
-        "por_prioridade": {item['_id']: item['count'] for item in por_prioridade if item['_id']},
-        "chamados_atencao": chamados_atencao,
-        "ultimos_7_dias": ultimos_7_dias,
-        "media_tempo_resolucao_dias": media_tempo_dias
-    }
 
 # ============== ROOT ==============
 
