@@ -1019,6 +1019,60 @@ const NovoAtendimento = () => {
     setShowTextoDialog(true);
   };
 
+  const loadTextoAcompanhamento = (tipo) => {
+    let texto = TEXTOS_ACOMPANHAMENTO[tipo] || '';
+    // Substituir placeholders
+    if (formData.atendente) {
+      texto = texto.replace(/\[ASSINATURA\]/g, formData.atendente);
+    }
+    if (pedidoErp?.nome_cliente) {
+      texto = texto.replace(/\[NOME_CLIENTE\]/g, pedidoErp.nome_cliente);
+    }
+    if (pedidoErp?.nota_fiscal) {
+      texto = texto.replace(/\[NOTA_FISCAL\]/g, pedidoErp.nota_fiscal);
+    }
+    if (pedidoErp?.chave_nota) {
+      texto = texto.replace(/\[CHAVE_ACESSO\]/g, pedidoErp.chave_nota);
+    }
+    if (pedidoErp?.codigo_rastreio) {
+      texto = texto.replace(/\[CÓDIGO_RASTREIO\]/g, pedidoErp.codigo_rastreio);
+    }
+    // Substituir produto e entrega
+    if (pedidoErp?.produto) {
+      texto = texto.replace(/\[PRODUTO\]/g, pedidoErp.produto);
+    }
+    if (pedidoErp?.numero_pedido) {
+      texto = texto.replace(/\[ENTREGA\]/g, pedidoErp.numero_pedido);
+    }
+    // Data de entrega (se disponível)
+    if (pedidoErp?.data_entrega) {
+      texto = texto.replace(/\[DATA_ENTREGA\]/g, pedidoErp.data_entrega);
+    }
+    setTextoPadrao(texto);
+    setSelectedAcompanhamento(tipo);
+    setShowTextoDialog(true);
+  };
+
+  // Função para obter o tipo de rastreio para Acompanhamento baseado na transportadora
+  const getRastreioAcompanhamento = () => {
+    if (!pedidoErp?.transportadora) return null;
+    const transp = pedidoErp.transportadora.toLowerCase();
+    
+    if (transp.includes('total') || transp.includes('tex')) {
+      return 'Em Processo - Total Express';
+    }
+    if (transp.includes('j&t') || transp.includes('jt') || transp.includes('j t')) {
+      return 'Em Processo - J&T Express';
+    }
+    if (transp.includes('asap') || transp.includes('logistica e solucoes') || transp.includes('logística e soluções')) {
+      return 'Em Processo - ASAP Log';
+    }
+    if (transp.includes('correios') || transp.includes('sedex') || transp.includes('pac')) {
+      return 'Em Processo - Correios';
+    }
+    return null;
+  };
+
   const gerarCodigoReversa = async () => {
     if (!formData.numero_pedido) {
       toast.error('Selecione um pedido primeiro');
