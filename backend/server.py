@@ -548,38 +548,37 @@ async def import_pedidos(file: UploadFile = File(...), current_user: dict = Depe
         else:
             raise HTTPException(status_code=400, detail="Formato de arquivo não suportado. Use CSV ou Excel.")
         
-        # Mapping for Tabelão WeConnect format - based on actual file structure
-        # Colunas: A=Entrega, D=Dt.Emissao, H=CPF, I=Nome, J=CEP, K=Cidade, L=UF, M=Fone, N=Email
-        # P=Nome.1(Status), Q=Dt.Ult.Ponto, V=Nome.3(Transportadora), Y=Item, Z=Nome.4(Produto)
-        # AB=Nome.5(Depto), AI=Cód.Terceiro, AL=Qtde, AM=Preço, AT=Nota, AU=Série, AV=Chave, BO=Canal, BQ=Etiqueta, BR=Filial
+        # Mapping for Base_Emergent format (Power Query export)
+        # A=Entrega, B=Canal, C=Ped.Cliente, D=Ped.Externo, E=CPF, F=Nome, G=CEP, H=Cidade, I=UF
+        # J=Fone, K=Email, L=Status, M=Dt.Ult.Ponto, N=Transportadora, O=Fornecedor, P=Item
+        # Q=Produto, R=Cód.Terceiro, S=Qtde, T=Preço, U=Frete, V=UF, W=Nota, X=Chave, Y=Troca, Z=CodFornecedor
         column_mapping = {
             'numero_pedido': ['entrega'],  # Coluna A - Número do pedido
-            'pedido_cliente': ['ped. cliente'],  # Coluna B
-            'pedido_externo': ['ped. externo'],  # Coluna C
-            'data_emissao': ['dt. emissao'],  # Coluna D
-            'cpf_cliente': ['cpf'],  # Coluna H
-            'nome_cliente': ['nome'],  # Coluna I (primeiro "Nome")
-            'cep': ['cep'],  # Coluna J
-            'cidade': ['cidade'],  # Coluna K
-            'uf': ['uf'],  # Coluna L
-            'fone_cliente': ['fone'],  # Coluna M
-            'email_cliente': ['e-mail'],  # Coluna N
-            'status_pedido': ['nome.1'],  # Coluna P - Status do pedido (Entregue, etc)
-            'data_status': ['dt.ult.ponto de controle'],  # Coluna Q
-            'transportadora': ['nome.3'],  # Coluna V - Nome da transportadora
-            'codigo_item_bseller': ['item'],  # Coluna Y - Código do item BSeller
-            'produto': ['nome.4'],  # Coluna Z - Nome do produto
-            'departamento': ['nome.5'],  # Coluna AB - Departamento/Fornecedor
-            'codigo_item_vtex': ['c?d. terceiro', 'cód. terceiro'],  # Coluna AI
-            'quantidade': ['qtde pedido'],  # Coluna AL
-            'preco_final': ['pre?o final', 'preço final'],  # Coluna AM
-            'frete': ['frete'],  # Coluna AN
-            'nota_fiscal': ['nota'],  # Coluna AT
-            'serie_nf': ['s?rie', 'série'],  # Coluna AU
-            'chave_nota': ['chave acesso'],  # Coluna AV
-            'canal_vendas': ['nome canal de vendas'],  # Coluna BO
-            'codigo_rastreio': ['etiqueta'],  # Coluna BQ
-            'filial': ['filial'],  # Coluna BR
+            'canal_vendas': ['nome canal de vendas'],  # Coluna B
+            'pedido_cliente': ['ped. cliente'],  # Coluna C
+            'pedido_externo': ['ped. externo'],  # Coluna D
+            'cpf_cliente': ['cpf'],  # Coluna E
+            'nome_cliente': ['nome'],  # Coluna F
+            'cep': ['cep'],  # Coluna G
+            'cidade': ['cidade'],  # Coluna H
+            'uf': ['uf'],  # Coluna I
+            'fone_cliente': ['fone'],  # Coluna J
+            'email_cliente': ['e-mail'],  # Coluna K
+            'status_pedido': ['status da entrega'],  # Coluna L - Status do pedido
+            'data_status': ['dt.ult.ponto de controle'],  # Coluna M
+            'transportadora': ['transportadora'],  # Coluna N
+            'departamento': ['nome_5'],  # Coluna O - Fornecedor/Marca
+            'codigo_item_bseller': ['item'],  # Coluna P - Código do item
+            'produto': ['nome do produto'],  # Coluna Q - Nome do produto
+            'codigo_item_vtex': ['c?d. terceiro', 'cód. terceiro'],  # Coluna R
+            'quantidade': ['qtde pedido'],  # Coluna S
+            'preco_final': ['pre?o final', 'preço final'],  # Coluna T
+            'frete': ['frete'],  # Coluna U
+            'filial': ['uf.1'],  # Coluna V
+            'nota_fiscal': ['nota'],  # Coluna W
+            'chave_nota': ['chave acesso'],  # Coluna X
+            'pedido_troca': ['pedido troca'],  # Coluna Y
+            'codigo_fornecedor': ['cód. fornecedor'],  # Coluna Z
         }
         
         # Normalize column names (strip whitespace and lowercase)
