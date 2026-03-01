@@ -1056,6 +1056,11 @@ const NovoAtendimento = () => {
         setDataVencimentoReversa(atd.data_vencimento_reversa);
       }
       
+      // Carregar retornar_chamado
+      if (atd.retornar_chamado !== undefined) {
+        setRetornarChamado(atd.retornar_chamado);
+      }
+      
       // Buscar dados do pedido ERP
       if (atd.numero_pedido) {
         setSearchValue(atd.numero_pedido);
