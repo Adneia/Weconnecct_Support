@@ -224,6 +224,16 @@ class GoogleSheetsClient:
             logger.error(f"Error adding atendimento to Google Sheets: {e}")
             return False
     
+    def _get_atendimentos_worksheet(self):
+        """Get the atendimentos worksheet (uses first sheet if 'Atendimentos' not found)"""
+        try:
+            return self.atendimentos_sheet.worksheet("Atendimentos")
+        except gspread.exceptions.WorksheetNotFound:
+            worksheets = self.atendimentos_sheet.worksheets()
+            if worksheets:
+                return worksheets[0]
+            return self.atendimentos_sheet.add_worksheet("Atendimentos", rows=1000, cols=20)
+    
     def update_atendimento(self, id_atendimento: str, updates: Dict[str, Any]) -> bool:
         """
         Update an existing atendimento in the Google Sheet
