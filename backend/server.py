@@ -102,6 +102,9 @@ class ChamadoBase(BaseModel):
     status_cliente: Optional[str] = None  # Status final ao encerrar
     reversa_codigo: Optional[str] = None  # Código de reversa
     atendente: str = "Letícia Martelo"  # Responsável
+    motivo_pendencia: Optional[str] = None  # Motivo da pendência
+    codigo_reversa: Optional[str] = None  # Código da reversa
+    data_vencimento_reversa: Optional[str] = None  # Data de vencimento da reversa
 
 class ChamadoCreate(ChamadoBase):
     pass
