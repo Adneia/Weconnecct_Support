@@ -153,6 +153,8 @@ const NovoAtendimento = () => {
           searchByCpf(searchValue.trim());
         } else if (searchType === 'nome') {
           searchByNome(searchValue.trim());
+        } else if (searchType === 'pedido') {
+          searchByPedido(searchValue.trim());
         }
       } else {
         setPedidoErp(null);
