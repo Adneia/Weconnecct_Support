@@ -1014,6 +1014,75 @@ const NovoAtendimento = () => {
     return () => clearTimeout(timer);
   }, [searchValue, searchType]);
 
+  // Carregar atendimento existente no modo de edição
+  useEffect(() => {
+    if (isEditMode && atendimentoId) {
+      loadAtendimento(atendimentoId);
+    }
+  }, [atendimentoId, isEditMode]);
+
+  const loadAtendimento = async (id) => {
+    setLoadingAtendimento(true);
+    try {
+      const response = await axios.get(
+        `${API_URL}/api/chamados/${id}`,
+        { headers: getAuthHeader() }
+      );
+      const atd = response.data;
+      setAtendimentoOriginal(atd);
+      
+      // Preencher formulário com dados do atendimento
+      setFormData({
+        numero_pedido: atd.numero_pedido || '',
+        solicitacao: atd.solicitacao || '',
+        parceiro: atd.parceiro || atd.canal_vendas || '',
+        categoria: atd.categoria || '',
+        motivo: atd.motivo || '',
+        anotacoes: atd.anotacoes || '',
+        atendente: atd.atendente || 'Letícia Martelo'
+      });
+      
+      // Preencher motivo da pendência
+      if (atd.motivo_pendencia) {
+        setMotivoPendencia(atd.motivo_pendencia);
+      }
+      
+      // Preencher dados da reversa
+      if (atd.codigo_reversa) {
+        setCodigoReversa(atd.codigo_reversa);
+      }
+      if (atd.data_vencimento_reversa) {
+        setDataVencimentoReversa(atd.data_vencimento_reversa);
+      }
+      
+      // Buscar dados do pedido ERP
+      if (atd.numero_pedido) {
+        setSearchValue(atd.numero_pedido);
+        setSearchType('entrega');
+        try {
+          const pedidoResponse = await axios.get(
+            `${API_URL}/api/pedidos/${atd.numero_pedido}`,
+            { headers: getAuthHeader() }
+          );
+          if (pedidoResponse.data) {
+            setPedidoErp(pedidoResponse.data);
+            const transpRastreio = getTransportadoraRastreio(pedidoResponse.data.transportadora);
+            setTransportadoraDetectada(transpRastreio);
+          }
+        } catch (e) {
+          console.log('Pedido ERP não encontrado');
+        }
+      }
+      
+      toast.success('Atendimento carregado');
+    } catch (error) {
+      console.error('Erro ao carregar atendimento:', error);
+      toast.error('Erro ao carregar atendimento');
+    } finally {
+      setLoadingAtendimento(false);
+    }
+  };
+
   // Função para processar pedido e auto-preencher campos
   const processarPedido = (pedido) => {
     setPedidoErp(pedido);
