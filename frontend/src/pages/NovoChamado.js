@@ -2377,6 +2377,111 @@ const NovoAtendimento = () => {
                       Status atual: {pedidoErp.status_pedido}
                     </p>
                   )}
+                  
+                  {/* Textos padrão baseados no Motivo da Pendência */}
+                  {motivoPendencia === 'Ag. Confirmação de Entrega' && (
+                    <div className="mt-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 space-y-2">
+                      <Label className="text-sm font-medium text-amber-800 dark:text-amber-200">Textos Padrão - Confirmação de Entrega</Label>
+                      <div className="flex flex-wrap gap-2">
+                        <Button 
+                          type="button" 
+                          variant={selectedMotivoPendencia === 'Ag. Confirmação de Entrega' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => loadTextoMotivoPendencia('Ag. Confirmação de Entrega')}
+                        >
+                          Solicitar Confirmação
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant={selectedMotivoPendencia === 'Ag. Confirmação - Extravio' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => loadTextoMotivoPendencia('Ag. Confirmação - Extravio')}
+                        >
+                          Extravio
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant={selectedMotivoPendencia === 'Ag. Confirmação - Reenvio' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => loadTextoMotivoPendencia('Ag. Confirmação - Reenvio')}
+                        >
+                          Reenvio
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant={selectedMotivoPendencia === 'Ag. Confirmação - Confirmado' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => loadTextoMotivoPendencia('Ag. Confirmação - Confirmado')}
+                        >
+                          Confirmado
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {motivoPendencia === 'Ag. Parceiro' && (
+                    <div className="mt-3 p-3 rounded-lg bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 space-y-2">
+                      <Label className="text-sm font-medium text-purple-800 dark:text-purple-200">Textos Padrão - Ag. Parceiro</Label>
+                      <div className="flex flex-wrap gap-2">
+                        <Button 
+                          type="button" 
+                          variant={selectedMotivoPendencia === 'Ag. Parceiro - Estorno' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => loadTextoMotivoPendencia('Ag. Parceiro - Estorno')}
+                        >
+                          Estorno
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant={selectedMotivoPendencia === 'Ag. Parceiro - Confirmação Encerramento' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => loadTextoMotivoPendencia('Ag. Parceiro - Confirmação Encerramento')}
+                        >
+                          Confirmação Encerramento
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant={selectedMotivoPendencia === 'Ag. Parceiro - Encerramento' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => loadTextoMotivoPendencia('Ag. Parceiro - Encerramento')}
+                        >
+                          Encerramento
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {motivoPendencia === 'Em devolução' && (
+                    <div className="mt-3 p-3 rounded-lg bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 space-y-2">
+                      <Label className="text-sm font-medium text-rose-800 dark:text-rose-200">Textos Padrão - Em Devolução</Label>
+                      <div className="flex flex-wrap gap-2">
+                        <Button 
+                          type="button" 
+                          variant={selectedMotivoPendencia === 'Em devolução - Ag. Devolução' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => loadTextoMotivoPendencia('Em devolução - Ag. Devolução')}
+                        >
+                          Ag. Devolução
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant={selectedMotivoPendencia === 'Em devolução - Liberar Estorno' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => loadTextoMotivoPendencia('Em devolução - Liberar Estorno')}
+                        >
+                          Liberar Estorno
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant={selectedMotivoPendencia === 'Em devolução - Confirmar Reenvio' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => loadTextoMotivoPendencia('Em devolução - Confirmar Reenvio')}
+                        >
+                          Confirmar Reenvio
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 <div>
