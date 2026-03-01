@@ -1379,6 +1379,30 @@ const NovoAtendimento = () => {
     setShowTextoDialog(true);
   };
 
+  const loadTextoMotivoPendencia = (tipo) => {
+    let texto = TEXTOS_MOTIVO_PENDENCIA[tipo] || '';
+    // Substituir placeholders
+    if (formData.atendente) {
+      texto = texto.replace(/\[ASSINATURA\]/g, formData.atendente);
+    }
+    if (pedidoErp?.nome_cliente) {
+      const primeiroNome = pedidoErp.nome_cliente.split(' ')[0];
+      texto = texto.replace(/\[PRIMEIRO_NOME\]/g, primeiroNome);
+    }
+    if (pedidoErp?.produto) {
+      texto = texto.replace(/\[PRODUTO\]/g, pedidoErp.produto);
+    }
+    if (pedidoErp?.numero_pedido) {
+      texto = texto.replace(/\[ENTREGA\]/g, pedidoErp.numero_pedido);
+    }
+    if (codigoReversa) {
+      texto = texto.replace(/\[CÓDIGO_REVERSA\]/g, codigoReversa);
+    }
+    setTextoPadrao(texto);
+    setSelectedMotivoPendencia(tipo);
+    setShowTextoDialog(true);
+  };
+
   const gerarCodigoReversa = async () => {
     if (!formData.numero_pedido) {
       toast.error('Selecione um pedido primeiro');
