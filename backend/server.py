@@ -113,10 +113,18 @@ class ChamadoUpdate(BaseModel):
 class Chamado(ChamadoBase):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    id_atendimento: str = ""  # ATD-2026-001
     data_abertura: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    data_resolucao: Optional[datetime] = None
+    data_fechamento: Optional[datetime] = None
     criado_por_id: Optional[str] = None
     criado_por_nome: Optional[str] = None
+    # Dados do pedido (copiados da Base_Emergent)
+    nome_cliente: Optional[str] = None
+    cpf_cliente: Optional[str] = None
+    produto: Optional[str] = None
+    transportadora: Optional[str] = None
+    status_pedido: Optional[str] = None
+    canal_vendas: Optional[str] = None
 
 # Pedido ERP Models
 class PedidoERPBase(BaseModel):
