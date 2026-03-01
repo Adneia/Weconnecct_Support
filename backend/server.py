@@ -622,7 +622,29 @@ async def get_texto_padrao(categoria: str, current_user: dict = Depends(get_curr
 @api_router.get("/textos-padroes")
 async def list_textos_padroes(current_user: dict = Depends(get_current_user)):
     """Lista todas as categorias e textos padrões"""
-    return {"categorias": CATEGORIAS_EMERGENT, "textos": TEXTOS_PADROES}
+    # Separar textos por tipo
+    categorias_principais = [k for k in TEXTOS_PADROES.keys() if k in CATEGORIAS_EMERGENT]
+    situacoes = [k for k in TEXTOS_PADROES.keys() if k not in CATEGORIAS_EMERGENT]
+    
+    return {
+        "categorias": CATEGORIAS_EMERGENT, 
+        "textos": TEXTOS_PADROES,
+        "situacoes": situacoes
+    }
+
+@api_router.get("/textos-situacionais")
+async def list_textos_situacionais(current_user: dict = Depends(get_current_user)):
+    """Lista textos para situações específicas (reversa, estorno, etc)"""
+    situacoes = {k: v for k, v in TEXTOS_PADROES.items() if k not in CATEGORIAS_EMERGENT}
+    return {"situacoes": list(situacoes.keys()), "textos": situacoes}
+
+@api_router.get("/textos-situacionais/{situacao}")
+async def get_texto_situacional(situacao: str, current_user: dict = Depends(get_current_user)):
+    """Retorna texto para uma situação específica"""
+    texto = TEXTOS_PADROES.get(situacao)
+    if not texto:
+        raise HTTPException(status_code=404, detail=f"Texto para situação '{situacao}' não encontrado")
+    return {"situacao": situacao, "texto": texto}
 
 @api_router.post("/gerar-reversa/{numero_pedido}")
 async def gerar_codigo_reversa(numero_pedido: str, current_user: dict = Depends(get_current_user)):
