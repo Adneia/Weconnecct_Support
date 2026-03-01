@@ -105,13 +105,13 @@ class TestPedidoSearch:
     
     def test_search_pedido_by_entrega(self, auth_header):
         """Search pedido by numero de Entrega should return pedido data"""
-        # Using the test pedido number provided
-        response = requests.get(f"{BASE_URL}/api/pedidos-erp/117844750", headers=auth_header)
+        # Using the test pedido number from CPF 10856880620
+        response = requests.get(f"{BASE_URL}/api/pedidos-erp/92512612", headers=auth_header)
         assert response.status_code == 200
         data = response.json()
         
         # Verify response contains expected fields
-        assert data["numero_pedido"] == "117844750"
+        assert data["numero_pedido"] == "92512612"
         assert "nome_cliente" in data
         assert "cpf_cliente" in data
         assert "status_pedido" in data
