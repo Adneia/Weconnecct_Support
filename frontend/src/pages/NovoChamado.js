@@ -387,6 +387,167 @@ Atenciosamente,
 [ASSINATURA]`
 };
 
+// Textos de Arrependimento
+const TEXTOS_ARREPENDIMENTO = {
+  "1ª Reversa": `Olá, Boa tarde.
+
+Sentimos muito pelo ocorrido, poderia confirmar com o cliente se após a devolução seguiremos com reenvio ou cancelamento?
+
+Referente a solicitação, segue os dados para realizar o retorno do produto em no máximo 10 dias.
+
+Autorização de Postagem em Agência
+
+Dados da Emissão:
+
+Objeto: [CÓDIGO_REVERSA]
+Emitido em: [DATA_EMISSAO]
+Data de Validade: [DATA_VALIDADE]
+Remetente autorizado: [NOME_CLIENTE]
+
+- Para utilizá-la, o consumidor dever se dirigir a uma Agência Própria ou Franqueada dos Correios, levando consigo, obrigatoriamente, o Código de Autorização e o objeto para postagem.
+
+DESTINATÁRIO:
+WECONNECT COMERCIO E SERVICOS LTDA 
+
+*** Orientações importantes ***: 
+
+* O produto deve ser devolvido na embalagem original e sem avaria (dentro de uma outra caixa de papelão OU papel pardo para manter a integridade do produto); 
+* Sem indícios de uso, sem violação do lacre original do fabricante; 
+* Coloque a nota fiscal dentro de um envelope plástico adesivo e cole-o na parte externa do pacote. Este tipo de envelope deve estar disponível em qualquer agência dos Correios; 
+* Acompanhado também dos acessórios/peças e manual do item. 
+* O estorno somente será autorizado após as avaliações citadas acima. As informações do destinatário serão preenchidas na agência dos Correios de acordo com Código de Postagem. 
+
+Seguimos a disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "2ª Reversa": `Olá, Boa tarde.
+
+Referente a solicitação, segue os dados para realizar a segunda e ultima tentativa de retorno do produto em no máximo 7 dias.
+
+Autorização de Postagem em Agência
+
+Dados da Emissão:
+
+Objeto: [CÓDIGO_REVERSA]
+Emitido em: [DATA_EMISSAO]
+Data de Validade: [DATA_VALIDADE]
+Remetente autorizado: [NOME_CLIENTE]
+
+- Para utilizá-la, o consumidor dever se dirigir a uma Agência Própria ou Franqueada dos Correios, levando consigo, obrigatoriamente, o Código de Autorização e o objeto para postagem.
+
+DESTINATÁRIO:
+WECONNECT COMERCIO E SERVICOS LTDA 
+
+*** Orientações importantes ***: 
+
+* O produto deve ser devolvido na embalagem original e sem avaria (dentro de uma outra caixa de papelão OU papel pardo para manter a integridade do produto); 
+* Sem indícios de uso, sem violação do lacre original do fabricante; 
+* Coloque a nota fiscal dentro de um envelope plástico adesivo e cole-o na parte externa do pacote. Este tipo de envelope deve estar disponível em qualquer agência dos Correios; 
+* Acompanhado também dos acessórios/peças e manual do item. 
+* O estorno somente será autorizado após as avaliações citadas acima. As informações do destinatário serão preenchidas na agência dos Correios de acordo com Código de Postagem. 
+
+Seguimos a disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Em Devolução - Sem Estorno": `Olá, Boa tarde.
+
+O pedido encontra-se em processo de devolução. Assim que recebido em nosso galpão, retornaremos com o atendimento.
+
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Em Devolução - Com Estorno": `Olá, Boa tarde.
+
+Pedido em processo de devolução. Em caráter de exceção, por favor seguir com o estorno ao cliente.
+
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Devolvido - Com Estorno": `Olá, Boa tarde.
+
+O pedido foi recebido em nosso galpão. Favor seguir com o cancelamento e estorno ao cliente.
+
+Estamos à disposição para qualquer dúvida.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Devolvido - Com Reenvio": `Olá, Boa tarde.
+
+Recebemos o pedido em nosso galpão e estamos providenciando o envio de um novo item ao cliente. Assim que possível, enviaremos o link de rastreamento.
+
+Estamos à disposição para qualquer dúvida.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Reversa Expirada": `Olá, Boa tarde.
+
+O código de postagem está expirado e não houve postagem do produto. Podemos seguir com o encerramento do atendimento?
+
+Seguimos à disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Reversa Irá Vencer": `Olá, Boa tarde.
+
+Objeto não postado até o momento. Por favor orientar o cliente em relação ao prazo que expira em [DATA_VALIDADE].
+
+Seguimos a disposição.
+Atenciosamente!
+[ASSINATURA]`,
+
+  "Bloqueio da Entrega": `Olá, Boa tarde.
+
+Acionamos a transportadora com o bloqueio de entrega. Poderia, por favor orientar o cliente que em caso de tentativa de entrega, recusar o recebimento.
+
+Assim que entrar em devolução, entraremos em contato.
+
+Seguimos a disposição.
+Atenciosamente!
+[ASSINATURA]`,
+
+  "Enviado Sem Bloqueio": `Olá, Boa tarde.
+
+Acionamos a transportadora com a solicitação de bloqueio da entrega. No entanto, identificamos que o pedido encontra-se em rota de entrega, o que significa que pode não ser possível impedir a entrega a tempo.
+
+Por gentileza, oriente o cliente a recusar o recebimento, caso a tentativa de entrega ocorra.
+
+Caso a entrega seja concluída, nos acionar novamente para que possamos seguir com a emissão da reversa para devolução do pedido.
+
+Assim que o pedido retornar ao nosso centro de distribuição, entraremos em contato.
+
+Permanecemos à disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Em Separação": `Olá, Boa tarde.
+
+O pedido está em processo de separação pela transportadora, aguardando a confirmação da solicitação de barragem.
+
+Prazo para retorno até 3 dias uteis. Assim que tivermos o retorno, entraremos em contato.
+
+Permanecemos à disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Impossibilidade Coleta": `Olá, Boa tarde.
+
+Informamos que, no momento, não disponibilizamos o serviço de coleta. Sendo assim, é necessário que a cliente se dirija até a agência dos Correios mais próxima para realizar a postagem do item, possibilitando a continuidade da tratativa.
+
+Permanecemos à disposição para quaisquer dúvidas.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Prazo Expirado": `Olá, Boa tarde.
+
+Informamos que o prazo para devolução do produto expirou. Dessa forma, não será possível dar continuidade à tratativa de devolução.
+
+Permanecemos à disposição para quaisquer dúvidas.
+Atenciosamente,
+[ASSINATURA]`
+};
+
 const NovoAtendimento = () => {
   const [loading, setLoading] = useState(false);
   const [searchingPedido, setSearchingPedido] = useState(false);
