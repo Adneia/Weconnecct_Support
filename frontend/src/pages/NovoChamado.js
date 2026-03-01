@@ -1799,6 +1799,107 @@ const NovoAtendimento = () => {
                           </div>
                         </div>
                       </div>
+                    ) : formData.categoria === 'Acompanhamento' ? (
+                      <div className="space-y-3">
+                        {/* Entrega */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Status da Entrega</Label>
+                          <div className="flex flex-wrap gap-2">
+                            <Button 
+                              type="button" 
+                              variant={selectedAcompanhamento === 'Entregue - Possível Contestação' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoAcompanhamento('Entregue - Possível Contestação')}
+                            >
+                              Entregue (Possível Contestação)
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant={selectedAcompanhamento === 'Entregue - Contestação Expirada' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoAcompanhamento('Entregue - Contestação Expirada')}
+                            >
+                              Entregue (Contestação Expirada)
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant={selectedAcompanhamento === 'Sem Comprovante de Entrega' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoAcompanhamento('Sem Comprovante de Entrega')}
+                            >
+                              Sem Comprovante
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Em Processo de Entrega */}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Label className="text-sm font-medium">Em Processo de Entrega</Label>
+                            {pedidoErp?.transportadora && (
+                              <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200">
+                                {pedidoErp.transportadora}
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {['Em Processo - Total Express', 'Em Processo - J&T Express', 'Em Processo - ASAP Log', 'Em Processo - Correios'].map(tipo => {
+                              const isDetected = getRastreioAcompanhamento() === tipo;
+                              return (
+                                <Button 
+                                  key={tipo}
+                                  type="button" 
+                                  variant={selectedAcompanhamento === tipo ? 'default' : (isDetected ? 'secondary' : 'outline')}
+                                  size="sm"
+                                  onClick={() => loadTextoAcompanhamento(tipo)}
+                                  className={isDetected ? 'ring-2 ring-blue-400' : ''}
+                                >
+                                  {tipo.replace('Em Processo - ', '')} {isDetected && '✓'}
+                                </Button>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Outros */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Outros</Label>
+                          <div className="flex flex-wrap gap-2">
+                            <Button 
+                              type="button" 
+                              variant={selectedAcompanhamento === 'Cancelamento por Falta' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoAcompanhamento('Cancelamento por Falta')}
+                            >
+                              Cancelamento por Falta
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant={selectedAcompanhamento === 'Falha de Integração' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoAcompanhamento('Falha de Integração')}
+                            >
+                              Falha de Integração
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant={selectedAcompanhamento === 'Ag. Compras' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoAcompanhamento('Ag. Compras')}
+                            >
+                              Ag. Compras
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant={selectedAcompanhamento === 'Problema na Emissão da NF' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoAcompanhamento('Problema na Emissão da NF')}
+                            >
+                              Problema NF
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
                     ) : (
                       <div className="flex gap-2">
                         <Button 
