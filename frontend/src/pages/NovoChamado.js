@@ -376,12 +376,7 @@ const NovoAtendimento = () => {
       if (response.data.length === 0) {
         setPedidoNotFound(true);
       } else if (response.data.length === 1) {
-        setPedidoErp(response.data[0]);
-        setFormData(prev => ({ 
-          ...prev, 
-          numero_pedido: response.data[0].numero_pedido,
-          parceiro: response.data[0].canal_vendas || ''
-        }));
+        processarPedido(response.data[0]);
       } else {
         setPedidosList(response.data);
         setShowPedidosDialog(true);
@@ -408,12 +403,7 @@ const NovoAtendimento = () => {
       if (response.data.length === 0) {
         setPedidoNotFound(true);
       } else if (response.data.length === 1) {
-        setPedidoErp(response.data[0]);
-        setFormData(prev => ({ 
-          ...prev, 
-          numero_pedido: response.data[0].numero_pedido,
-          parceiro: response.data[0].canal_vendas || ''
-        }));
+        processarPedido(response.data[0]);
       } else {
         setPedidosList(response.data);
         setShowPedidosDialog(true);
