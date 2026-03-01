@@ -1001,7 +1001,7 @@ async def get_pedidos_by_cpf(cpf: str, current_user: dict = Depends(get_current_
     
     # Adicionar info do galpão
     for p in pedidos:
-        galpao_info = get_galpao_from_serie(p.get('serie_nf'))
+        galpao_info = get_galpao_from_serie(p.get('serie_nf'), p.get('chave_nota'))
         p.update(galpao_info)
     
     return pedidos
@@ -1016,7 +1016,7 @@ async def get_pedidos_by_nome(nome: str, current_user: dict = Depends(get_curren
     
     # Adicionar info do galpão
     for p in pedidos:
-        galpao_info = get_galpao_from_serie(p.get('serie_nf'))
+        galpao_info = get_galpao_from_serie(p.get('serie_nf'), p.get('chave_nota'))
         p.update(galpao_info)
     
     return pedidos
@@ -1028,7 +1028,7 @@ async def get_pedido_erp(numero_pedido: str, current_user: dict = Depends(get_cu
         raise HTTPException(status_code=404, detail="Pedido não encontrado")
     
     # Adicionar info do galpão
-    galpao_info = get_galpao_from_serie(pedido.get('serie_nf'))
+    galpao_info = get_galpao_from_serie(pedido.get('serie_nf'), pedido.get('chave_nota'))
     pedido.update(galpao_info)
     
     return pedido
