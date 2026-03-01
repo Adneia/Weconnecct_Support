@@ -1227,7 +1227,7 @@ def get_galpao_from_serie(serie_nf: str, chave_nota: str = None) -> dict:
     else:
         return {"galpao": f"Série {serie_str}", "uf_galpao": "-", "serie_nf": serie_str}
 
-@api_router.get("/pedidos-erp/buscar/cpf/{cpf}", response_model=List[dict])
+@api_router.get("/pedidos-erp/buscar/cpf/{cpf}")
 async def get_pedidos_by_cpf(cpf: str, current_user: dict = Depends(get_current_user)):
     """Buscar pedidos por CPF - retorna todos os pedidos do cliente"""
     # Limpar CPF (remover pontos e traços)
