@@ -416,12 +416,7 @@ const NovoAtendimento = () => {
   };
 
   const selectPedido = (pedido) => {
-    setPedidoErp(pedido);
-    setFormData(prev => ({ 
-      ...prev, 
-      numero_pedido: pedido.numero_pedido,
-      parceiro: pedido.canal_vendas || ''
-    }));
+    processarPedido(pedido);
     setShowPedidosDialog(false);
   };
 
