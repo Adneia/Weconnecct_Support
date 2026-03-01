@@ -962,6 +962,22 @@ async def update_reversa(reversa_id: str, reversa_data: ReversaUpdate, current_u
 
 # ============== PEDIDOS ERP ROUTES ==============
 
+def get_galpao_from_serie(serie_nf: str) -> dict:
+    """Retorna informações do galpão baseado na série da NF"""
+    if not serie_nf:
+        return {"galpao": "Não identificado", "uf_galpao": "-"}
+    
+    serie_str = str(serie_nf).strip()
+    
+    if serie_str == "1":
+        return {"galpao": "Santa Catarina", "uf_galpao": "SC"}
+    elif serie_str == "6":
+        return {"galpao": "São Paulo", "uf_galpao": "SP"}
+    elif serie_str == "2":
+        return {"galpao": "Espírito Santo", "uf_galpao": "ES"}
+    else:
+        return {"galpao": f"Série {serie_str}", "uf_galpao": "-"}
+
 @api_router.get("/pedidos-erp/buscar/cpf/{cpf}", response_model=List[dict])
 async def get_pedidos_by_cpf(cpf: str, current_user: dict = Depends(get_current_user)):
     """Buscar pedidos por CPF - retorna todos os pedidos do cliente"""
@@ -973,6 +989,26 @@ async def get_pedidos_by_cpf(cpf: str, current_user: dict = Depends(get_current_
         {"_id": 0}
     ).sort("data_status", -1).to_list(100)
     
+    # Adicionar info do galpão
+    for p in pedidos:
+        galpao_info = get_galpao_from_serie(p.get('serie_nf'))
+        p.update(galpao_info)
+    
+    return pedidos
+
+@api_router.get("/pedidos-erp/buscar/nome/{nome}", response_model=List[dict])
+async def get_pedidos_by_nome(nome: str, current_user: dict = Depends(get_current_user)):
+    """Buscar pedidos por Nome do cliente - retorna todos os pedidos"""
+    pedidos = await db.pedidos_erp.find(
+        {"nome_cliente": {"$regex": nome, "$options": "i"}}, 
+        {"_id": 0}
+    ).sort("data_status", -1).to_list(100)
+    
+    # Adicionar info do galpão
+    for p in pedidos:
+        galpao_info = get_galpao_from_serie(p.get('serie_nf'))
+        p.update(galpao_info)
+    
     return pedidos
 
 @api_router.get("/pedidos-erp/{numero_pedido}", response_model=dict)
@@ -980,6 +1016,11 @@ async def get_pedido_erp(numero_pedido: str, current_user: dict = Depends(get_cu
     pedido = await db.pedidos_erp.find_one({"numero_pedido": numero_pedido}, {"_id": 0})
     if not pedido:
         raise HTTPException(status_code=404, detail="Pedido não encontrado")
+    
+    # Adicionar info do galpão
+    galpao_info = get_galpao_from_serie(pedido.get('serie_nf'))
+    pedido.update(galpao_info)
+    
     return pedido
 
 @api_router.post("/pedidos-erp/import", response_model=dict)
