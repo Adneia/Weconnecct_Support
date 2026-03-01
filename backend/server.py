@@ -105,6 +105,7 @@ class ChamadoBase(BaseModel):
     motivo_pendencia: Optional[str] = None  # Motivo da pendência
     codigo_reversa: Optional[str] = None  # Código da reversa
     data_vencimento_reversa: Optional[str] = None  # Data de vencimento da reversa
+    retornar_chamado: bool = False  # Sinaliza que precisa retorno/atuação
 
 class ChamadoCreate(ChamadoBase):
     pass
@@ -123,6 +124,7 @@ class ChamadoUpdate(BaseModel):
     motivo_pendencia: Optional[str] = None
     codigo_reversa: Optional[str] = None
     data_vencimento_reversa: Optional[str] = None
+    retornar_chamado: Optional[bool] = None  # Sinaliza que precisa retorno/atuação
 
 class Chamado(ChamadoBase):
     model_config = ConfigDict(extra="ignore")
