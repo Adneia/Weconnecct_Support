@@ -2666,10 +2666,10 @@ const NovoAtendimento = () => {
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Criando...
+                    {isEditMode ? 'Atualizando...' : 'Criando...'}
                   </>
                 ) : (
-                  'Criar Atendimento'
+                  isEditMode ? 'Atualizar Atendimento' : 'Criar Atendimento'
                 )}
               </Button>
             </div>
