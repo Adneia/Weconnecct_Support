@@ -40,7 +40,7 @@ const CATEGORIAS = [
   "Falha Transporte",
   "Produto com Avaria",
   "Arrependimento",
-  "Dúvida",
+  "Acompanhamento",
   "Reclamação",
   "Assistência Técnica"
 ];
