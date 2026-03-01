@@ -83,6 +83,14 @@ function AppRoutes() {
         }
       />
       <Route
+        path="/chamados/editar/:id"
+        element={
+          <ProtectedRoute>
+            <NovoChamado />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/chamados/:id"
         element={
           <ProtectedRoute>
