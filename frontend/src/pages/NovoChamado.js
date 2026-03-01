@@ -242,6 +242,8 @@ const NovoAtendimento = () => {
   const [searchValue, setSearchValue] = useState('');
   const [selectedAvaria, setSelectedAvaria] = useState('');
   const [selectedFalhaProducao, setSelectedFalhaProducao] = useState('');
+  const [motivoPendencia, setMotivoPendencia] = useState('');
+  const [transportadoraDetectada, setTransportadoraDetectada] = useState(null);
   
   const [formData, setFormData] = useState({
     numero_pedido: '',
