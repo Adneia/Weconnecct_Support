@@ -515,8 +515,16 @@ const NovoAtendimento = () => {
 
     setLoading(true);
     try {
+      // Adicionar motivo da pendência nas anotações
+      let anotacoesCompletas = formData.anotacoes || '';
+      if (motivoPendencia) {
+        const prefixo = anotacoesCompletas ? '\n\n' : '';
+        anotacoesCompletas += `${prefixo}Motivo da pendência: ${motivoPendencia}`;
+      }
+      
       const payload = {
         ...formData,
+        anotacoes: anotacoesCompletas,
         reversa_codigo: codigoReversa || null
       };
       
