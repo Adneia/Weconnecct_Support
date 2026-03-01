@@ -61,23 +61,39 @@ class TokenResponse(BaseModel):
     token: str
     user: UserResponse
 
-# Chamado Models
+# Chamado/Atendimento Models (Emergent)
+# Categorias: Falha Produção, Falha de Compras, Falha Transporte, Produto com Avaria, 
+#             Divergência de Produto, Arrependimento, Dúvida, Reclamação, Assistência Técnica
+CATEGORIAS_EMERGENT = [
+    "Falha Produção",
+    "Falha de Compras", 
+    "Falha Transporte",
+    "Produto com Avaria",
+    "Divergência de Produto",
+    "Arrependimento",
+    "Dúvida",
+    "Reclamação",
+    "Assistência Técnica"
+]
+
+STATUS_CLIENTE = [
+    "Entregue", "Estornado", "Reenviado", "Aguardando Devolução", 
+    "Em Devolução", "Cancelado", "Resolvido", "Não Resolvido"
+]
+
+ATENDENTES = ["Letícia Martelo", "Adnéia Campos"]
+
 class ChamadoBase(BaseModel):
-    numero_pedido: str
-    canal_origem: str  # Email, WhatsApp, Conecta-lá, Bravium, Zendesk
-    categoria: str  # Acompanhamento, Falha de Compras, Falha de Produção, Falha de Transporte, Reversa, Outro
-    sintese_problema: str
-    status_atendimento: str = "Aberto"  # Aberto, Fechado
-    status_chamado: str = "Aguardando"  # Ag. Compras, Ag logística, Aguardando, Em devolução, Enviado, Entregue, Estornado, Atendido, Aguardando transportadora, Ag devolução, Aguardando Parceiro
-    responsavel_id: Optional[str] = None
-    responsavel_nome: Optional[str] = None
-    prioridade: str = "Media"  # Baixa, Media, Alta, Urgente
-    precisa_reversa: bool = False
-    reversa_codigo: Optional[str] = None
-    reversa_validade: Optional[str] = None
-    id_externo: Optional[str] = None
-    sugestao_categoria: Optional[str] = None
-    sintese_automatica: Optional[str] = None
+    numero_pedido: str  # Entrega
+    solicitacao: Optional[str] = None  # Número da solicitação do parceiro
+    parceiro: Optional[str] = None  # Canal (CSU, Livelo, LL Loyalty, etc)
+    categoria: str  # Uma das 9 categorias
+    motivo: Optional[str] = None  # Motivo específico
+    anotacoes: Optional[str] = None  # Histórico completo
+    pendente: bool = True  # SIM/NÃO
+    status_cliente: Optional[str] = None  # Status final ao encerrar
+    reversa_codigo: Optional[str] = None  # Código de reversa
+    atendente: str = "Letícia Martelo"  # Responsável
 
 class ChamadoCreate(ChamadoBase):
     pass
