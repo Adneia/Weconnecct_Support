@@ -117,6 +117,9 @@ class ChamadoUpdate(BaseModel):
     status_cliente: Optional[str] = None
     reversa_codigo: Optional[str] = None
     atendente: Optional[str] = None
+    motivo_pendencia: Optional[str] = None
+    codigo_reversa: Optional[str] = None
+    data_vencimento_reversa: Optional[str] = None
 
 class Chamado(ChamadoBase):
     model_config = ConfigDict(extra="ignore")
