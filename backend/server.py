@@ -1238,6 +1238,8 @@ async def get_pedidos_by_cpf(cpf: str, current_user: dict = Depends(get_current_
         {"_id": 0}
     ).sort("data_status", -1).to_list(100)
     
+    logger.info(f"Pedidos raw keys: {list(pedidos[0].keys()) if pedidos else []}")
+    
     # Adicionar info do galpão
     for p in pedidos:
         galpao_info = get_galpao_from_serie(p.get('serie_nf'), p.get('chave_nota'))
