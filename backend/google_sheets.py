@@ -250,7 +250,7 @@ class GoogleSheetsClient:
                 return False
         
         try:
-            worksheet = self.atendimentos_sheet.worksheet("Atendimentos")
+            worksheet = self._get_atendimentos_worksheet()
             
             # Find the row with this ID
             cell = worksheet.find(id_atendimento, in_column=1)
