@@ -409,8 +409,19 @@ async def gerar_codigo_reversa(numero_pedido: str, current_user: dict = Depends(
     codigo = generate_reversa_code(numero_pedido)
     return {"codigo_reversa": codigo, "numero_pedido": numero_pedido}
 
+def sync_to_google_sheets(chamado_dict: dict, pedido_info: dict = None):
+    """Background task to sync atendimento to Google Sheets"""
+    try:
+        sheets_client.add_atendimento(chamado_dict, pedido_info)
+    except Exception as e:
+        logger.error(f"Error syncing to Google Sheets: {e}")
+
 @api_router.post("/chamados", response_model=dict)
-async def create_chamado(chamado_data: ChamadoCreate, current_user: dict = Depends(get_current_user)):
+async def create_chamado(
+    chamado_data: ChamadoCreate, 
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user)
+):
     if not chamado_data.numero_pedido.strip():
         raise HTTPException(status_code=400, detail="Número do pedido é obrigatório")
     
@@ -453,10 +464,14 @@ async def create_chamado(chamado_data: ChamadoCreate, current_user: dict = Depen
     hist_dict['data_hora'] = hist_dict['data_hora'].isoformat()
     await db.historico.insert_one(hist_dict)
     
+    # Sync to Google Sheets in background
+    background_tasks.add_task(sync_to_google_sheets, chamado_dict, pedido)
+    
     return {
         "id": chamado.id, 
         "id_atendimento": id_atendimento,
-        "message": f"Atendimento {id_atendimento} criado com sucesso"
+        "message": f"Atendimento {id_atendimento} criado com sucesso",
+        "google_sheets_sync": "queued"
     }
 
 @api_router.get("/chamados", response_model=List[dict])
