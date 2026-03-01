@@ -115,6 +115,56 @@ Atenciosamente,
 [ASSINATURA]`
 };
 
+// Textos de Falha Produção
+const TEXTOS_FALHA_PRODUCAO = {
+  "Sem Rastreio": `Olá, Boa tarde.
+
+Identificamos uma falha operacional, a qual, está sendo resolvida. O pedido encontra-se em separação para transportadora. Assim que possível, disponibilizaremos o link para rastreio e previsão de entrega.
+
+Seguimos a disposição.
+Atenciosamente!
+[ASSINATURA]`,
+
+  "Com Rastreio - Total Express": `Olá, Boa tarde.
+
+Informamos que o pedido já foi entregue à transportadora. Pedimos, por gentileza, que aguarde o prazo de até 48 horas úteis para que as informações de rastreamento e a previsão de entrega sejam atualizadas no sistema.
+
+Segue rastreio para acompanhamento:
+Rastreio: [CÓDIGO_RASTREIO]
+
+https://totalconecta.totalexpress.com.br/rastreamento
+
+Permanecemos à disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Com Rastreio - J&T Express": `Olá, Boa tarde.
+
+Informamos que o pedido já foi entregue à transportadora. Pedimos, por gentileza, que aguarde o prazo de até 48 horas úteis para que as informações de rastreamento e a previsão de entrega sejam atualizadas no sistema.
+
+Segue rastreio para acompanhamento:
+Chave de acesso: [CHAVE_ACESSO]
+
+https://www.jtexpress.com.br/
+
+Seguimos a disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Com Rastreio - ASAP Log": `Olá, Boa tarde.
+
+Informamos que o pedido já foi entregue à transportadora. Pedimos, por gentileza, que aguarde o prazo de até 48 horas úteis para que as informações de rastreamento e a previsão de entrega sejam atualizadas no sistema.
+
+Segue rastreio para acompanhamento:
+Nota Fiscal: [NOTA_FISCAL]
+
+https://rastreio.asaplog.com.br/
+
+Seguimos a disposição.
+Atenciosamente,
+[ASSINATURA]`
+};
+
 const NovoAtendimento = () => {
   const [loading, setLoading] = useState(false);
   const [searchingPedido, setSearchingPedido] = useState(false);
