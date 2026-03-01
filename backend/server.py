@@ -1090,6 +1090,7 @@ async def list_chamados(
     atendente: Optional[str] = None,
     parceiro: Optional[str] = None,
     search: Optional[str] = None,
+    search_type: Optional[str] = None,  # 'todos', 'solicitacao', 'entrega', 'cpf', 'nome'
     current_user: dict = Depends(get_current_user)
 ):
     query = {}
@@ -1102,13 +1103,24 @@ async def list_chamados(
     if parceiro:
         query['parceiro'] = parceiro
     if search:
-        # Buscar por número do pedido, CPF ou nome
-        query['$or'] = [
-            {"numero_pedido": {"$regex": search, "$options": "i"}},
-            {"cpf_cliente": {"$regex": search, "$options": "i"}},
-            {"nome_cliente": {"$regex": search, "$options": "i"}},
-            {"id_atendimento": {"$regex": search, "$options": "i"}}
-        ]
+        search_regex = {"$regex": search, "$options": "i"}
+        if search_type == 'solicitacao':
+            query['solicitacao'] = search_regex
+        elif search_type == 'entrega':
+            query['numero_pedido'] = search_regex
+        elif search_type == 'cpf':
+            query['cpf_cliente'] = search_regex
+        elif search_type == 'nome':
+            query['nome_cliente'] = search_regex
+        else:
+            # Buscar em todos os campos
+            query['$or'] = [
+                {"numero_pedido": search_regex},
+                {"cpf_cliente": search_regex},
+                {"nome_cliente": search_regex},
+                {"solicitacao": search_regex},
+                {"id_atendimento": search_regex}
+            ]
     
     chamados = await db.chamados.find(query, {"_id": 0}).sort("data_abertura", -1).to_list(1000)
     
