@@ -303,7 +303,7 @@ const NovoAtendimento = () => {
               <Search className="h-5 w-5" />
               1. Buscar Pedido
             </CardTitle>
-            <CardDescription>Busque por número de Entrega ou CPF do cliente</CardDescription>
+            <CardDescription>Busque por número de Entrega, CPF ou Nome do cliente</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex gap-2">
@@ -314,6 +314,7 @@ const NovoAtendimento = () => {
                 <SelectContent>
                   <SelectItem value="entrega">Entrega</SelectItem>
                   <SelectItem value="cpf">CPF</SelectItem>
+                  <SelectItem value="nome">Nome</SelectItem>
                 </SelectContent>
               </Select>
               
@@ -321,7 +322,11 @@ const NovoAtendimento = () => {
                 <Input
                   value={searchValue}
                   onChange={(e) => setSearchValue(e.target.value)}
-                  placeholder={searchType === 'entrega' ? 'Digite o número da Entrega' : 'Digite o CPF do cliente'}
+                  placeholder={
+                    searchType === 'entrega' ? 'Digite o número da Entrega' : 
+                    searchType === 'cpf' ? 'Digite o CPF do cliente' : 
+                    'Digite o nome do cliente'
+                  }
                   className="text-lg h-12 pr-12"
                   data-testid="input-search"
                 />
@@ -350,9 +355,17 @@ const NovoAtendimento = () => {
                   <Package className="h-5 w-5 text-emerald-600" />
                   Pedido #{pedidoErp.numero_pedido}
                 </CardTitle>
-                <Badge className={getStatusBadgeColor(pedidoErp.status_pedido)}>
-                  {pedidoErp.status_pedido || 'Sem status'}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  {pedidoErp.galpao && (
+                    <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/50 dark:text-purple-400 dark:border-purple-800">
+                      <Warehouse className="h-3 w-3 mr-1" />
+                      Galpão: {pedidoErp.uf_galpao || pedidoErp.galpao}
+                    </Badge>
+                  )}
+                  <Badge className={getStatusBadgeColor(pedidoErp.status_pedido)}>
+                    {pedidoErp.status_pedido || 'Sem status'}
+                  </Badge>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
