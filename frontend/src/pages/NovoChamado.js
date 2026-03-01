@@ -306,11 +306,35 @@ const NovoAtendimento = () => {
         `${API_URL}/api/textos-padroes/${encodeURIComponent(categoria)}`,
         { headers: getAuthHeader() }
       );
-      setTextoPadrao(response.data.texto);
+      // Substituir [ASSINATURA] pelo nome do atendente selecionado
+      let texto = response.data.texto;
+      if (formData.atendente) {
+        texto = texto.replace(/\[ASSINATURA\]/g, formData.atendente);
+      }
+      // Substituir [NOME_CLIENTE] pelo nome do cliente
+      if (pedidoErp?.nome_cliente) {
+        texto = texto.replace(/\[NOME_CLIENTE\]/g, pedidoErp.nome_cliente);
+        texto = texto.replace(/\[NOME\]/g, pedidoErp.nome_cliente);
+      }
+      setTextoPadrao(texto);
       setShowTextoDialog(true);
     } catch (error) {
       toast.error('Erro ao carregar texto padrão');
     }
+  };
+
+  const loadTextoAvaria = (tipoAvaria) => {
+    let texto = TEXTOS_AVARIA[tipoAvaria] || '';
+    // Substituir placeholders
+    if (formData.atendente) {
+      texto = texto.replace(/\[ASSINATURA\]/g, formData.atendente);
+    }
+    if (pedidoErp?.nome_cliente) {
+      texto = texto.replace(/\[NOME_CLIENTE\]/g, pedidoErp.nome_cliente);
+    }
+    setTextoPadrao(texto);
+    setSelectedAvaria(tipoAvaria);
+    setShowTextoDialog(true);
   };
 
   const gerarCodigoReversa = async () => {
