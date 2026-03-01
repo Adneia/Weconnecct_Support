@@ -41,7 +41,7 @@ const CATEGORIAS = [
   "Produto com Avaria",
   "Arrependimento",
   "Acompanhamento",
-  "Reclamação",
+  "Reclame Aqui",
   "Assistência Técnica"
 ];
 
