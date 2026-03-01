@@ -663,29 +663,66 @@ const NovoAtendimento = () => {
 
                 {/* Ações rápidas */}
                 {formData.categoria && (
-                  <div className="flex gap-2 pt-2">
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => loadTextoPadrao(formData.categoria)}
-                      data-testid="btn-texto-padrao"
-                    >
-                      <MessageSquare className="h-4 w-4 mr-2" />
-                      Ver Texto Padrão
-                    </Button>
-                    
-                    {formData.categoria === 'Arrependimento' && (
-                      <Button 
-                        type="button" 
-                        variant="outline" 
-                        size="sm"
-                        onClick={gerarCodigoReversa}
-                        data-testid="btn-gerar-reversa"
-                      >
-                        <RotateCcw className="h-4 w-4 mr-2" />
-                        Gerar Código Reversa
-                      </Button>
+                  <div className="space-y-3 pt-2">
+                    {formData.categoria === 'Produto com Avaria' ? (
+                      <div className="space-y-2">
+                        <Label>Tipo de Avaria</Label>
+                        <div className="flex flex-wrap gap-2">
+                          <Button 
+                            type="button" 
+                            variant={selectedAvaria === 'Avaria - Necessário Evidência' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => loadTextoAvaria('Avaria - Necessário Evidência')}
+                            data-testid="btn-avaria-evidencia"
+                          >
+                            Necessário Evidência
+                          </Button>
+                          <Button 
+                            type="button" 
+                            variant={selectedAvaria === 'Avaria - Transporte até R$250' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => loadTextoAvaria('Avaria - Transporte até R$250')}
+                            data-testid="btn-avaria-250"
+                          >
+                            Transporte até R$250
+                          </Button>
+                          <Button 
+                            type="button" 
+                            variant={selectedAvaria === 'Avaria - Reversa' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => loadTextoAvaria('Avaria - Reversa')}
+                            data-testid="btn-avaria-reversa"
+                          >
+                            Reversa
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => loadTextoPadrao(formData.categoria)}
+                          data-testid="btn-texto-padrao"
+                        >
+                          <MessageSquare className="h-4 w-4 mr-2" />
+                          Ver Texto Padrão
+                        </Button>
+                        
+                        {formData.categoria === 'Arrependimento' && (
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="sm"
+                            onClick={gerarCodigoReversa}
+                            data-testid="btn-gerar-reversa"
+                          >
+                            <RotateCcw className="h-4 w-4 mr-2" />
+                            Gerar Código Reversa
+                          </Button>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
