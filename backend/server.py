@@ -962,21 +962,31 @@ async def update_reversa(reversa_id: str, reversa_data: ReversaUpdate, current_u
 
 # ============== PEDIDOS ERP ROUTES ==============
 
-def get_galpao_from_serie(serie_nf: str) -> dict:
+def get_galpao_from_serie(serie_nf: str, chave_nota: str = None) -> dict:
     """Retorna informações do galpão baseado na série da NF"""
+    # Se série não foi passada, tentar extrair da chave de acesso
+    if not serie_nf and chave_nota and len(chave_nota) >= 25:
+        # Na chave NFe, a série está na posição 22-25 (índices 22:25)
+        # Formato: UUAAMM CNPJ MOD SER NUM CODIGO CIG
+        # Posições: 0-1 UF, 2-5 AAMM, 6-19 CNPJ, 20-21 MOD, 22-24 SÉRIE
+        try:
+            serie_nf = str(int(chave_nota[22:25]))  # Remove zeros à esquerda
+        except (ValueError, IndexError):
+            pass
+    
     if not serie_nf:
         return {"galpao": "Não identificado", "uf_galpao": "-"}
     
     serie_str = str(serie_nf).strip()
     
     if serie_str == "1":
-        return {"galpao": "Santa Catarina", "uf_galpao": "SC"}
+        return {"galpao": "Santa Catarina", "uf_galpao": "SC", "serie_nf": "1"}
     elif serie_str == "6":
-        return {"galpao": "São Paulo", "uf_galpao": "SP"}
+        return {"galpao": "São Paulo", "uf_galpao": "SP", "serie_nf": "6"}
     elif serie_str == "2":
-        return {"galpao": "Espírito Santo", "uf_galpao": "ES"}
+        return {"galpao": "Espírito Santo", "uf_galpao": "ES", "serie_nf": "2"}
     else:
-        return {"galpao": f"Série {serie_str}", "uf_galpao": "-"}
+        return {"galpao": f"Série {serie_str}", "uf_galpao": "-", "serie_nf": serie_str}
 
 @api_router.get("/pedidos-erp/buscar/cpf/{cpf}", response_model=List[dict])
 async def get_pedidos_by_cpf(cpf: str, current_user: dict = Depends(get_current_user)):
