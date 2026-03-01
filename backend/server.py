@@ -1054,6 +1054,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Initialize Google Sheets on startup
+@app.on_event("startup")
+async def startup_event():
+    """Initialize Google Sheets client on startup"""
+    try:
+        success = sheets_client.initialize()
+        if success:
+            logger.info("Google Sheets client initialized successfully")
+        else:
+            logger.warning("Google Sheets client initialization failed - features will be limited")
+    except Exception as e:
+        logger.error(f"Error initializing Google Sheets client: {e}")
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
