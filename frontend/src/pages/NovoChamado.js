@@ -546,8 +546,9 @@ const NovoAtendimento = () => {
                   <div className="pl-6 space-y-1 text-sm">
                     <p className="font-medium">{pedidoErp.produto || '-'}</p>
                     {pedidoErp.departamento && <p className="text-muted-foreground">Marca: {pedidoErp.departamento}</p>}
+                    {pedidoErp.codigo_item_bseller && <p className="text-muted-foreground">ID: {pedidoErp.codigo_item_bseller}</p>}
+                    {pedidoErp.codigo_item_vtex && <p className="text-muted-foreground">SKU: {pedidoErp.codigo_item_vtex}</p>}
                     {pedidoErp.codigo_fornecedor && <p className="text-muted-foreground">Cód. Fornecedor: {pedidoErp.codigo_fornecedor}</p>}
-                    {pedidoErp.codigo_item_bseller && <p className="text-muted-foreground">SKU SIGE: {pedidoErp.codigo_item_bseller}</p>}
                     {pedidoErp.quantidade && <p className="text-muted-foreground">Qtde: {pedidoErp.quantidade}</p>}
                     {pedidoErp.preco_final && (
                       <p className="text-muted-foreground">
