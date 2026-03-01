@@ -39,7 +39,6 @@ const CATEGORIAS = [
   "Falha de Compras", 
   "Falha Transporte",
   "Produto com Avaria",
-  "Divergência de Produto",
   "Arrependimento",
   "Dúvida",
   "Reclamação",
