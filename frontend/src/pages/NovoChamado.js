@@ -1566,6 +1566,37 @@ const NovoAtendimento = () => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleEncerrar = async () => {
+    if (!isEditMode || !atendimentoId) return;
+    
+    const hoje = new Date().toLocaleDateString('pt-BR');
+    const novaAnotacao = `[${hoje}] *** ATENDIMENTO ENCERRADO ***`;
+    const anotacoesAtuais = formData.anotacoes;
+    const novasAnotacoes = anotacoesAtuais 
+      ? `${novaAnotacao}\n\n${anotacoesAtuais}`
+      : novaAnotacao;
+    
+    setLoading(true);
+    try {
+      await axios.put(
+        `${API_URL}/api/chamados/${atendimentoId}`,
+        { 
+          pendente: false,
+          retornar_chamado: false,
+          anotacoes: novasAnotacoes
+        },
+        { headers: getAuthHeader() }
+      );
+      
+      toast.success('Atendimento encerrado com sucesso!');
+      navigate('/chamados');
+    } catch (error) {
+      toast.error('Erro ao encerrar atendimento');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getStatusBadgeColor = (status) => {
     if (!status) return 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400';
     const statusLower = status.toLowerCase();
