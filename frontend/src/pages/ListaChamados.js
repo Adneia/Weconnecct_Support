@@ -39,6 +39,7 @@ const ListaAtendimentos = () => {
   const [atendimentos, setAtendimentos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [globalFilter, setGlobalFilter] = useState('');
+  const [searchType, setSearchType] = useState('todos'); // 'todos', 'solicitacao', 'entrega', 'cpf', 'nome'
   const [filters, setFilters] = useState({
     pendente: '',
     categoria: '',
@@ -59,7 +60,10 @@ const ListaAtendimentos = () => {
       if (filters.pendente !== '') params.append('pendente', filters.pendente);
       if (filters.categoria) params.append('categoria', filters.categoria);
       if (filters.atendente) params.append('atendente', filters.atendente);
-      if (globalFilter) params.append('search', globalFilter);
+      if (globalFilter) {
+        params.append('search', globalFilter);
+        params.append('search_type', searchType);
+      }
 
       const response = await axios.get(
         `${API_URL}/api/chamados?${params.toString()}`,
