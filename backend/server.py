@@ -1238,7 +1238,9 @@ async def get_pedidos_by_cpf(cpf: str, current_user: dict = Depends(get_current_
         {"_id": 0}
     ).sort("data_status", -1).to_list(100)
     
-    logger.info(f"Pedidos raw keys: {list(pedidos[0].keys()) if pedidos else []}")
+    if pedidos:
+        logger.info(f"codigo_fornecedor in first doc: {'codigo_fornecedor' in pedidos[0]}")
+        logger.info(f"codigo_fornecedor value: {pedidos[0].get('codigo_fornecedor')}")
     
     # Adicionar info do galpão
     for p in pedidos:
