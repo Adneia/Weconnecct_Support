@@ -48,6 +48,68 @@ const CATEGORIAS = [
 
 const ATENDENTES = ["Letícia Martelo", "Adnéia Campos"];
 
+// Motivos de pendência
+const MOTIVOS_PENDENCIA = [
+  "Ag. Compras",
+  "Ag. Logística", 
+  "Enviado",
+  "Ag. Bseller",
+  "Ag. Barrar",
+  "Aguardando",
+  "Em devolução"
+];
+
+// Função para detectar categoria e motivo baseado no status do pedido
+const getCategoriaPorStatus = (statusPedido) => {
+  if (!statusPedido) return { categoria: '', motivo: '' };
+  
+  const status = statusPedido.toLowerCase();
+  
+  // Aguardando estoque
+  if (status.includes('aguardando estoque') || status.includes('ag. estoque')) {
+    return { categoria: 'Falha de Compras', motivo: 'Ag. Compras' };
+  }
+  
+  // NF emitida, NF Aprovada, Entregue à transportadora
+  if (status.includes('nf emitida') || status.includes('nf aprovada') || 
+      status.includes('entregue à transportadora') || status.includes('entregue a transportadora')) {
+    return { categoria: 'Falha Produção', motivo: 'Ag. Logística' };
+  }
+  
+  // Pedido Entregue - deixar em aberto
+  if (status.includes('entregue') && !status.includes('transportadora')) {
+    return { categoria: '', motivo: '' }; // Deixar aberto para seleção
+  }
+  
+  // Em trânsito, saiu para entrega, etc (depois de entregue à transportadora)
+  if (status.includes('trânsito') || status.includes('transito') || 
+      status.includes('saiu para entrega') || status.includes('em rota') ||
+      status.includes('tentativa') || status.includes('aguardando retirada')) {
+    return { categoria: 'Falha Transporte', motivo: 'Enviado' };
+  }
+  
+  return { categoria: '', motivo: '' };
+};
+
+// Função para detectar transportadora e retornar tipo de rastreio
+const getTransportadoraRastreio = (transportadora) => {
+  if (!transportadora) return null;
+  
+  const transp = transportadora.toLowerCase();
+  
+  if (transp.includes('total') || transp.includes('tex')) {
+    return 'Com Rastreio - Total Express';
+  }
+  if (transp.includes('j&t') || transp.includes('jt') || transp.includes('j t')) {
+    return 'Com Rastreio - J&T Express';
+  }
+  if (transp.includes('asap') || transp.includes('logistica e solucoes') || transp.includes('logística e soluções')) {
+    return 'Com Rastreio - ASAP Log';
+  }
+  
+  return null;
+};
+
 // Textos de Avaria organizados
 const TEXTOS_AVARIA = {
   "Avaria - Necessário Evidência": `Olá, Boa tarde.
