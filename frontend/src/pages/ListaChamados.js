@@ -145,8 +145,8 @@ const ListaAtendimentos = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setFilters(f => ({ ...f, pendente: 'true' }))}>
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <Card className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setFilters(f => ({ ...f, pendente: 'true', retornar_chamado: '' }))}>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-2 rounded-md bg-amber-100 dark:bg-amber-900/30">
               <Clock className="h-5 w-5 text-amber-600" />
@@ -158,7 +158,19 @@ const ListaAtendimentos = () => {
           </CardContent>
         </Card>
         
-        <Card className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setFilters(f => ({ ...f, pendente: 'false' }))}>
+        <Card className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setFilters(f => ({ ...f, retornar_chamado: 'true', pendente: '' }))}>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="p-2 rounded-md bg-rose-100 dark:bg-rose-900/30">
+              <AlertCircle className="h-5 w-5 text-rose-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{totalRetornar}</p>
+              <p className="text-sm text-muted-foreground">Retornar</p>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setFilters(f => ({ ...f, pendente: 'false', retornar_chamado: '' }))}>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-2 rounded-md bg-emerald-100 dark:bg-emerald-900/30">
               <CheckCircle className="h-5 w-5 text-emerald-600" />
@@ -170,10 +182,10 @@ const ListaAtendimentos = () => {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setFilters({ pendente: '', categoria: '', atendente: '', retornar_chamado: '' })}>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-2 rounded-md bg-blue-100 dark:bg-blue-900/30">
-              <AlertCircle className="h-5 w-5 text-blue-600" />
+              <FileText className="h-5 w-5 text-blue-600" />
             </div>
             <div>
               <p className="text-2xl font-bold">{atendimentos.length}</p>
