@@ -328,7 +328,7 @@ def generate_reversa_code(numero_pedido: str):
     suffix = str(random.randint(100, 999))
     return f"REV-{numero_pedido[-8:]}-{suffix}"
 
-# Textos padrões por categoria
+# Textos padrões por categoria e situação
 TEXTOS_PADROES = {
     "Falha Produção": """Prezado(a) cliente,
 
@@ -337,7 +337,7 @@ Identificamos que houve uma falha de produção em seu pedido. Pedimos desculpas
 Estamos providenciando a resolução conforme procedimento padrão.
 
 Atenciosamente,
-Equipe WeConnect""",
+[ASSINATURA]""",
     
     "Falha de Compras": """Prezado(a) cliente,
 
@@ -346,7 +346,7 @@ Identificamos uma inconsistência no processo de compras do seu pedido.
 Estamos verificando junto ao setor responsável e retornaremos em breve.
 
 Atenciosamente,
-Equipe WeConnect""",
+[ASSINATURA]""",
     
     "Falha Transporte": """Prezado(a) cliente,
 
@@ -355,16 +355,17 @@ Identificamos um problema na entrega do seu pedido. Pedimos desculpas pelo incon
 Estamos em contato com a transportadora para resolver a situação.
 
 Atenciosamente,
-Equipe WeConnect""",
+[ASSINATURA]""",
     
-    "Produto com Avaria": """Prezado(a) cliente,
+    "Produto com Avaria": """Olá,
 
-Lamentamos que seu produto tenha chegado com avaria. 
+Por favor seguir com o estorno ao cliente e encerramento do chamado.
 
-Para darmos continuidade ao processo, solicitamos que envie fotos do produto danificado e da embalagem.
+Por favor orientar o cliente a descartar o item avariado.
 
+Seguimos à disposição.
 Atenciosamente,
-Equipe WeConnect""",
+[ASSINATURA]""",
     
     "Divergência de Produto": """Prezado(a) cliente,
 
@@ -373,7 +374,7 @@ Identificamos uma divergência entre o produto solicitado e o recebido.
 Para verificação, solicitamos fotos do produto recebido e da etiqueta com código de barras.
 
 Atenciosamente,
-Equipe WeConnect""",
+[ASSINATURA]""",
     
     "Arrependimento": """Prezado(a) cliente,
 
@@ -385,16 +386,229 @@ Segue abaixo o código de postagem para devolução:
 [CÓDIGO_REVERSA]
 
 Atenciosamente,
-Equipe WeConnect""",
+[ASSINATURA]""",
     
-    "Assistência Técnica": """Prezado(a) cliente,
+    "Dúvida": """Prezado(a) cliente,
 
-Para acionamento da assistência técnica, por favor entre em contato diretamente com o fabricante através dos canais:
+Agradecemos seu contato.
 
-[DADOS_FABRICANTE]
+Estamos verificando sua dúvida e retornaremos em breve com mais informações.
 
 Atenciosamente,
-Equipe WeConnect"""
+[ASSINATURA]""",
+    
+    "Reclamação": """Prezado(a) Sr(a) [NOME]
+
+Primeiramente, lamentamos muito pelo ocorrido.
+
+Informamos que o atendimento para compras realizadas em nossa loja é conduzido diretamente pelos nossos parceiros. Neste caso, o procedimento correto é acionar o canal de venda, por meio do qual a compra foi efetuada, para apoio na tratativa da ocorrência.
+
+No entanto, para agilizar a resolução do caso, entraremos em contato contigo diretamente via WhatsApp, oferecendo o suporte necessário, além de acionarmos o parceiro responsável para dar continuidade às tratativas.
+
+Continuamos à disposição para qualquer dúvida ou necessidade.
+Atenciosamente,
+Equipe de Atendimento Weconnect""",
+    
+    "Assistência Técnica": """Olá,
+
+Lamentamos muito pelo ocorrido e para agilizar o atendimento, pedimos que o cliente acione direto o fornecedor para dar andamento ao processo de troca.
+
+Serviço de Atendimento ao Cliente (SAC):
+[DADOS_FABRICANTE]
+
+Seguimos à disposição para qualquer apoio necessário.
+Atenciosamente,
+[ASSINATURA]""",
+
+    # Textos específicos para situações
+    "Reversa - Primeira Tentativa": """Olá,
+
+Sentimos muito pelo ocorrido, poderia confirmar com o cliente se após a devolução seguiremos com reenvio ou cancelamento?
+
+Referente à solicitação, segue os dados para realizar o retorno do produto em no máximo 10 dias.
+
+Autorização de Postagem em Agência
+
+Dados da Emissão:
+Objeto: [CÓDIGO_REVERSA]
+Emitido em: [DATA_EMISSAO]
+Data de Validade: [DATA_VALIDADE]
+Remetente autorizado: [NOME_CLIENTE]
+
+- Para utilizá-la, o consumidor deve se dirigir a uma Agência Própria ou Franqueada dos Correios, levando consigo, obrigatoriamente, o Código de Autorização e o objeto para postagem.
+
+DESTINATÁRIO:
+WECONNECT COMERCIO E SERVICOS LTDA
+
+*** Orientações importantes ***:
+* O produto deve ser devolvido na embalagem original e sem avaria (dentro de uma outra caixa de papelão OU papel pardo para manter a integridade do produto);
+* Sem indícios de uso, sem violação do lacre original do fabricante;
+* Coloque a nota fiscal dentro de um envelope plástico adesivo e cole-o na parte externa do pacote. Este tipo de envelope deve estar disponível em qualquer agência dos Correios;
+* Acompanhado também do comprovante de endereço do cliente, que deve estar legível;
+* Informe que o produto tem 7 dias para dar entrada em nosso estoque para que possamos prosseguir com a tratativa.
+
+Seguimos à disposição.
+Atenciosamente,
+[ASSINATURA]""",
+
+    "Reversa - Segunda Tentativa": """Olá,
+
+Referente à solicitação, segue os dados para realizar a segunda e última tentativa de retorno do produto em no máximo 7 dias.
+
+Autorização de Postagem em Agência
+
+Dados da Emissão:
+Objeto: [CÓDIGO_REVERSA]
+Emitido em: [DATA_EMISSAO]
+Data de Validade: [DATA_VALIDADE]
+Remetente autorizado: [NOME_CLIENTE]
+
+- Para utilizá-la, o consumidor deve se dirigir a uma Agência Própria ou Franqueada dos Correios, levando consigo, obrigatoriamente, o Código de Autorização e o objeto para postagem.
+
+DESTINATÁRIO:
+WECONNECT COMERCIO E SERVICOS LTDA
+
+*** Orientações importantes ***:
+* O produto deve ser devolvido na embalagem original e sem avaria (dentro de uma outra caixa de papelão OU papel pardo para manter a integridade do produto);
+* Sem indícios de uso, sem violação do lacre original do fabricante;
+* Coloque a nota fiscal dentro de um envelope plástico adesivo e cole-o na parte externa do pacote. Este tipo de envelope deve estar disponível em qualquer agência dos Correios;
+* Acompanhado também do comprovante de endereço do cliente, que deve estar legível;
+* Informe que o produto tem 7 dias para dar entrada em nosso estoque para que possamos prosseguir com a tratativa.
+
+⚠️ ATENÇÃO: Esta é a SEGUNDA e ÚLTIMA tentativa!
+
+Seguimos à disposição.
+Atenciosamente,
+[ASSINATURA]""",
+
+    "Em Devolução": """Olá,
+
+O pedido encontra-se em processo de devolução. Assim que recebido em nosso galpão, retornaremos com o atendimento.
+
+Atenciosamente,
+[ASSINATURA]""",
+
+    "Em Devolução - Com Rastreio": """Olá,
+
+O pedido segue em processo de devolução, conforme link de rastreamento abaixo:
+
+Rastreio: [CÓDIGO_RASTREIO]
+https://rastreamento.correios.com.br/app/index.php
+
+Assim que o item der entrada em nosso galpão, daremos sequência à tratativa.
+
+Permanecemos à disposição.
+Atenciosamente,
+[ASSINATURA]""",
+
+    "Insucesso na Entrega": """Bom dia!
+
+Infelizmente, a transportadora direcionou o pedido para devolução, em razão de insucesso na entrega. No momento, o pedido encontra-se em retorno para o nosso galpão.
+
+Lamentamos muito o ocorrido e os transtornos causados. Gostaríamos de saber se podemos prosseguir com um novo envio do produto assim que ele for recebido em nosso galpão.
+
+Seguimos à disposição.
+Atenciosamente,
+Atendimento Weconnect""",
+
+    "Estorno": """Olá,
+
+Pedido cancelado, por favor seguir com o estorno ao cliente e encerramento do chamado.
+
+Seguimos à disposição.
+Atenciosamente,
+[ASSINATURA]""",
+
+    "Estorno com Descarte": """Olá,
+
+Por favor seguir com o estorno ao cliente e encerramento do chamado.
+
+Por favor orientar o cliente a descartar o item avariado.
+
+Seguimos à disposição.
+Atenciosamente,
+[ASSINATURA]""",
+
+    "Extravio - Reenvio": """Olá,
+
+O pedido foi extraviado pela transportadora. Iniciamos a preparação para envio de um novo item ao cliente. Assim que possível, disponibilizaremos o link para rastreio.
+
+Seguimos à disposição.
+Atenciosamente,
+[ASSINATURA]""",
+
+    "Extravio - Cancelamento": """Olá, Bom dia.
+
+Informamos que o item [PRODUTO] foi extraviado pela transportadora. Pedimos a gentileza de seguir com o cancelamento e estorno devido à indisponibilidade de reposição.
+
+Pedimos sinceras desculpas pelo ocorrido.
+
+Atenciosamente,
+[ASSINATURA]""",
+
+    "Processo de Entrega - Total Express": """Olá,
+
+Pedido em processo de entrega, podendo ser entregue a qualquer momento.
+
+Segue rastreio para acompanhamento:
+Rastreio: [CÓDIGO_RASTREIO]
+Previsão de entrega até dia [DATA_PREVISAO]
+https://totalconecta.totalexpress.com.br/rastreamento
+
+Seguimos à disposição.
+Atenciosamente,
+[ASSINATURA]""",
+
+    "Processo de Entrega - J&T Express": """Olá,
+
+Pedido em processo de entrega, podendo ser entregue a qualquer momento.
+
+Segue rastreio para acompanhamento:
+Chave de acesso: [CHAVE_ACESSO]
+Previsão de entrega até dia [DATA_PREVISAO]
+https://www.jtexpress.com.br/
+
+Seguimos à disposição.
+Atenciosamente,
+[ASSINATURA]""",
+
+    "Processo de Entrega - ASAP": """Olá,
+
+Pedido em processo de entrega, podendo ser entregue a qualquer momento.
+
+Acionada transportadora para seguir com a entrega com prioridade.
+
+Segue rastreio para acompanhamento:
+Nota Fiscal: [NOTA_FISCAL]
+Previsão de entrega até dia [DATA_PREVISAO]
+https://rastreio.asaplog.com.br/
+
+Seguimos à disposição.
+Atenciosamente,
+[ASSINATURA]""",
+
+    "Assistência Técnica - VENTISOL": """Olá,
+
+Lamentamos muito pelo ocorrido e para agilizar o atendimento, pedimos que o cliente acione direto o fornecedor para dar andamento ao processo de troca.
+
+Serviço de Atendimento ao Cliente (SAC) – VENTISOL
+https://assistencia.ventisol.com.br/
+
+Seguimos à disposição para qualquer apoio necessário.
+Atenciosamente,
+[ASSINATURA]""",
+
+    "Assistência Técnica - OEX": """Olá,
+
+Lamentamos muito pelo ocorrido e para agilizar o atendimento, pedimos que o cliente acione direto o fornecedor para dar andamento ao processo de troca.
+
+Serviço de Atendimento ao Cliente (SAC) – OEX
+reversa@newex.com.br
+📞 0800 887 0505 OU 11 973928421
+
+Seguimos à disposição para qualquer apoio necessário.
+Atenciosamente,
+[ASSINATURA]"""
 }
 
 @api_router.get("/textos-padroes/{categoria}")
