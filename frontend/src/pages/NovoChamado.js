@@ -797,6 +797,25 @@ const NovoAtendimento = () => {
                       data-testid="input-motivo"
                     />
                   </div>
+
+                  <div className="sm:col-span-2 lg:col-span-3">
+                    <Label>Motivo da Pendência</Label>
+                    <Select value={motivoPendencia} onValueChange={setMotivoPendencia}>
+                      <SelectTrigger data-testid="select-motivo-pendencia">
+                        <SelectValue placeholder="Selecione o motivo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {MOTIVOS_PENDENCIA.map(m => (
+                          <SelectItem key={m} value={m}>{m}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {pedidoErp?.status_pedido && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Status atual: {pedidoErp.status_pedido}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 {/* Ações rápidas */}
