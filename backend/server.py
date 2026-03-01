@@ -294,21 +294,149 @@ async def list_users(current_user: dict = Depends(get_current_user)):
     users = await db.users.find({}, {"_id": 0, "password_hash": 0}).to_list(100)
     return [UserResponse(id=u['id'], email=u['email'], name=u['name'], created_at=u['created_at']) for u in users]
 
-# ============== CHAMADOS ROUTES ==============
+# ============== CHAMADOS/ATENDIMENTOS ROUTES ==============
+
+async def generate_atendimento_id():
+    """Gera ID sequencial no formato ATD-2026-XXX"""
+    year = datetime.now(timezone.utc).year
+    # Buscar o último ID do ano
+    last = await db.chamados.find_one(
+        {"id_atendimento": {"$regex": f"^ATD-{year}-"}},
+        sort=[("id_atendimento", -1)]
+    )
+    if last and last.get('id_atendimento'):
+        try:
+            last_num = int(last['id_atendimento'].split('-')[-1])
+            next_num = last_num + 1
+        except:
+            next_num = 1
+    else:
+        next_num = 1
+    return f"ATD-{year}-{str(next_num).zfill(3)}"
+
+def generate_reversa_code(numero_pedido: str):
+    """Gera código de reversa no formato REV-XXXXXXXX-XXX"""
+    import random
+    suffix = str(random.randint(100, 999))
+    return f"REV-{numero_pedido[-8:]}-{suffix}"
+
+# Textos padrões por categoria
+TEXTOS_PADROES = {
+    "Falha Produção": """Prezado(a) cliente,
+
+Identificamos que houve uma falha de produção em seu pedido. Pedimos desculpas pelo transtorno.
+
+Estamos providenciando a resolução conforme procedimento padrão.
+
+Atenciosamente,
+Equipe WeConnect""",
+    
+    "Falha de Compras": """Prezado(a) cliente,
+
+Identificamos uma inconsistência no processo de compras do seu pedido. 
+
+Estamos verificando junto ao setor responsável e retornaremos em breve.
+
+Atenciosamente,
+Equipe WeConnect""",
+    
+    "Falha Transporte": """Prezado(a) cliente,
+
+Identificamos um problema na entrega do seu pedido. Pedimos desculpas pelo inconveniente.
+
+Estamos em contato com a transportadora para resolver a situação.
+
+Atenciosamente,
+Equipe WeConnect""",
+    
+    "Produto com Avaria": """Prezado(a) cliente,
+
+Lamentamos que seu produto tenha chegado com avaria. 
+
+Para darmos continuidade ao processo, solicitamos que envie fotos do produto danificado e da embalagem.
+
+Atenciosamente,
+Equipe WeConnect""",
+    
+    "Divergência de Produto": """Prezado(a) cliente,
+
+Identificamos uma divergência entre o produto solicitado e o recebido.
+
+Para verificação, solicitamos fotos do produto recebido e da etiqueta com código de barras.
+
+Atenciosamente,
+Equipe WeConnect""",
+    
+    "Arrependimento": """Prezado(a) cliente,
+
+Recebemos sua solicitação de devolução por arrependimento.
+
+Conforme o Código de Defesa do Consumidor, você tem até 7 dias para exercer o direito de arrependimento.
+
+Segue abaixo o código de postagem para devolução:
+[CÓDIGO_REVERSA]
+
+Atenciosamente,
+Equipe WeConnect""",
+    
+    "Assistência Técnica": """Prezado(a) cliente,
+
+Para acionamento da assistência técnica, por favor entre em contato diretamente com o fabricante através dos canais:
+
+[DADOS_FABRICANTE]
+
+Atenciosamente,
+Equipe WeConnect"""
+}
+
+@api_router.get("/textos-padroes/{categoria}")
+async def get_texto_padrao(categoria: str, current_user: dict = Depends(get_current_user)):
+    """Retorna texto padrão para a categoria"""
+    texto = TEXTOS_PADROES.get(categoria)
+    if not texto:
+        raise HTTPException(status_code=404, detail="Categoria não encontrada")
+    return {"categoria": categoria, "texto": texto}
+
+@api_router.get("/textos-padroes")
+async def list_textos_padroes(current_user: dict = Depends(get_current_user)):
+    """Lista todas as categorias e textos padrões"""
+    return {"categorias": CATEGORIAS_EMERGENT, "textos": TEXTOS_PADROES}
+
+@api_router.post("/gerar-reversa/{numero_pedido}")
+async def gerar_codigo_reversa(numero_pedido: str, current_user: dict = Depends(get_current_user)):
+    """Gera código de reversa para o pedido"""
+    codigo = generate_reversa_code(numero_pedido)
+    return {"codigo_reversa": codigo, "numero_pedido": numero_pedido}
 
 @api_router.post("/chamados", response_model=dict)
 async def create_chamado(chamado_data: ChamadoCreate, current_user: dict = Depends(get_current_user)):
     if not chamado_data.numero_pedido.strip():
         raise HTTPException(status_code=400, detail="Número do pedido é obrigatório")
     
+    # Gerar ID do atendimento
+    id_atendimento = await generate_atendimento_id()
+    
     chamado = Chamado(**chamado_data.model_dump())
+    chamado.id_atendimento = id_atendimento
     chamado.criado_por_id = current_user['id']
     chamado.criado_por_nome = current_user['name']
     
+    # Buscar dados do pedido na Base_Emergent
+    pedido = await db.pedidos_erp.find_one({"numero_pedido": chamado_data.numero_pedido}, {"_id": 0})
+    if pedido:
+        chamado.nome_cliente = pedido.get('nome_cliente')
+        chamado.cpf_cliente = pedido.get('cpf_cliente')
+        chamado.produto = pedido.get('produto')
+        chamado.transportadora = pedido.get('transportadora')
+        chamado.status_pedido = pedido.get('status_pedido')
+        chamado.canal_vendas = pedido.get('canal_vendas')
+        if not chamado.parceiro:
+            chamado.parceiro = pedido.get('canal_vendas')
+    
     chamado_dict = chamado.model_dump()
     chamado_dict['data_abertura'] = chamado_dict['data_abertura'].isoformat()
-    if chamado_dict.get('data_resolucao'):
-        chamado_dict['data_resolucao'] = chamado_dict['data_resolucao'].isoformat()
+    if chamado_dict.get('data_fechamento'):
+        chamado_dict['data_fechamento'] = chamado_dict['data_fechamento'].isoformat()
     
     await db.chamados.insert_one(chamado_dict)
     
@@ -316,7 +444,7 @@ async def create_chamado(chamado_data: ChamadoCreate, current_user: dict = Depen
     historico = Historico(
         chamado_id=chamado.id,
         tipo_acao="Atualização de Status",
-        descricao="Chamado criado",
+        descricao=f"Atendimento {id_atendimento} criado - {chamado_data.categoria}",
         usuario_id=current_user['id'],
         usuario_nome=current_user['name']
     )
@@ -324,7 +452,11 @@ async def create_chamado(chamado_data: ChamadoCreate, current_user: dict = Depen
     hist_dict['data_hora'] = hist_dict['data_hora'].isoformat()
     await db.historico.insert_one(hist_dict)
     
-    return {"id": chamado.id, "message": "Chamado criado com sucesso"}
+    return {
+        "id": chamado.id, 
+        "id_atendimento": id_atendimento,
+        "message": f"Atendimento {id_atendimento} criado com sucesso"
+    }
 
 @api_router.get("/chamados", response_model=List[dict])
 async def list_chamados(
