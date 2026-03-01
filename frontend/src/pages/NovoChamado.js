@@ -969,6 +969,7 @@ const NovoAtendimento = () => {
   const [selectedAcompanhamento, setSelectedAcompanhamento] = useState('');
   const [selectedReclameAqui, setSelectedReclameAqui] = useState('');
   const [selectedAssistencia, setSelectedAssistencia] = useState('');
+  const [selectedMotivoPendencia, setSelectedMotivoPendencia] = useState('');
   const [motivoPendencia, setMotivoPendencia] = useState('');
   const [transportadoraDetectada, setTransportadoraDetectada] = useState(null);
   
