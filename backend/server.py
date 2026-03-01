@@ -357,13 +357,69 @@ Estamos em contato com a transportadora para resolver a situação.
 Atenciosamente,
 [ASSINATURA]""",
     
-    "Produto com Avaria": """Olá,
+    "Produto com Avaria": """Selecione o tipo de avaria no campo abaixo.""",
+    
+    "Avaria - Necessário Evidência": """Olá,
 
-Por favor seguir com o estorno ao cliente e encerramento do chamado.
+Para darmos continuidade à tratativa, solicitamos, por gentileza, o envio das seguintes evidências:
 
-Por favor orientar o cliente a descartar o item avariado.
+* Imagem da embalagem recebida;
+* Foto da etiqueta entregue.
+* Foto do produto (todos os ângulos)
+* Foto ou vídeo que identifique a avaria
 
-Seguimos à disposição.
+Ressaltamos que o prazo para acionar a transportadora é de 7 dias corridos após a entrega do produto avariado.
+
+Estamos à disposição para quaisquer dúvidas e aguardamos seu retorno.
+Atenciosamente,
+[ASSINATURA]""",
+
+    "Avaria - Transporte até R$250": """Olá
+
+Informamos que iniciamos a preparação e o envio de um novo produto para o cliente.
+
+Em caráter de exceção, não será necessário realizar a devolução do item avariado. Pedimos, por gentileza, que oriente o cliente quanto ao descarte adequado do produto.
+
+Assim que possível, compartilharemos o link de rastreamento.
+
+Permanecemos à disposição para qualquer dúvida.
+Atenciosamente,
+[ASSINATURA]""",
+
+    "Avaria - Reversa": """Olá, boa tarde
+
+Sentimos muito pelo ocorrido, poderia confirmar com o cliente se após a devolução seguiremos com reenvio ou cancelamento?
+
+Referente a solicitação, segue os dados para realizar o retorno do produto em no máximo 10 dias.
+
+Autorização de Postagem em Agência
+
+Dados da Emissão:
+
+Objeto: [CÓDIGO_REVERSA]
+Emitido em: [DATA_EMISSAO]
+Data de Validade: [DATA_VALIDADE]
+Remetente autorizado: [NOME_CLIENTE]
+
+- Para utilizá-la, o consumidor dever se dirigir a uma Agência Própria ou Franqueada dos Correios, levando consigo, obrigatoriamente, o Código de Autorização e o objeto para postagem.
+
+DESTINATÁRIO:
+WECONNECT COMERCIO E SERVICOS LTDA 
+
+
+*** Orientações importantes ***: 
+
+* O produto deve ser devolvido na embalagem original e sem avaria (dentro de uma outra caixa de papelão OU papel pardo para manter a integridade do produto); 
+
+* Sem indícios de uso, sem violação do lacre original do fabricante; 
+
+* Coloque a nota fiscal dentro de um envelope plástico adesivo e cole-o na parte externa do pacote. Este tipo de envelope deve estar disponível em qualquer agência dos Correios; 
+
+* Acompanhado também dos acessórios/peças e manual do item. 
+
+* O estorno somente será autorizado após as avaliações citadas acima. As informações do destinatário serão preenchidas na agência dos Correios de acordo com Código de Postagem. 
+
+Seguimos a disposição.
 Atenciosamente,
 [ASSINATURA]""",
     
