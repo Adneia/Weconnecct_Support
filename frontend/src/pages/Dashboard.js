@@ -79,7 +79,25 @@ const Dashboard = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight font-['Plus_Jakarta_Sans']">Dashboard Emergent</h1>
-          <p className="text-muted-foreground text-sm">Bem-vindo(a), {user?.name || 'Atendente'}</p>
+          <div className="flex items-center gap-3 mt-1">
+            <p className="text-muted-foreground text-sm">Bem-vindo(a), {user?.name || 'Atendente'}</p>
+            {sheetsStatus && (
+              <Badge 
+                variant="outline" 
+                className={sheetsStatus.initialized 
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-800" 
+                  : "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/50 dark:text-red-400 dark:border-red-800"
+                }
+                data-testid="sheets-status-badge"
+              >
+                {sheetsStatus.initialized ? (
+                  <><Cloud className="h-3 w-3 mr-1" /> Google Sheets Conectado</>
+                ) : (
+                  <><CloudOff className="h-3 w-3 mr-1" /> Sheets Desconectado</>
+                )}
+              </Badge>
+            )}
+          </div>
         </div>
         <Button onClick={() => navigate('/chamados/novo')} data-testid="btn-novo">
           <Plus className="h-4 w-4 mr-2" />
