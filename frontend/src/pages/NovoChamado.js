@@ -156,6 +156,38 @@ const NovoAtendimento = () => {
     }
   };
 
+  const searchByNome = async (nome) => {
+    setSearchingPedido(true);
+    setPedidoErp(null);
+    setPedidosList([]);
+    setPedidoNotFound(false);
+    
+    try {
+      const response = await axios.get(
+        `${API_URL}/api/pedidos-erp/buscar/nome/${encodeURIComponent(nome)}`,
+        { headers: getAuthHeader() }
+      );
+      
+      if (response.data.length === 0) {
+        setPedidoNotFound(true);
+      } else if (response.data.length === 1) {
+        setPedidoErp(response.data[0]);
+        setFormData(prev => ({ 
+          ...prev, 
+          numero_pedido: response.data[0].numero_pedido,
+          parceiro: response.data[0].canal_vendas || ''
+        }));
+      } else {
+        setPedidosList(response.data);
+        setShowPedidosDialog(true);
+      }
+    } catch (error) {
+      toast.error('Erro ao buscar por nome');
+    } finally {
+      setSearchingPedido(false);
+    }
+  };
+
   const selectPedido = (pedido) => {
     setPedidoErp(pedido);
     setFormData(prev => ({ 
