@@ -2081,6 +2081,110 @@ const NovoAtendimento = () => {
                           </div>
                         </div>
                       </div>
+                    ) : formData.categoria === 'Reclame Aqui' ? (
+                      <div className="space-y-3">
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Respostas Padrão</Label>
+                          <div className="flex flex-wrap gap-2">
+                            <Button 
+                              type="button" 
+                              variant={selectedReclameAqui === 'Resposta Inicial' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoReclameAqui('Resposta Inicial')}
+                            >
+                              Resposta Inicial
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant={selectedReclameAqui === 'Mensagem WhatsApp' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoReclameAqui('Mensagem WhatsApp')}
+                            >
+                              Mensagem WhatsApp
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant={selectedReclameAqui === 'Solicitar Encerramento' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoReclameAqui('Solicitar Encerramento')}
+                            >
+                              Solicitar Encerramento
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant={selectedReclameAqui === 'Após Avaliação' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoReclameAqui('Após Avaliação')}
+                            >
+                              Após Avaliação
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : formData.categoria === 'Assistência Técnica' ? (
+                      <div className="space-y-3">
+                        {/* Fornecedores */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">SAC do Fornecedor</Label>
+                          <div className="flex flex-wrap gap-2">
+                            <Button 
+                              type="button" 
+                              variant={selectedAssistencia === 'Oderço' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoAssistencia('Oderço')}
+                            >
+                              Oderço
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant={selectedAssistencia === 'Ventisol' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoAssistencia('Ventisol')}
+                            >
+                              Ventisol
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant={selectedAssistencia === 'OEX' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoAssistencia('OEX')}
+                            >
+                              OEX
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant={selectedAssistencia === 'Hoopson' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoAssistencia('Hoopson')}
+                            >
+                              Hoopson
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Fornecedor + Reversa */}
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">SAC + Opção Reversa</Label>
+                          <div className="flex flex-wrap gap-2">
+                            <Button 
+                              type="button" 
+                              variant={selectedAssistencia === 'Ventisol + Reversa' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoAssistencia('Ventisol + Reversa')}
+                            >
+                              Ventisol + Reversa
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant={selectedAssistencia === 'OEX + Reversa' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoAssistencia('OEX + Reversa')}
+                            >
+                              OEX + Reversa
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
                     ) : (
                       <div className="flex gap-2">
                         <Button 
