@@ -766,6 +766,61 @@ const NovoAtendimento = () => {
                           </Button>
                         </div>
                       </div>
+                    ) : formData.categoria === 'Falha Produção' ? (
+                      <div className="space-y-2">
+                        <Label>Tipo de Resposta</Label>
+                        <div className="flex flex-wrap gap-2">
+                          <Button 
+                            type="button" 
+                            variant={selectedFalhaProducao === 'Sem Rastreio' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => loadTextoFalhaProducao('Sem Rastreio')}
+                            data-testid="btn-producao-sem-rastreio"
+                          >
+                            Sem Rastreio
+                          </Button>
+                          <Button 
+                            type="button" 
+                            variant={selectedFalhaProducao === 'Com Rastreio - Total Express' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => loadTextoFalhaProducao('Com Rastreio - Total Express')}
+                            data-testid="btn-producao-total"
+                          >
+                            Total Express
+                          </Button>
+                          <Button 
+                            type="button" 
+                            variant={selectedFalhaProducao === 'Com Rastreio - J&T Express' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => loadTextoFalhaProducao('Com Rastreio - J&T Express')}
+                            data-testid="btn-producao-jt"
+                          >
+                            J&T Express
+                          </Button>
+                          <Button 
+                            type="button" 
+                            variant={selectedFalhaProducao === 'Com Rastreio - ASAP Log' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => loadTextoFalhaProducao('Com Rastreio - ASAP Log')}
+                            data-testid="btn-producao-asap"
+                          >
+                            ASAP Log
+                          </Button>
+                        </div>
+                      </div>
+                    ) : formData.categoria === 'Falha de Compras' ? (
+                      <div className="flex gap-2">
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => loadTextoFalhaProducao('Sem Rastreio')}
+                          data-testid="btn-texto-padrao"
+                        >
+                          <MessageSquare className="h-4 w-4 mr-2" />
+                          Ver Texto Padrão
+                        </Button>
+                      </div>
                     ) : (
                       <div className="flex gap-2">
                         <Button 
