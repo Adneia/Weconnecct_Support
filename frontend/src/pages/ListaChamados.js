@@ -43,7 +43,8 @@ const ListaAtendimentos = () => {
   const [filters, setFilters] = useState({
     pendente: '',
     categoria: '',
-    atendente: ''
+    atendente: '',
+    retornar_chamado: ''
   });
   const [showFilters, setShowFilters] = useState(false);
 
@@ -60,6 +61,7 @@ const ListaAtendimentos = () => {
       if (filters.pendente !== '') params.append('pendente', filters.pendente);
       if (filters.categoria) params.append('categoria', filters.categoria);
       if (filters.atendente) params.append('atendente', filters.atendente);
+      if (filters.retornar_chamado !== '') params.append('retornar_chamado', filters.retornar_chamado);
       if (globalFilter) {
         params.append('search', globalFilter);
         params.append('search_type', searchType);
