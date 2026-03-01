@@ -179,6 +179,7 @@ const NovoAtendimento = () => {
   const [searchType, setSearchType] = useState('cpf'); // 'cpf', 'pedido', 'nome', 'entrega'
   const [searchValue, setSearchValue] = useState('');
   const [selectedAvaria, setSelectedAvaria] = useState('');
+  const [selectedFalhaProducao, setSelectedFalhaProducao] = useState('');
   
   const [formData, setFormData] = useState({
     numero_pedido: '',
