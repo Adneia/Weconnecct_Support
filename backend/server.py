@@ -80,7 +80,7 @@ CATEGORIAS_EMERGENT = [
     "Divergência de Produto",
     "Arrependimento",
     "Acompanhamento",
-    "Reclamação",
+    "Reclame Aqui",
     "Assistência Técnica"
 ]
 
