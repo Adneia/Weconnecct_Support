@@ -81,8 +81,10 @@ const NovoAtendimento = () => {
       if (searchValue.trim().length >= 3) {
         if (searchType === 'entrega') {
           searchByEntrega(searchValue.trim());
-        } else {
+        } else if (searchType === 'cpf') {
           searchByCpf(searchValue.trim());
+        } else if (searchType === 'nome') {
+          searchByNome(searchValue.trim());
         }
       } else {
         setPedidoErp(null);
