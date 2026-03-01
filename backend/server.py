@@ -171,8 +171,8 @@ class PedidoERPBase(BaseModel):
     id_canal_vendas: Optional[str] = None
     filial: Optional[str] = None
     codigo_rastreio: Optional[str] = None
-
-class PedidoERP(PedidoERPBase):
+    codigo_fornecedor: Optional[str] = None  # Cód. Fornecedor do SIGEQ230
+    pedido_troca: Optional[str] = None
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     ultima_atualizacao: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
