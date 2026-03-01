@@ -1428,26 +1428,31 @@ const NovoAtendimento = () => {
                       </div>
                     ) : formData.categoria === 'Arrependimento' ? (
                       <div className="space-y-3">
-                        {/* Gerar Código Reversa */}
-                        <div className="flex items-center gap-2 p-2 rounded bg-blue-50 dark:bg-blue-950/30">
-                          <Button 
-                            type="button" 
-                            variant="outline" 
-                            size="sm"
-                            onClick={gerarCodigoReversa}
-                            data-testid="btn-gerar-reversa"
-                          >
-                            <RotateCcw className="h-4 w-4 mr-2" />
-                            Gerar Código Reversa
-                          </Button>
-                          {codigoReversa && (
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono text-sm font-medium">{codigoReversa}</span>
-                              <Button type="button" variant="ghost" size="sm" onClick={() => copyToClipboard(codigoReversa)}>
-                                <Copy className="h-3 w-3" />
-                              </Button>
+                        {/* Dados da Reversa - Campos de entrada */}
+                        <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 space-y-3">
+                          <Label className="text-sm font-medium text-blue-800 dark:text-blue-200">Dados da Reversa</Label>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <Label className="text-xs text-muted-foreground">Número da Reversa</Label>
+                              <Input
+                                value={codigoReversa}
+                                onChange={(e) => setCodigoReversa(e.target.value)}
+                                placeholder="Digite o código da reversa"
+                                className="mt-1"
+                                data-testid="input-numero-reversa"
+                              />
                             </div>
-                          )}
+                            <div>
+                              <Label className="text-xs text-muted-foreground">Data de Vencimento</Label>
+                              <Input
+                                type="date"
+                                value={dataVencimentoReversa}
+                                onChange={(e) => setDataVencimentoReversa(e.target.value)}
+                                className="mt-1"
+                                data-testid="input-data-vencimento-reversa"
+                              />
+                            </div>
+                          </div>
                         </div>
 
                         {/* Reversa */}
