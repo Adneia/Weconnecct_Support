@@ -153,7 +153,19 @@ class GoogleSheetsClient:
                 return False
         
         try:
-            worksheet = self.atendimentos_sheet.worksheet("Atendimentos")
+            # Try to get existing worksheet or use first worksheet
+            try:
+                worksheet = self.atendimentos_sheet.worksheet("Atendimentos")
+            except gspread.exceptions.WorksheetNotFound:
+                # Try to get the first worksheet
+                worksheets = self.atendimentos_sheet.worksheets()
+                if worksheets:
+                    worksheet = worksheets[0]
+                    logger.info(f"Using worksheet: {worksheet.title}")
+                else:
+                    # Create the worksheet if none exist
+                    worksheet = self.atendimentos_sheet.add_worksheet("Atendimentos", rows=1000, cols=20)
+                    logger.info("Created new 'Atendimentos' worksheet")
             
             # Ensure headers exist
             self._ensure_headers(worksheet, ATENDIMENTO_COLUMNS)
