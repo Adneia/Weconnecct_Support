@@ -960,7 +960,7 @@ const NovoAtendimento = () => {
   };
   const [dataVencimentoReversa, setDataVencimentoReversa] = useState(getDefaultVencimento());
   
-  const [searchType, setSearchType] = useState('cpf'); // 'cpf', 'pedido', 'nome', 'entrega'
+  const [searchType, setSearchType] = useState('pedido'); // 'pedido', 'cpf', 'nome', 'entrega'
   const [searchValue, setSearchValue] = useState('');
   const [selectedAvaria, setSelectedAvaria] = useState('');
   const [selectedFalhaProducao, setSelectedFalhaProducao] = useState('');
