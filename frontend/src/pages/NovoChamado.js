@@ -1525,7 +1525,8 @@ const NovoAtendimento = () => {
         ...formData,
         motivo_pendencia: motivoPendencia || null,
         codigo_reversa: codigoReversa || null,
-        data_vencimento_reversa: dataVencimentoReversa || null
+        data_vencimento_reversa: dataVencimentoReversa || null,
+        retornar_chamado: retornarChamado
       };
       
       if (isEditMode && atendimentoId) {
