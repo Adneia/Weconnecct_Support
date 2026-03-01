@@ -8,7 +8,7 @@ import { Badge } from '../components/ui/badge';
 import { Skeleton } from '../components/ui/skeleton';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { 
-  Clock, CheckCircle, Package, Database, Plus, ArrowRight, User
+  Clock, CheckCircle, Package, Database, Plus, ArrowRight, User, Cloud, CloudOff
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -17,11 +17,13 @@ const API_URL = process.env.REACT_APP_BACKEND_URL;
 const Dashboard = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [sheetsStatus, setSheetsStatus] = useState(null);
   const navigate = useNavigate();
   const { getAuthHeader, user } = useAuth();
 
   useEffect(() => {
     fetchData();
+    fetchSheetsStatus();
   }, []);
 
   const fetchData = async () => {
@@ -32,6 +34,15 @@ const Dashboard = () => {
       toast.error('Erro ao carregar dados do dashboard');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchSheetsStatus = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/api/google-sheets/status`, { headers: getAuthHeader() });
+      setSheetsStatus(response.data);
+    } catch (error) {
+      console.error('Error fetching sheets status:', error);
     }
   };
 
