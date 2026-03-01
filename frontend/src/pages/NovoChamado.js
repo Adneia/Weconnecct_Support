@@ -977,6 +977,7 @@ const NovoAtendimento = () => {
   const [selectedMotivoPendencia, setSelectedMotivoPendencia] = useState('');
   const [motivoPendencia, setMotivoPendencia] = useState('');
   const [transportadoraDetectada, setTransportadoraDetectada] = useState(null);
+  const [retornarChamado, setRetornarChamado] = useState(false);
   
   const [formData, setFormData] = useState({
     numero_pedido: '',
