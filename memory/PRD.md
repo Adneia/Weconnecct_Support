@@ -1,77 +1,75 @@
 # Emergent - Sistema de Atendimentos WeConnect
 
-## Funcionalidades Implementadas
+## Categorias (8)
+1. Falha Produção
+2. Falha de Compras
+3. Falha Transporte
+4. Produto com Avaria
+5. Arrependimento
+6. Dúvida
+7. Reclamação
+8. Assistência Técnica
 
-### Busca de Pedidos (4 opções)
-- CPF, Pedido (externo), Nome, Entrega
+*(Divergência de Produto removida - usar Falha Produção ou Transporte)*
 
-### Auto-preenchimento
-- Categoria baseada no status do pedido
-- Transportadora detectada automaticamente
-- Motivo da pendência sugerido
+## Textos por Categoria
 
-### Categorias com Textos Específicos
+### Arrependimento
+**Reversa:**
+- 1ª Reversa (10 dias)
+- 2ª Reversa (7 dias - última tentativa)
+- Irá Vencer
+- Expirada
 
-#### Falha Transporte
-**Enviar Rastreio** (detecta transportadora):
-- Total Express
-- J&T Express  
-- ASAP Log
-- Correios
+**Em Devolução:**
+- Sem Estorno
+- Com Estorno
 
-**Bloqueio de Entrega:**
+**Devolvido:**
+- Com Estorno
+- Com Reenvio
+
+**Bloqueio/Barragem:**
 - Bloqueio OK
-- Não é Possível (em rota)
+- Sem Bloqueio (em rota)
+- Em Separação
+
+**Outros:**
+- Sem Coleta (impossibilidade)
+- Prazo Expirado
+
+### Falha Transporte
+**Enviar Rastreio:**
+- Total Express, J&T Express, ASAP Log, Correios
+
+**Bloqueio:**
+- Bloqueio OK, Não é Possível
 
 **Extravio:**
-- Extravio simples
-- Com Previsão de nova entrega
-- Com Cancelamento (inclui produto e entrega)
+- Simples, Com Previsão, Com Cancelamento
 
-**Comprovante de Entrega:**
+**Comprovante:**
 - Falta Comprovante
-- Desconhece Entrega - No Prazo (até 15 dias)
-- Desconhece Entrega - Fora do Prazo (+15 dias)
-- CSU - Comprovante Email (aparece quando canal=CSU)
+- Desconhece (No Prazo/Fora Prazo)
+- CSU - Email
 
-#### Falha Produção
+### Falha Produção
 - Sem Rastreio
 - Com Rastreio (Total/J&T/ASAP)
 
-#### Produto com Avaria
+### Produto com Avaria
 - Necessário Evidência
 - Transporte até R$250
 - Reversa
 
-### Bloco 3 - Anotações
-- **Motivo da Pendência** (dropdown)
-  - Ag. Compras, Ag. Logística, Enviado
-  - Ag. Bseller, Ag. Barrar, Aguardando, Em devolução
-- Status atual do pedido exibido
-- Campo de anotações livre
-
-### Dados do Produto
-- ID (codigo_item_bseller)
-- SKU (cód. terceiro)
-- Cód. Fornecedor
-- Marca, Qtde, Valor
-
-### Nota Fiscal + Galpão
-- NF e Galpão na mesma linha
-- Série 1=SC, 2=ES, 6=SP
-
-### Placeholders nos Textos
-- [ASSINATURA] → Nome do atendente
-- [PRODUTO] → Nome do produto
-- [ENTREGA] → Número da entrega
-- [NOTA_FISCAL], [CHAVE_ACESSO], [CÓDIGO_RASTREIO]
-- [DATA_ENTREGA], [DATA_PREVISAO]
-- [NUMERO_OCORRENCIA]
+## Bloco 3 - Anotações
+- Motivo da Pendência (dropdown)
+- Status atual do pedido
+- Campo de anotações
 
 ## Credenciais de Teste
 - Email: test@emergent.com
 - Senha: test123
 
 ## Google Sheets
-- Service Account: `atendimento-bot-emergent@emergent-atendimento.iam.gserviceaccount.com`
 - Atendimentos: `1cqzY_i1lqvu8sySPFrMtucQfyTo1LYm04ZpxRZNDCBs`
