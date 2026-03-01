@@ -963,6 +963,74 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
         "media_tempo_resolucao_dias": media_tempo_dias
     }
 
+# ============== GOOGLE SHEETS ROUTES ==============
+
+@api_router.get("/google-sheets/status")
+async def get_google_sheets_status(current_user: dict = Depends(get_current_user)):
+    """Get the status of Google Sheets connection"""
+    status = sheets_client.get_connection_status()
+    return status
+
+@api_router.post("/google-sheets/initialize")
+async def initialize_google_sheets(current_user: dict = Depends(get_current_user)):
+    """Initialize connection to Google Sheets"""
+    success = sheets_client.initialize()
+    if success:
+        return {
+            "success": True,
+            "message": "Conexão com Google Sheets estabelecida com sucesso",
+            "status": sheets_client.get_connection_status()
+        }
+    else:
+        raise HTTPException(
+            status_code=500, 
+            detail="Falha ao conectar com Google Sheets. Verifique se as planilhas foram compartilhadas com a conta de serviço: atendimento-bot-emergent@emergent-atendimento.iam.gserviceaccount.com"
+        )
+
+@api_router.post("/google-sheets/sync-all")
+async def sync_all_to_google_sheets(
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user)
+):
+    """Sync all existing atendimentos to Google Sheets"""
+    if not sheets_client.is_initialized():
+        success = sheets_client.initialize()
+        if not success:
+            raise HTTPException(status_code=500, detail="Falha ao conectar com Google Sheets")
+    
+    # Get all atendimentos from MongoDB
+    chamados = await db.chamados.find({}, {"_id": 0}).to_list(10000)
+    
+    synced = 0
+    errors = 0
+    
+    for chamado in chamados:
+        try:
+            # Get pedido info if available
+            pedido = await db.pedidos_erp.find_one(
+                {"numero_pedido": chamado.get('numero_pedido')}, 
+                {"_id": 0}
+            )
+            
+            # Check if already exists in sheet
+            existing = sheets_client.find_atendimento_by_id(chamado.get('id_atendimento', ''))
+            
+            if not existing:
+                if sheets_client.add_atendimento(chamado, pedido):
+                    synced += 1
+                else:
+                    errors += 1
+        except Exception as e:
+            errors += 1
+            logger.error(f"Error syncing chamado {chamado.get('id_atendimento')}: {e}")
+    
+    return {
+        "message": f"Sincronização concluída: {synced} atendimentos sincronizados, {errors} erros",
+        "synced": synced,
+        "errors": errors,
+        "total": len(chamados)
+    }
+
 # ============== ROOT ==============
 
 @api_router.get("/")
