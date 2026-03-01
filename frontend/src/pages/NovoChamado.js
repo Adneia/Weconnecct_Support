@@ -29,7 +29,7 @@ import {
   Loader2, Search, Package, Truck, User, MapPin, 
   Phone, Mail, Calendar, ShoppingBag, Copy,
   FileText, Hash, Building, AlertCircle, CheckCircle,
-  MessageSquare, RotateCcw
+  MessageSquare, RotateCcw, Warehouse
 } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
@@ -59,7 +59,7 @@ const NovoAtendimento = () => {
   const [textoPadrao, setTextoPadrao] = useState('');
   const [codigoReversa, setCodigoReversa] = useState('');
   
-  const [searchType, setSearchType] = useState('entrega'); // 'entrega' ou 'cpf'
+  const [searchType, setSearchType] = useState('entrega'); // 'entrega', 'cpf' ou 'nome'
   const [searchValue, setSearchValue] = useState('');
   
   const [formData, setFormData] = useState({
