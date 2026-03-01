@@ -23,7 +23,7 @@ import {
   TableRow,
 } from '../components/ui/table';
 import { toast } from 'sonner';
-import { Search, Plus, Filter, X, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import { Search, Plus, Filter, X, Clock, CheckCircle, AlertCircle, FileText, RotateCcw } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
