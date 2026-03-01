@@ -443,15 +443,35 @@ const NovoAtendimento = () => {
               {pedidoErp.nota_fiscal && (
                 <>
                   <Separator />
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-sm flex items-center gap-2">
-                      <FileText className="h-4 w-4" /> Nota Fiscal
-                    </h4>
-                    <div className="pl-6 space-y-1 text-sm">
-                      <p><span className="text-muted-foreground">NF:</span> {pedidoErp.nota_fiscal}</p>
-                      {pedidoErp.chave_nota && (
-                        <p className="text-xs text-muted-foreground break-all">Chave: {pedidoErp.chave_nota}</p>
-                      )}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-sm flex items-center gap-2">
+                        <FileText className="h-4 w-4" /> Nota Fiscal
+                      </h4>
+                      <div className="pl-6 space-y-1 text-sm">
+                        <p><span className="text-muted-foreground">NF:</span> {pedidoErp.nota_fiscal}</p>
+                        {pedidoErp.serie_nf && <p><span className="text-muted-foreground">Série:</span> {pedidoErp.serie_nf}</p>}
+                        {pedidoErp.chave_nota && (
+                          <p className="text-xs text-muted-foreground break-all">Chave: {pedidoErp.chave_nota}</p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-sm flex items-center gap-2">
+                        <Warehouse className="h-4 w-4" /> Galpão
+                      </h4>
+                      <div className="pl-6 space-y-1 text-sm">
+                        <p className="font-medium">{pedidoErp.galpao || 'Não identificado'}</p>
+                        {pedidoErp.uf_galpao && pedidoErp.uf_galpao !== '-' && (
+                          <p className="text-muted-foreground">UF: {pedidoErp.uf_galpao}</p>
+                        )}
+                        {pedidoErp.serie_nf && (
+                          <p className="text-xs text-muted-foreground">
+                            (Série {pedidoErp.serie_nf}: {pedidoErp.serie_nf === '1' ? 'SC' : pedidoErp.serie_nf === '6' ? 'SP' : pedidoErp.serie_nf === '2' ? 'ES' : 'Outro'})
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </>
