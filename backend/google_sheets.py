@@ -382,7 +382,7 @@ class GoogleSheetsClient:
                 return []
         
         try:
-            worksheet = self.atendimentos_sheet.worksheet("Atendimentos")
+            worksheet = self._get_atendimentos_worksheet()
             records = worksheet.get_all_records()
             return records
         except Exception as e:
@@ -396,7 +396,7 @@ class GoogleSheetsClient:
                 return None
         
         try:
-            worksheet = self.atendimentos_sheet.worksheet("Atendimentos")
+            worksheet = self._get_atendimentos_worksheet()
             cell = worksheet.find(id_atendimento, in_column=1)
             if cell:
                 row = worksheet.row_values(cell.row)
