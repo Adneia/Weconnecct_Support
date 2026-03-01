@@ -330,25 +330,64 @@ def generate_reversa_code(numero_pedido: str):
 
 # Textos padrões por categoria e situação
 TEXTOS_PADROES = {
-    "Falha Produção": """Prezado(a) cliente,
+    "Falha Produção": """Selecione o tipo de resposta no campo abaixo.""",
+    
+    "Falha Produção - Sem Rastreio": """Olá, Boa tarde.
 
-Identificamos que houve uma falha de produção em seu pedido. Pedimos desculpas pelo transtorno.
+Identificamos uma falha operacional, a qual, está sendo resolvida. O pedido encontra-se em separação para transportadora. Assim que possível, disponibilizaremos o link para rastreio e previsão de entrega.
 
-Estamos providenciando a resolução conforme procedimento padrão.
+Seguimos a disposição.
+Atenciosamente!
+[ASSINATURA]""",
 
+    "Falha Produção - Total Express": """Olá, Boa tarde.
+
+Informamos que o pedido já foi entregue à transportadora. Pedimos, por gentileza, que aguarde o prazo de até 48 horas úteis para que as informações de rastreamento e a previsão de entrega sejam atualizadas no sistema.
+
+Segue rastreio para acompanhamento:
+Rastreio: [CÓDIGO_RASTREIO]
+
+https://totalconecta.totalexpress.com.br/rastreamento
+
+Permanecemos à disposição.
+Atenciosamente,
+[ASSINATURA]""",
+
+    "Falha Produção - J&T Express": """Olá, Boa tarde.
+
+Informamos que o pedido já foi entregue à transportadora. Pedimos, por gentileza, que aguarde o prazo de até 48 horas úteis para que as informações de rastreamento e a previsão de entrega sejam atualizadas no sistema.
+
+Segue rastreio para acompanhamento:
+Chave de acesso: [CHAVE_ACESSO]
+
+https://www.jtexpress.com.br/
+
+Seguimos a disposição.
+Atenciosamente,
+[ASSINATURA]""",
+
+    "Falha Produção - ASAP Log": """Olá, Boa tarde.
+
+Informamos que o pedido já foi entregue à transportadora. Pedimos, por gentileza, que aguarde o prazo de até 48 horas úteis para que as informações de rastreamento e a previsão de entrega sejam atualizadas no sistema.
+
+Segue rastreio para acompanhamento:
+Nota Fiscal: [NOTA_FISCAL]
+
+https://rastreio.asaplog.com.br/
+
+Seguimos a disposição.
 Atenciosamente,
 [ASSINATURA]""",
     
-    "Falha de Compras": """Prezado(a) cliente,
+    "Falha de Compras": """Olá, Boa tarde.
 
-Identificamos uma inconsistência no processo de compras do seu pedido. 
+Identificamos uma falha operacional, a qual, está sendo resolvida. O pedido encontra-se em separação para transportadora. Assim que possível, disponibilizaremos o link para rastreio e previsão de entrega.
 
-Estamos verificando junto ao setor responsável e retornaremos em breve.
-
-Atenciosamente,
+Seguimos a disposição.
+Atenciosamente!
 [ASSINATURA]""",
     
-    "Falha Transporte": """Prezado(a) cliente,
+    "Falha Transporte": """Olá, Boa tarde.
 
 Identificamos um problema na entrega do seu pedido. Pedimos desculpas pelo inconveniente.
 
