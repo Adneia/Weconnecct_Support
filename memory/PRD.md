@@ -9,22 +9,37 @@
 3. Falha Transporte
 4. Produto com Avaria
 5. Arrependimento
-6. **Acompanhamento** (substituiu "Dúvida")
-7. Reclamação
+6. Acompanhamento
+7. **Reclame Aqui** (renomeado de "Reclamação")
 8. Assistência Técnica
-
-*(Divergência de Produto removida - usar Falha Produção ou Transporte)*
 
 ## Textos por Categoria
 
-### Acompanhamento (NOVO - substituiu Dúvida)
+### Reclame Aqui (ATUALIZADO)
+- **Resposta Inicial** - Sempre começa com "Prezado(a) Sr(a). [NOME]", termina com "Equipe de Atendimento Weconnect"
+- **Mensagem WhatsApp** - Para contato via WhatsApp
+- **Solicitar Encerramento** - Pedir encerramento da reclamação
+- **Após Avaliação** - Agradecimento após avaliação
+
+### Assistência Técnica (ATUALIZADO)
+**SAC do Fornecedor:**
+- Oderço (📞 44 2101-1428)
+- Ventisol (https://assistencia.ventisol.com.br/)
+- OEX (📞 0800 887 0505 / reversa@newex.com.br)
+- Hoopson (📞 +55 21 3809-2001)
+
+**SAC + Opção Reversa:**
+- Ventisol + Reversa (inclui código de postagem)
+- OEX + Reversa (inclui código de postagem)
+
+### Acompanhamento
 **Status da Entrega:**
 - Entregue (Possível Contestação)
 - Entregue (Contestação Expirada)
 - Sem Comprovante de Entrega
 
 **Em Processo de Entrega (por transportadora):**
-- Total Express (com auto-detecção)
+- Total Express (auto-detecção)
 - J&T Express
 - ASAP Log
 - Correios
@@ -36,73 +51,35 @@
 - Problema na Emissão da NF
 
 ### Arrependimento
-**Dados da Reversa (NOVO):**
-- Número da Reversa (campo de entrada)
-- Data de Vencimento (+10 dias auto-preenchido)
-
 **Reversa:**
 - 1ª Reversa (10 dias)
 - 2ª Reversa (7 dias - última tentativa)
 - Irá Vencer
 - Expirada
 
-**Em Devolução:**
-- Sem Estorno
-- Com Estorno
+**Em Devolução / Devolvido / Bloqueio / Outros**
 
-**Devolvido:**
-- Com Estorno
-- Com Reenvio
-
-**Bloqueio/Barragem:**
-- Bloqueio OK
-- Sem Bloqueio (em rota)
-- Em Separação
+## Bloco 3 - Anotações (ATUALIZADO)
+**Dados da Reversa:**
+- Número da Reversa (campo de entrada)
+- Data de Vencimento (+10 dias auto-preenchido)
 
 **Outros:**
-- Sem Coleta (impossibilidade)
-- Prazo Expirado
-
-### Falha Transporte
-**Enviar Rastreio:**
-- Total Express, J&T Express, ASAP Log, Correios
-
-**Bloqueio:**
-- Bloqueio OK, Não é Possível
-
-**Extravio:**
-- Simples, Com Previsão, Com Cancelamento
-
-**Comprovante:**
-- Falta Comprovante
-- Desconhece (No Prazo/Fora Prazo)
-- CSU - Email
-
-### Falha Produção
-- Sem Rastreio
-- Com Rastreio (Total/J&T/ASAP)
-
-### Produto com Avaria
-- Necessário Evidência
-- Transporte até R$250
-- Reversa
-
-## Detalhes do Produto
-- SKU
-- ID
-- **Cód. Fornecedor** (NOVO - corrigido na importação)
-- Marca
-- Quantidade
-- Valor
-
-## Bloco 3 - Anotações
 - Motivo da Pendência (dropdown)
 - Status atual do pedido
 - Campo de anotações
 
+## Detalhes do Produto
+- SKU
+- ID
+- **Cód. Fornecedor** ✅
+- Marca
+- Quantidade
+- Valor
+
 ## Integrações
 - **Google Sheets:** Atendimentos sincronizados automaticamente ✅
-- **Base de Dados:** ~5000 pedidos importados ✅
+- **Base de Dados:** ~152.000 pedidos importados ✅
 
 ## Credenciais de Teste
 - Email: test@example.com
