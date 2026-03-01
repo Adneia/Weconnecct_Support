@@ -1572,10 +1572,25 @@ const NovoAtendimento = () => {
     <div className="max-w-4xl mx-auto space-y-6" data-testid="novo-atendimento-page">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight font-['Plus_Jakarta_Sans']">Novo Atendimento</h1>
-        <p className="text-muted-foreground text-sm">Registre um novo atendimento no sistema Emergent</p>
+        <h1 className="text-2xl font-bold tracking-tight font-['Plus_Jakarta_Sans']">
+          {isEditMode ? 'Editar Atendimento' : 'Novo Atendimento'}
+        </h1>
+        <p className="text-muted-foreground text-sm">
+          {isEditMode 
+            ? `Atualize o atendimento ${atendimentoOriginal?.id_atendimento || ''}` 
+            : 'Registre um novo atendimento no sistema Emergent'
+          }
+        </p>
       </div>
 
+      {loadingAtendimento ? (
+        <Card>
+          <CardContent className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <span className="ml-3 text-muted-foreground">Carregando atendimento...</span>
+          </CardContent>
+        </Card>
+      ) : (
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Buscar Pedido */}
         <Card>
