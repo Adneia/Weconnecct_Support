@@ -460,10 +460,10 @@ const NovoAtendimento = () => {
                   Pedido #{pedidoErp.numero_pedido}
                 </CardTitle>
                 <div className="flex items-center gap-2">
-                  {pedidoErp.galpao && (
+                  {pedidoErp.uf_galpao && pedidoErp.uf_galpao !== '-' && (
                     <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/50 dark:text-purple-400 dark:border-purple-800">
                       <Warehouse className="h-3 w-3 mr-1" />
-                      Galpão: {pedidoErp.uf_galpao || pedidoErp.galpao}
+                      Galpão: {pedidoErp.uf_galpao}
                     </Badge>
                   )}
                   <Badge className={getStatusBadgeColor(pedidoErp.status_pedido)}>
@@ -522,6 +522,8 @@ const NovoAtendimento = () => {
                   <div className="pl-6 space-y-1 text-sm">
                     <p className="font-medium">{pedidoErp.produto || '-'}</p>
                     {pedidoErp.departamento && <p className="text-muted-foreground">Marca: {pedidoErp.departamento}</p>}
+                    {pedidoErp.codigo_fornecedor && <p className="text-muted-foreground">Cód. Fornecedor: {pedidoErp.codigo_fornecedor}</p>}
+                    {pedidoErp.codigo_item_bseller && <p className="text-muted-foreground">SKU SIGE: {pedidoErp.codigo_item_bseller}</p>}
                     {pedidoErp.quantidade && <p className="text-muted-foreground">Qtde: {pedidoErp.quantidade}</p>}
                     {pedidoErp.preco_final && (
                       <p className="text-muted-foreground">
