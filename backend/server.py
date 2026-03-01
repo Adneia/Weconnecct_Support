@@ -460,27 +460,30 @@ async def create_chamado(chamado_data: ChamadoCreate, current_user: dict = Depen
 
 @api_router.get("/chamados", response_model=List[dict])
 async def list_chamados(
-    status_atendimento: Optional[str] = None,
+    pendente: Optional[bool] = None,
     categoria: Optional[str] = None,
-    canal: Optional[str] = None,
-    responsavel_id: Optional[str] = None,
-    prioridade: Optional[str] = None,
+    atendente: Optional[str] = None,
+    parceiro: Optional[str] = None,
     search: Optional[str] = None,
     current_user: dict = Depends(get_current_user)
 ):
     query = {}
-    if status_atendimento:
-        query['status_atendimento'] = status_atendimento
+    if pendente is not None:
+        query['pendente'] = pendente
     if categoria:
         query['categoria'] = categoria
-    if canal:
-        query['canal_origem'] = canal
-    if responsavel_id:
-        query['responsavel_id'] = responsavel_id
-    if prioridade:
-        query['prioridade'] = prioridade
+    if atendente:
+        query['atendente'] = atendente
+    if parceiro:
+        query['parceiro'] = parceiro
     if search:
-        query['numero_pedido'] = {"$regex": search, "$options": "i"}
+        # Buscar por número do pedido, CPF ou nome
+        query['$or'] = [
+            {"numero_pedido": {"$regex": search, "$options": "i"}},
+            {"cpf_cliente": {"$regex": search, "$options": "i"}},
+            {"nome_cliente": {"$regex": search, "$options": "i"}},
+            {"id_atendimento": {"$regex": search, "$options": "i"}}
+        ]
     
     chamados = await db.chamados.find(query, {"_id": 0}).sort("data_abertura", -1).to_list(1000)
     
@@ -488,10 +491,29 @@ async def list_chamados(
     now = datetime.now(timezone.utc)
     for c in chamados:
         data_abertura = datetime.fromisoformat(c['data_abertura'].replace('Z', '+00:00')) if isinstance(c['data_abertura'], str) else c['data_abertura']
-        if c['status_atendimento'] != 'Fechado':
+        if c.get('pendente', True):
             c['dias_aberto'] = (now - data_abertura).days
         else:
             c['dias_aberto'] = 0
+    
+    return chamados
+
+# Endpoint específico para listar pendentes (atalho)
+@api_router.get("/chamados/pendentes/lista", response_model=List[dict])
+async def list_pendentes(
+    atendente: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    query = {"pendente": True}
+    if atendente:
+        query['atendente'] = atendente
+    
+    chamados = await db.chamados.find(query, {"_id": 0}).sort("data_abertura", 1).to_list(1000)
+    
+    now = datetime.now(timezone.utc)
+    for c in chamados:
+        data_abertura = datetime.fromisoformat(c['data_abertura'].replace('Z', '+00:00')) if isinstance(c['data_abertura'], str) else c['data_abertura']
+        c['dias_aberto'] = (now - data_abertura).days
     
     return chamados
 
