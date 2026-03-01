@@ -281,6 +281,36 @@ const NovoAtendimento = () => {
     return () => clearTimeout(timer);
   }, [searchValue, searchType]);
 
+  // Função para processar pedido e auto-preencher campos
+  const processarPedido = (pedido) => {
+    setPedidoErp(pedido);
+    
+    // Auto-detectar categoria e motivo baseado no status
+    const { categoria, motivo } = getCategoriaPorStatus(pedido.status_pedido);
+    
+    // Auto-detectar transportadora
+    const transpRastreio = getTransportadoraRastreio(pedido.transportadora);
+    setTransportadoraDetectada(transpRastreio);
+    
+    // Atualizar formulário
+    setFormData(prev => ({ 
+      ...prev, 
+      numero_pedido: pedido.numero_pedido,
+      parceiro: pedido.canal_vendas || '',
+      categoria: categoria || prev.categoria
+    }));
+    
+    // Atualizar motivo de pendência
+    if (motivo) {
+      setMotivoPendencia(motivo);
+    }
+    
+    // Se detectou transportadora e categoria é Falha Produção, auto-selecionar
+    if (transpRastreio && categoria === 'Falha Produção') {
+      setSelectedFalhaProducao(transpRastreio);
+    }
+  };
+
   const searchByEntrega = async (entrega) => {
     setSearchingPedido(true);
     setPedidoErp(null);
