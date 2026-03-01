@@ -10,106 +10,69 @@
 4. Produto com Avaria
 5. Arrependimento
 6. Acompanhamento
-7. **Reclame Aqui** (renomeado de "Reclamação")
+7. **Reclame Aqui** (usa apenas primeiro nome do cliente)
 8. Assistência Técnica
 
 ## Textos por Categoria
 
-### Reclame Aqui (ATUALIZADO)
-- **Resposta Inicial** - Sempre começa com "Prezado(a) Sr(a). [NOME]", termina com "Equipe de Atendimento Weconnect"
-- **Mensagem WhatsApp** - Para contato via WhatsApp
-- **Solicitar Encerramento** - Pedir encerramento da reclamação
-- **Após Avaliação** - Agradecimento após avaliação
+### Reclame Aqui
+- Resposta Inicial (Prezado(a) Sr(a). [PRIMEIRO_NOME]...)
+- Mensagem WhatsApp
+- Solicitar Encerramento
+- Após Avaliação
 
-### Assistência Técnica (ATUALIZADO)
+### Assistência Técnica
 **SAC do Fornecedor:**
-- Oderço (📞 44 2101-1428)
-- Ventisol (https://assistencia.ventisol.com.br/)
-- OEX (📞 0800 887 0505 / reversa@newex.com.br)
-- Hoopson (📞 +55 21 3809-2001)
+- Oderço, Ventisol, OEX, Hoopson
 
 **SAC + Opção Reversa:**
-- Ventisol + Reversa (inclui código de postagem)
-- OEX + Reversa (inclui código de postagem)
+- Ventisol + Reversa, OEX + Reversa
 
 ### Acompanhamento
-**Status da Entrega:**
-- Entregue (Possível Contestação)
-- Entregue (Contestação Expirada)
-- Sem Comprovante de Entrega
-
-**Em Processo de Entrega (por transportadora):**
-- Total Express (auto-detecção)
-- J&T Express
-- ASAP Log
-- Correios
-
-**Outros:**
-- Cancelamento por Falta
-- Falha de Integração
-- Ag. Compras
-- Problema na Emissão da NF
+**Status da Entrega:** Entregue (Possível Contestação/Contestação Expirada), Sem Comprovante
+**Em Processo:** Total Express, J&T, ASAP, Correios (auto-detecção)
+**Outros:** Cancelamento por Falta, Falha Integração, Ag. Compras, Problema NF
 
 ### Arrependimento
-**Reversa:**
-- 1ª Reversa (10 dias)
-- 2ª Reversa (7 dias - última tentativa)
-- Irá Vencer
-- Expirada
+Reversa, Em Devolução, Devolvido, Bloqueio, Outros
 
-**Em Devolução / Devolvido / Bloqueio / Outros**
+## Bloco 3 - Anotações
 
-## Bloco 3 - Anotações (ATUALIZADO)
-**Dados da Reversa:**
-- Número da Reversa (campo de entrada)
-- Data de Vencimento (+10 dias auto-preenchido)
+### Dados da Reversa
+- Número da Reversa
+- Data de Vencimento (+10 dias auto)
 
-**Outros:**
-- Motivo da Pendência (dropdown)
-- Status atual do pedido
-- Campo de anotações
+### Motivo da Pendência (com textos padrão)
+- Ag. Compras
+- Ag. Logística
+- Enviado
+- Ag. Bseller
+- Ag. Barrar
+- Aguardando
+- **Em devolução** → Ag. Devolução, Liberar Estorno, Confirmar Reenvio
+- **Ag. Confirmação de Entrega** → Solicitar Confirmação, Extravio, Reenvio, Confirmado
+- **Ag. Parceiro** → Estorno, Confirmação Encerramento, Encerramento
 
 ## Detalhes do Produto
-- SKU
-- ID
-- **Cód. Fornecedor** ✅
-- Marca
-- Quantidade
-- Valor
+- SKU, ID, Cód. Fornecedor, Marca, Quantidade, Valor
 
 ## Integrações
-- **Google Sheets:** Atendimentos sincronizados automaticamente ✅
-- **Base de Dados:** ~152.000 pedidos importados ✅
+- **Google Sheets:** Atendimentos sincronizados ✅
+- **Base de Dados:** ~152.000 pedidos ✅
 
 ## Credenciais de Teste
 - Email: test@example.com
 - Senha: password123
 
-## Google Sheets
-- Atendimentos: `1cqzY_i1lqvu8sySPFrMtucQfyTo1LYm04ZpxRZNDCBs`
-
 ## Arquitetura
 ```
 /app/
-├── backend/
-│   ├── server.py        # API FastAPI
-│   ├── google_sheets.py # Integração Google Sheets
-│   └── requirements.txt
-├── frontend/
-│   ├── src/pages/NovoChamado.js # Tela principal de criação
-│   └── src/pages/Dashboard.js
+├── backend/server.py
+├── frontend/src/pages/NovoChamado.js
 └── memory/PRD.md
 ```
 
 ## Backlog
-### P1 (Próximo)
-- Fluxo completo de Devoluções (Reversas) - gerenciar ciclo de vida
-
-### P2
-- Interface conversacional (estilo chatbot)
-- Integração com APIs de Rastreio (Correios, Total Express)
-
-### P3
-- Relatórios nativos
-- Integração com Outlook/Zendesk
-- IA para sugestões de categorias
+### P1 - Fluxo completo de Devoluções
+### P2 - Interface conversacional, APIs de Rastreio
+### P3 - Relatórios, Outlook/Zendesk, IA
