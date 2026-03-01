@@ -1043,6 +1043,24 @@ async def get_pedidos_by_nome(nome: str, current_user: dict = Depends(get_curren
     
     return pedidos
 
+@api_router.get("/pedidos-erp/buscar/pedido/{pedido}", response_model=List[dict])
+async def get_pedidos_by_pedido(pedido: str, current_user: dict = Depends(get_current_user)):
+    """Buscar pedidos por número de pedido externo (pedido_cliente ou pedido_externo)"""
+    pedidos = await db.pedidos_erp.find(
+        {"$or": [
+            {"pedido_cliente": {"$regex": pedido, "$options": "i"}},
+            {"pedido_externo": {"$regex": pedido, "$options": "i"}}
+        ]}, 
+        {"_id": 0}
+    ).sort("data_status", -1).to_list(100)
+    
+    # Adicionar info do galpão
+    for p in pedidos:
+        galpao_info = get_galpao_from_serie(p.get('serie_nf'), p.get('chave_nota'))
+        p.update(galpao_info)
+    
+    return pedidos
+
 @api_router.get("/pedidos-erp/{numero_pedido}", response_model=dict)
 async def get_pedido_erp(numero_pedido: str, current_user: dict = Depends(get_current_user)):
     pedido = await db.pedidos_erp.find_one({"numero_pedido": numero_pedido}, {"_id": 0})
