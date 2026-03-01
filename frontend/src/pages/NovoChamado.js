@@ -403,6 +403,7 @@ const NovoAtendimento = () => {
   const [searchValue, setSearchValue] = useState('');
   const [selectedAvaria, setSelectedAvaria] = useState('');
   const [selectedFalhaProducao, setSelectedFalhaProducao] = useState('');
+  const [selectedFalhaTransporte, setSelectedFalhaTransporte] = useState('');
   const [motivoPendencia, setMotivoPendencia] = useState('');
   const [transportadoraDetectada, setTransportadoraDetectada] = useState(null);
   
