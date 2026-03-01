@@ -1040,7 +1040,8 @@ const NovoAtendimento = () => {
         categoria: atd.categoria || '',
         motivo: atd.motivo || '',
         anotacoes: atd.anotacoes || '',
-        atendente: atd.atendente || 'Letícia Martelo'
+        atendente: atd.atendente || 'Letícia Martelo',
+        pendente: atd.pendente !== undefined ? atd.pendente : true
       });
       
       // Preencher motivo da pendência
