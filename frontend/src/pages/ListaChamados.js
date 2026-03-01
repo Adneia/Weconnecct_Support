@@ -343,6 +343,12 @@ const ListaAtendimentos = () => {
                         {atd.atendente || '-'}
                       </TableCell>
                       <TableCell>
+                        {atd.retornar_chamado && (
+                          <Badge className="bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400 mr-1">
+                            <RotateCcw className="h-3 w-3 mr-1" />
+                            Retornar
+                          </Badge>
+                        )}
                         {atd.pendente ? (
                           <Badge className="bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400">
                             Pendente
