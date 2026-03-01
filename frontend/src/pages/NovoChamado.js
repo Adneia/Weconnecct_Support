@@ -126,7 +126,7 @@ const NovoAtendimento = () => {
   const [textoPadrao, setTextoPadrao] = useState('');
   const [codigoReversa, setCodigoReversa] = useState('');
   
-  const [searchType, setSearchType] = useState('entrega'); // 'cpf', 'pedido', 'nome', 'entrega'
+  const [searchType, setSearchType] = useState('cpf'); // 'cpf', 'pedido', 'nome', 'entrega'
   const [searchValue, setSearchValue] = useState('');
   const [selectedAvaria, setSelectedAvaria] = useState('');
   
