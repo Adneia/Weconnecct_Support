@@ -564,6 +564,7 @@ const NovoAtendimento = () => {
   const [selectedAvaria, setSelectedAvaria] = useState('');
   const [selectedFalhaProducao, setSelectedFalhaProducao] = useState('');
   const [selectedFalhaTransporte, setSelectedFalhaTransporte] = useState('');
+  const [selectedArrependimento, setSelectedArrependimento] = useState('');
   const [motivoPendencia, setMotivoPendencia] = useState('');
   const [transportadoraDetectada, setTransportadoraDetectada] = useState(null);
   
