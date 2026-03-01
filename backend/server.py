@@ -79,7 +79,7 @@ CATEGORIAS_EMERGENT = [
     "Produto com Avaria",
     "Divergência de Produto",
     "Arrependimento",
-    "Dúvida",
+    "Acompanhamento",
     "Reclamação",
     "Assistência Técnica"
 ]
@@ -484,13 +484,134 @@ Segue abaixo o código de postagem para devolução:
 Atenciosamente,
 [ASSINATURA]""",
     
-    "Dúvida": """Prezado(a) cliente,
+    "Acompanhamento": """Selecione o tipo de acompanhamento no campo abaixo.""",
+    
+    "Acompanhamento - Entregue Possível Contestação": """Olá, 
 
-Agradecemos seu contato.
+Informamos que o pedido foi entregue em [DATA_ENTREGA]. Por favor confirmar entrega junto ao cliente.
 
-Estamos verificando sua dúvida e retornaremos em breve com mais informações.
+Ressaltamos que o prazo para contestação da entrega ou solicitação de acareação é de até 10 dias corridos, contados da data da entrega. Caso haja qualquer divergência, pedimos que nos informe dentro desse período para que possamos realizar as devidas análises.
 
+Na ausência de manifestação dentro do prazo informado, seguiremos com o encerramento do chamado.
+
+Podemos encerrar o atendimento?
+
+Permanecemos à disposição.
 Atenciosamente,
+[ASSINATURA]""",
+
+    "Acompanhamento - Entregue Contestação Expirada": """Olá, 
+
+Informamos que o pedido foi entregue em [DATA_ENTREGA]. Encaminhamos em anexo o comprovante de entrega para sua conferência.
+
+Ressaltamos que o prazo para contestação da entrega ou solicitação de acareação é de até 10 dias corridos, contados a partir da data da entrega. Dessa forma, informamos que o prazo para solicitação de acareação já se encontra expirado.
+
+Diante disso, prosseguiremos com o encerramento do chamado.
+
+Permanecemos à disposição.
+Atenciosamente,
+[ASSINATURA]""",
+
+    "Acompanhamento - Sem Comprovante Entrega": """Olá,
+
+Solicitamos o comprovante de entrega assinado ou o início do processo de acareação da entrega. Assim que possível, encaminharemos as informações.
+
+Pedimos, por gentileza, que, ao entrar em contato com a cliente, seja solicitado que nos informe caso o pedido seja entregue.
+
+Seguimos à disposição.
+Atenciosamente,
+[ASSINATURA]""",
+
+    "Acompanhamento - Em Processo Total Express": """Olá, 
+
+Pedido em processo de entrega, podendo ser entregue a qualquer momento. 
+
+Segue rastreio para acompanhamento:
+Rastreio: [CÓDIGO_RASTREIO]
+Previsão de entrega até dia [DATA_PREVISAO]
+
+https://totalconecta.totalexpress.com.br/rastreamento
+
+Seguimos a disposição. 
+Atenciosamente, 
+[ASSINATURA]""",
+
+    "Acompanhamento - Em Processo J&T": """Olá, 
+
+Pedido em processo de entrega, podendo ser entregue a qualquer momento. 
+
+Segue rastreio para acompanhamento:
+Chave de acesso: [CHAVE_ACESSO]
+Previsão de entrega até dia [DATA_PREVISAO]
+
+https://www.jtexpress.com.br/
+
+Seguimos a disposição. 
+Atenciosamente,
+[ASSINATURA]""",
+
+    "Acompanhamento - Em Processo ASAP": """Olá,
+
+Pedido em processo de entrega, podendo ser entregue a qualquer momento. 
+
+Acionado transportadora para seguir com a entrega com prioridade.
+
+Segue rastreio para acompanhamento:
+Nota Fiscal: [NOTA_FISCAL]
+Previsão de entrega até dia [DATA_PREVISAO]
+
+https://rastreio.asaplog.com.br/
+
+Seguimos a disposição. 
+Atenciosamente,
+[ASSINATURA]""",
+
+    "Acompanhamento - Em Processo Correios": """Olá, 
+
+Pedido em processo de entrega, podendo ser entregue a qualquer momento.
+
+Segue link para rastreio:
+https://rastreamento.correios.com.br/app/index.php
+Rastreio: [CÓDIGO_RASTREIO]
+Previsão de entrega até dia [DATA_PREVISAO]
+
+Seguimos a disposição.
+Atenciosamente,
+[ASSINATURA]""",
+
+    "Acompanhamento - Cancelamento por Falta": """Olá, 
+
+Infelizmente, durante a preparação do item [PRODUTO] ([ENTREGA]), identificamos uma avaria, o que nos levou a optar pelo cancelamento devido à indisponibilidade para reposição.
+
+Poderia, por gentileza, seguir com o cancelamento e o estorno ao cliente?
+
+Atenciosamente, 
+[ASSINATURA]""",
+
+    "Acompanhamento - Falha Integração": """Olá,
+
+Não fomos acionamos pela Vtex para preparação deste pedido. Status Vtex (Aguardando autorização para despachar).
+
+Por favor verificar o ocorrido entre Vtex e ...
+
+Seguimos a disposição. 
+Atenciosamente,
+[ASSINATURA]""",
+
+    "Acompanhamento - Ag. Compras": """Olá, 
+
+O pedido encontra-se em preparação. Assim que possível, disponibilizaremos o link para rastreio e previsão de entrega.
+
+Seguimos a disposição.
+Atenciosamente! 
+[ASSINATURA]""",
+
+    "Acompanhamento - Problema Emissão NF": """Olá,
+
+Infelizmente na emissão da Nota fiscal do pedido acima [ENTREGA] - [PRODUTO], foi constatado um problema fiscal por parte do CNPJ informado o qual impede a aprovação da NF. Poderiam seguir com o cancelamento e estorno ao cliente.
+
+Seguimos a disposição.
+Atenciosamente!
 [ASSINATURA]""",
     
     "Reclamação": """Prezado(a) Sr(a) [NOME]
@@ -1216,7 +1337,7 @@ async def import_pedidos(file: UploadFile = File(...), current_user: dict = Depe
             'serie_nf': ['série', 'serie'],  # Série da NF (1=SC, 6=SP, 2=ES)
             'chave_nota': ['chave acesso'],  # Coluna X
             'pedido_troca': ['pedido troca'],  # Coluna Y
-            'codigo_fornecedor': ['cód. fornecedor'],  # Coluna Z
+            'codigo_fornecedor': ['cód. fornecedor', 'cód. fornecedor do sigeq230', 'codigo_fornecedor', 'cod. fornecedor', 'cod fornecedor', 'codfornecedor'],  # Coluna Z - variações
         }
         
         # Normalize column names (strip whitespace and lowercase)
