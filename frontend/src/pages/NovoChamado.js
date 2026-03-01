@@ -483,17 +483,9 @@ const NovoAtendimento = () => {
                   <Package className="h-5 w-5 text-emerald-600" />
                   Pedido #{pedidoErp.numero_pedido}
                 </CardTitle>
-                <div className="flex items-center gap-2">
-                  {pedidoErp.uf_galpao && pedidoErp.uf_galpao !== '-' && (
-                    <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/50 dark:text-purple-400 dark:border-purple-800">
-                      <Warehouse className="h-3 w-3 mr-1" />
-                      Galpão: {pedidoErp.uf_galpao}
-                    </Badge>
-                  )}
-                  <Badge className={getStatusBadgeColor(pedidoErp.status_pedido)}>
-                    {pedidoErp.status_pedido || 'Sem status'}
-                  </Badge>
-                </div>
+                <Badge className={getStatusBadgeColor(pedidoErp.status_pedido)}>
+                  {pedidoErp.status_pedido || 'Sem status'}
+                </Badge>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
