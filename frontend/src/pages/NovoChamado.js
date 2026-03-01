@@ -679,6 +679,172 @@ Atenciosamente!
 [ASSINATURA]`
 };
 
+// Textos de Reclame Aqui
+const TEXTOS_RECLAME_AQUI = {
+  "Resposta Inicial": `Prezado(a) Sr(a). [NOME_CLIENTE],
+
+Primeiramente, lamentamos muito pelo ocorrido.
+
+Informamos que o atendimento para compras realizadas em nossa loja é conduzido diretamente pelos nossos parceiros. Nesse caso, o procedimento correto é acionar o canal de venda por meio do qual a compra foi efetuada, para apoio na tratativa da ocorrência.
+
+No entanto, para agilizar a resolução do caso, entraremos em contato diretamente via WhatsApp, no número informado na nota fiscal, oferecendo o suporte necessário, além de acionarmos o parceiro responsável para dar continuidade às tratativas.
+
+Continuamos à disposição para qualquer dúvida ou necessidade.
+
+Atenciosamente,
+Equipe de Atendimento Weconnect`,
+
+  "Mensagem WhatsApp": `Prezado(a) Sr(a). [NOME_CLIENTE]
+
+Fomos acionados via Reclame Aqui com a informação de que o produto adquirido ainda não foi entregue.
+
+Identificamos que o pedido, 
+
+Nossas sinceras desculpas pelo ocorrido. Estamos à disposição para resolver o caso o mais breve possível.
+
+Atenciosamente,
+Equipe de Atendimento Weconnect`,
+
+  "Solicitar Encerramento": `Agradecemos a confirmação.
+
+Por gentileza, poderia seguir com o encerramento da reclamação no Reclame Aqui?
+Aproveitamos para agradecer, caso seja possível, a avaliação do nosso atendimento referente à tratativa da ocorrência.
+
+Permanecemos à disposição.
+
+Atenciosamente,
+Equipe de Atendimento Weconnect`,
+
+  "Após Avaliação": `Prezado(a) Sr(a). [NOME_CLIENTE],
+
+Agradecemos o retorno e a sua sincera avaliação em relação ao nosso atendimento.
+
+Permanecemos à disposição para quaisquer dúvidas ou solicitações.
+
+Atenciosamente,
+Equipe de Atendimento Weconnect`
+};
+
+// Textos de Assistência Técnica
+const TEXTOS_ASSISTENCIA = {
+  "Oderço": `Olá,
+
+Lamentamos muito pelo ocorrido e para agilizar o atendimento, pedimos que o cliente acione direto o fornecedor para dar andamento ao processo de troca.
+
+Serviço de Atendimento ao Cliente (SAC) – ODERÇO
+📞 44 2101-1428
+
+Seguimos à disposição para qualquer apoio necessário.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ventisol": `Olá,
+
+Lamentamos muito pelo ocorrido e para agilizar o atendimento, pedimos que o cliente acione direto o fornecedor para dar andamento ao processo de troca.
+
+Serviço de Atendimento ao Cliente (SAC) – VENTISOL
+https://assistencia.ventisol.com.br/
+
+Seguimos à disposição para qualquer apoio necessário.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "OEX": `Olá,
+
+Lamentamos muito pelo ocorrido e para agilizar o atendimento, pedimos que o cliente acione direto o fornecedor para dar andamento ao processo de troca.
+
+Serviço de Atendimento ao Cliente (SAC) – OEX 
+reversa@newex.com.br
+
+📞 0800 887 0505 OU 11 973928421
+
+Seguimos à disposição para qualquer apoio necessário.
+
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Hoopson": `Olá,
+
+Lamentamos muito pelo ocorrido e para agilizar o atendimento, pedimos que o cliente acione direto o fornecedor para dar andamento ao processo de troca.
+
+Serviço de Atendimento ao Cliente (SAC) – Hoopson
+
+📞 0+55 21 3809-2001
+
+Seguimos à disposição para qualquer apoio necessário.
+
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ventisol + Reversa": `Olá, 
+
+Este fornecedor tem a possibilidade de troca direto com ele, o cliente pode aciona-lo direto através do https://assistencia.ventisol.com.br/
+
+Como estamos dentro do prazo de devolução, o cliente também pode optar pelo troca aqui na loja, para isso, basta realizar a devolução conforme o código de postagem abaixo e assim que for recebido em nosso galpão será enviado outro em substituição.
+
+Segue os dados para realizar o retorno do produto em no máximo 10 dias.
+
+Autorização de Postagem em Agência
+
+Dados da Emissão:
+
+Objeto: [CÓDIGO_REVERSA]
+Emitido em: [DATA_EMISSAO]
+Data de Validade: [DATA_VALIDADE]
+Remetente autorizado: [NOME_CLIENTE]
+
+- Para utilizá-la, o consumidor dever se dirigir a uma Agência Própria ou Franqueada dos Correios, levando consigo, obrigatoriamente, o Código de Autorização e o objeto para postagem.
+
+DESTINATÁRIO:
+WECONNECT COMERCIO E SERVICOS LTDA 
+
+*** Orientações importantes ***: 
+
+* O produto deve ser devolvido na embalagem original e sem avaria (dentro de uma outra caixa de papelão OU papel pardo para manter a integridade do produto); 
+* Sem indícios de uso, sem violação do lacre original do fabricante; 
+* Coloque a nota fiscal dentro de um envelope plástico adesivo e cole-o na parte externa do pacote. Este tipo de envelope deve estar disponível em qualquer agência dos Correios; 
+* Acompanhado também dos acessórios/peças e manual do item. 
+* O estorno somente será autorizado após as avaliações citadas acima. As informações do destinatário serão preenchidas na agência dos Correios de acordo com Código de Postagem. 
+
+Seguimos a disposição.
+Atenciosamente!`,
+
+  "OEX + Reversa": `Olá, 
+
+Este fornecedor tem a possibilidade de troca direto com ele, o cliente pode aciona-lo direto através do Serviço de Atendimento ao Cliente (SAC) – OEX - reversa@newex.com.br - 📞 0800 887 0505 OU 11 973928421 . 
+
+Como estamos dentro do prazo de devolução, o cliente também pode optar pela devolução ou troca aqui na loja, para isso, basta realizar a devolução conforme o código de postagem abaixo e assim que for recebido em nosso galpão seguiremos com a tratativa
+
+Segue os dados para realizar o retorno do produto em no máximo 10 dias.
+
+Autorização de Postagem em Agência
+
+Dados da Emissão:
+
+Objeto: [CÓDIGO_REVERSA]
+Emitido em: [DATA_EMISSAO]
+Data de Validade: [DATA_VALIDADE]
+Remetente autorizado: [NOME_CLIENTE]
+
+- Para utilizá-la, o consumidor dever se dirigir a uma Agência Própria ou Franqueada dos Correios, levando consigo, obrigatoriamente, o Código de Autorização e o objeto para postagem.
+
+DESTINATÁRIO:
+WECONNECT COMERCIO E SERVICOS LTDA 
+
+*** Orientações importantes ***: 
+
+* O produto deve ser devolvido na embalagem original e sem avaria (dentro de uma outra caixa de papelão OU papel pardo para manter a integridade do produto); 
+* Sem indícios de uso, sem violação do lacre original do fabricante; 
+* Coloque a nota fiscal dentro de um envelope plástico adesivo e cole-o na parte externa do pacote. Este tipo de envelope deve estar disponível em qualquer agência dos Correios; 
+* Acompanhado também dos acessórios/peças e manual do item. 
+* O estorno somente será autorizado após as avaliações citadas acima. As informações do destinatário serão preenchidas na agência dos Correios de acordo com Código de Postagem. 
+
+Seguimos a disposição.
+Atenciosamente!
+
+[ASSINATURA]`
+};
+
 const NovoAtendimento = () => {
   const [loading, setLoading] = useState(false);
   const [searchingPedido, setSearchingPedido] = useState(false);
