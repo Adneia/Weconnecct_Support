@@ -871,6 +871,17 @@ const NovoAtendimento = () => {
     if (codigoReversa) {
       texto = texto.replace(/\[CÓDIGO_REVERSA\]/g, codigoReversa);
     }
+    // Data de emissão (hoje)
+    const hoje = new Date();
+    const dataEmissao = hoje.toLocaleDateString('pt-BR');
+    texto = texto.replace(/\[DATA_EMISSAO\]/g, dataEmissao);
+    
+    // Data de vencimento da reversa
+    if (dataVencimentoReversa) {
+      const dataValidade = new Date(dataVencimentoReversa + 'T00:00:00').toLocaleDateString('pt-BR');
+      texto = texto.replace(/\[DATA_VALIDADE\]/g, dataValidade);
+    }
+    
     setTextoPadrao(texto);
     setSelectedArrependimento(tipo);
     setShowTextoDialog(true);
