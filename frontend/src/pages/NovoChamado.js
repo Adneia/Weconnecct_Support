@@ -226,7 +226,12 @@ const NovoAtendimento = () => {
         { headers: getAuthHeader() }
       );
       
-      toast.success(`${response.data.id_atendimento} criado com sucesso!`);
+      toast.success(
+        <div className="flex flex-col gap-1">
+          <span className="font-semibold">{response.data.id_atendimento} criado com sucesso!</span>
+          <span className="text-xs opacity-80">Sincronizando com Google Sheets...</span>
+        </div>
+      );
       navigate(`/chamados/${response.data.id}`);
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Erro ao criar atendimento');
