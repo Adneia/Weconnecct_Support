@@ -145,7 +145,7 @@ class TestChamadosCRUD:
     def test_create_chamado_and_verify_google_sheets_sync(self, auth_header):
         """POST /api/chamados should create atendimento with Google Sheets sync queued"""
         payload = {
-            "numero_pedido": "117844750",
+            "numero_pedido": "92512612",
             "categoria": "Falha Transporte",
             "atendente": "Letícia Martelo",
             "anotacoes": "TEST_chamado - Teste automatizado de criação"
