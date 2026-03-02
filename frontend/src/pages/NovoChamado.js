@@ -287,9 +287,8 @@ Atenciosamente!
 Informamos que o pedido já foi entregue à transportadora. Pedimos, por gentileza, que aguarde o prazo de até 48 horas úteis para que as informações de rastreamento e a previsão de entrega sejam atualizadas no sistema.
 
 Segue rastreio para acompanhamento:
-Rastreio: [CÓDIGO_RASTREIO]
 
-https://totalconecta.totalexpress.com.br/rastreamento
+https://status.ondeestameupedido.com/tracking/41693/[ENTREGA]
 
 Permanecemos à disposição.
 Atenciosamente,
@@ -329,10 +328,9 @@ const TEXTOS_FALHA_TRANSPORTE = {
 Pedido em processo de entrega, podendo ser entregue a qualquer momento.
 
 Segue rastreio para acompanhamento:
-Rastreio: [CÓDIGO_RASTREIO]
 Previsão de entrega até dia [DATA_PREVISAO]
 
-https://totalconecta.totalexpress.com.br/rastreamento
+https://status.ondeestameupedido.com/tracking/41693/[ENTREGA]
 
 Seguimos a disposição.
 Atenciosamente,
@@ -687,10 +685,9 @@ Atenciosamente,
 Pedido em processo de entrega, podendo ser entregue a qualquer momento. 
 
 Segue rastreio para acompanhamento:
-Rastreio: [CÓDIGO_RASTREIO]
 Previsão de entrega até dia [DATA_PREVISAO]
 
-https://totalconecta.totalexpress.com.br/rastreamento
+https://status.ondeestameupedido.com/tracking/41693/[ENTREGA]
 
 Seguimos a disposição. 
 Atenciosamente, 
@@ -1286,6 +1283,10 @@ const NovoAtendimento = () => {
     }
     if (pedidoErp?.codigo_rastreio) {
       texto = texto.replace(/\[CÓDIGO_RASTREIO\]/g, pedidoErp.codigo_rastreio);
+    }
+    // Substituir entrega (número do pedido)
+    if (pedidoErp?.numero_pedido) {
+      texto = texto.replace(/\[ENTREGA\]/g, pedidoErp.numero_pedido);
     }
     setTextoPadrao(texto);
     setSelectedFalhaProducao(tipoFalha);
