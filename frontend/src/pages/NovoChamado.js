@@ -2689,26 +2689,49 @@ const NovoAtendimento = () => {
                   <input type="hidden" value={formData.anotacoes} />
                 </div>
 
-                {/* Checkbox Retornar Chamado */}
-                <div className="flex items-center justify-between p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="checkbox"
-                      id="retornar-chamado"
-                      checked={retornarChamado}
-                      onChange={(e) => setRetornarChamado(e.target.checked)}
-                      className="w-5 h-5 rounded border-amber-400 text-amber-600 focus:ring-amber-500"
-                      data-testid="checkbox-retornar"
-                    />
-                    <Label htmlFor="retornar-chamado" className="text-amber-800 dark:text-amber-200 font-medium cursor-pointer">
-                      Retornar Chamado (precisa atuação)
-                    </Label>
+                {/* Checkboxes Retornar Chamado e Verificar Adnéia */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        id="retornar-chamado"
+                        checked={retornarChamado}
+                        onChange={(e) => setRetornarChamado(e.target.checked)}
+                        className="w-5 h-5 rounded border-amber-400 text-amber-600 focus:ring-amber-500"
+                        data-testid="checkbox-retornar"
+                      />
+                      <Label htmlFor="retornar-chamado" className="text-amber-800 dark:text-amber-200 font-medium cursor-pointer">
+                        Retornar Chamado
+                      </Label>
+                    </div>
+                    {retornarChamado && (
+                      <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300">
+                        Aguardando
+                      </Badge>
+                    )}
                   </div>
-                  {retornarChamado && (
-                    <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300">
-                      Aguardando retorno
-                    </Badge>
-                  )}
+
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        id="verificar-adneia"
+                        checked={verificarAdneia}
+                        onChange={(e) => setVerificarAdneia(e.target.checked)}
+                        className="w-5 h-5 rounded border-purple-400 text-purple-600 focus:ring-purple-500"
+                        data-testid="checkbox-verificar-adneia"
+                      />
+                      <Label htmlFor="verificar-adneia" className="text-purple-800 dark:text-purple-200 font-medium cursor-pointer">
+                        Verificar Adnéia
+                      </Label>
+                    </div>
+                    {verificarAdneia && (
+                      <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-300">
+                        Aguardando
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
