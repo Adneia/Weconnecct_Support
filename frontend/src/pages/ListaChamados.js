@@ -266,14 +266,36 @@ const ListaAtendimentos = () => {
 
             {showFilters && (
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4 border-t">
-                <Select value={filters.pendente} onValueChange={(v) => setFilters(f => ({ ...f, pendente: v }))}>
+                <Select 
+                  value={
+                    filters.retornar_chamado === 'true' ? 'retornar' :
+                    filters.verificar_adneia === 'true' ? 'verificar' :
+                    filters.pendente === 'true' ? 'pendente' :
+                    filters.pendente === 'false' ? 'resolvido' : 'all'
+                  } 
+                  onValueChange={(v) => {
+                    if (v === 'retornar') {
+                      setFilters(f => ({ ...f, pendente: '', retornar_chamado: 'true', verificar_adneia: '' }));
+                    } else if (v === 'verificar') {
+                      setFilters(f => ({ ...f, pendente: '', retornar_chamado: '', verificar_adneia: 'true' }));
+                    } else if (v === 'pendente') {
+                      setFilters(f => ({ ...f, pendente: 'true', retornar_chamado: '', verificar_adneia: '' }));
+                    } else if (v === 'resolvido') {
+                      setFilters(f => ({ ...f, pendente: 'false', retornar_chamado: '', verificar_adneia: '' }));
+                    } else {
+                      setFilters(f => ({ ...f, pendente: '', retornar_chamado: '', verificar_adneia: '' }));
+                    }
+                  }}
+                >
                   <SelectTrigger data-testid="filter-pendente">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="true">Pendentes</SelectItem>
-                    <SelectItem value="false">Resolvidos</SelectItem>
+                    <SelectItem value="pendente">Pendentes</SelectItem>
+                    <SelectItem value="retornar">Retornar</SelectItem>
+                    <SelectItem value="verificar">Verificar</SelectItem>
+                    <SelectItem value="resolvido">Resolvidos</SelectItem>
                   </SelectContent>
                 </Select>
 
