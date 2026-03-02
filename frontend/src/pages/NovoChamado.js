@@ -973,6 +973,13 @@ const NovoAtendimento = () => {
   const [retornarChamado, setRetornarChamado] = useState(false);
   const [verificarAdneia, setVerificarAdneia] = useState(false);
   const [pedidoExpanded, setPedidoExpanded] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({
+    solicitacao: false,
+    categoria: false,
+    motivo: false,
+    motivoPendencia: false,
+    anotacoes: false
+  });
   
   const [formData, setFormData] = useState({
     numero_pedido: '',
@@ -1521,21 +1528,41 @@ const NovoAtendimento = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Reset errors
+    setFieldErrors({
+      solicitacao: false,
+      categoria: false,
+      motivo: false,
+      motivoPendencia: false,
+      anotacoes: false
+    });
+    
     // Validação de campos obrigatórios
+    let hasError = false;
+    const newErrors = { ...fieldErrors };
+    
     if (!formData.numero_pedido.trim()) {
       toast.error('Busque e selecione um pedido');
       return;
     }
     if (!formData.solicitacao.trim()) {
       toast.error('Preencha o campo Solicitação');
-      return;
+      newErrors.solicitacao = true;
+      hasError = true;
     }
     if (!formData.categoria) {
       toast.error('Selecione a categoria');
-      return;
+      newErrors.categoria = true;
+      hasError = true;
     }
     if (!formData.motivo.trim()) {
       toast.error('Preencha o campo Motivo');
+      newErrors.motivo = true;
+      hasError = true;
+    }
+    
+    if (hasError) {
+      setFieldErrors(newErrors);
       return;
     }
 
@@ -1574,7 +1601,7 @@ const NovoAtendimento = () => {
             <span className="text-xs opacity-80">Sincronizando com Google Sheets...</span>
           </div>
         );
-        navigate(`/chamados/${response.data.id}`);
+        navigate('/chamados');
       }
     } catch (error) {
       toast.error(error.response?.data?.detail || `Erro ao ${isEditMode ? 'atualizar' : 'criar'} atendimento`);
@@ -1590,25 +1617,47 @@ const NovoAtendimento = () => {
   const handleEncerrar = async () => {
     if (!isEditMode || !atendimentoId) return;
     
+    // Reset errors
+    setFieldErrors({
+      solicitacao: false,
+      categoria: false,
+      motivo: false,
+      motivoPendencia: false,
+      anotacoes: false
+    });
+    
     // Validação de campos obrigatórios para encerrar
+    let hasError = false;
+    const newErrors = { solicitacao: false, categoria: false, motivo: false, motivoPendencia: false, anotacoes: false };
+    
     if (!formData.solicitacao.trim()) {
       toast.error('Preencha o campo Solicitação antes de encerrar');
-      return;
+      newErrors.solicitacao = true;
+      hasError = true;
     }
     if (!formData.categoria) {
       toast.error('Selecione a categoria antes de encerrar');
-      return;
+      newErrors.categoria = true;
+      hasError = true;
     }
     if (!formData.motivo.trim()) {
       toast.error('Preencha o campo Motivo antes de encerrar');
-      return;
+      newErrors.motivo = true;
+      hasError = true;
     }
     if (!motivoPendencia.trim()) {
       toast.error('Preencha o Motivo da Pendência antes de encerrar');
-      return;
+      newErrors.motivoPendencia = true;
+      hasError = true;
     }
     if (!formData.anotacoes.trim()) {
       toast.error('Preencha as Anotações antes de encerrar');
+      newErrors.anotacoes = true;
+      hasError = true;
+    }
+    
+    if (hasError) {
+      setFieldErrors(newErrors);
       return;
     }
     
@@ -1866,12 +1915,18 @@ const NovoAtendimento = () => {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   <div>
-                    <Label>Solicitação (Parceiro)</Label>
+                    <Label className={fieldErrors.solicitacao ? 'text-red-600' : ''}>
+                      Solicitação (Parceiro) <span className="text-red-500">*</span>
+                    </Label>
                     <Input
                       value={formData.solicitacao}
-                      onChange={(e) => handleChange('solicitacao', e.target.value)}
+                      onChange={(e) => {
+                        handleChange('solicitacao', e.target.value);
+                        if (fieldErrors.solicitacao) setFieldErrors(prev => ({...prev, solicitacao: false}));
+                      }}
                       placeholder="Nº da solicitação"
                       data-testid="input-solicitacao"
+                      className={fieldErrors.solicitacao ? 'border-red-500 focus:ring-red-500' : ''}
                     />
                   </div>
 
@@ -1900,9 +1955,20 @@ const NovoAtendimento = () => {
                   </div>
 
                   <div className="sm:col-span-2 lg:col-span-3">
-                    <Label>Categoria *</Label>
-                    <Select value={formData.categoria} onValueChange={(v) => handleChange('categoria', v)}>
-                      <SelectTrigger data-testid="select-categoria">
+                    <Label className={fieldErrors.categoria ? 'text-red-600' : ''}>
+                      Categoria <span className="text-red-500">*</span>
+                    </Label>
+                    <Select 
+                      value={formData.categoria} 
+                      onValueChange={(v) => {
+                        handleChange('categoria', v);
+                        if (fieldErrors.categoria) setFieldErrors(prev => ({...prev, categoria: false}));
+                      }}
+                    >
+                      <SelectTrigger 
+                        data-testid="select-categoria"
+                        className={fieldErrors.categoria ? 'border-red-500 focus:ring-red-500' : ''}
+                      >
                         <SelectValue placeholder="Selecione a categoria" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1914,12 +1980,18 @@ const NovoAtendimento = () => {
                   </div>
 
                   <div className="sm:col-span-2 lg:col-span-3">
-                    <Label>Motivo</Label>
+                    <Label className={fieldErrors.motivo ? 'text-red-600' : ''}>
+                      Motivo <span className="text-red-500">*</span>
+                    </Label>
                     <Input
                       value={formData.motivo}
-                      onChange={(e) => handleChange('motivo', e.target.value)}
+                      onChange={(e) => {
+                        handleChange('motivo', e.target.value);
+                        if (fieldErrors.motivo) setFieldErrors(prev => ({...prev, motivo: false}));
+                      }}
                       placeholder="Motivo específico do atendimento"
                       data-testid="input-motivo"
+                      className={fieldErrors.motivo ? 'border-red-500 focus:ring-red-500' : ''}
                     />
                   </div>
                 </div>
@@ -2552,9 +2624,20 @@ const NovoAtendimento = () => {
                 </div>
 
                 <div>
-                  <Label>Motivo da Pendência</Label>
-                  <Select value={motivoPendencia} onValueChange={setMotivoPendencia}>
-                    <SelectTrigger data-testid="select-motivo-pendencia">
+                  <Label className={fieldErrors.motivoPendencia ? 'text-red-600' : ''}>
+                    Motivo da Pendência <span className="text-red-500">*</span>
+                  </Label>
+                  <Select 
+                    value={motivoPendencia} 
+                    onValueChange={(v) => {
+                      setMotivoPendencia(v);
+                      if (fieldErrors.motivoPendencia) setFieldErrors(prev => ({...prev, motivoPendencia: false}));
+                    }}
+                  >
+                    <SelectTrigger 
+                      data-testid="select-motivo-pendencia"
+                      className={fieldErrors.motivoPendencia ? 'border-red-500 focus:ring-red-500' : ''}
+                    >
                       <SelectValue placeholder="Selecione o motivo" />
                     </SelectTrigger>
                     <SelectContent>
@@ -2676,7 +2759,9 @@ const NovoAtendimento = () => {
                 </div>
                 
                 <div className="space-y-3">
-                  <Label>Anotações</Label>
+                  <Label className={fieldErrors.anotacoes ? 'text-red-600' : ''}>
+                    Anotações <span className="text-red-500">*</span>
+                  </Label>
                   
                   {/* Campo para nova observação */}
                   <div className="flex gap-2">
@@ -2686,6 +2771,7 @@ const NovoAtendimento = () => {
                         placeholder="Digite uma nova observação..."
                         rows={2}
                         data-testid="textarea-nova-observacao"
+                        className={fieldErrors.anotacoes && !formData.anotacoes ? 'border-red-500 focus:ring-red-500' : ''}
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault();
@@ -2699,6 +2785,7 @@ const NovoAtendimento = () => {
                                 ? `${novaEntrada}\n\n${anotacoesAtuais}`
                                 : novaEntrada;
                               handleChange('anotacoes', novasAnotacoes);
+                              if (fieldErrors.anotacoes) setFieldErrors(prev => ({...prev, anotacoes: false}));
                               input.value = '';
                             }
                           }

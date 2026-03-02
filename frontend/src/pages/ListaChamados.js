@@ -313,11 +313,11 @@ const ListaAtendimentos = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">ID</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Entrega</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Cliente</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Parceiro</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Categoria</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Reversa</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Atendente</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Status</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Dias</TableHead>
@@ -332,9 +332,6 @@ const ListaAtendimentos = () => {
                       onClick={() => navigate(`/chamados/editar/${atd.id}`)}
                       data-testid={`row-${atd.id}`}
                     >
-                      <TableCell className="font-mono text-sm font-medium">
-                        {atd.id_atendimento || '-'}
-                      </TableCell>
                       <TableCell className="font-medium">
                         #{atd.numero_pedido}
                       </TableCell>
@@ -353,6 +350,9 @@ const ListaAtendimentos = () => {
                         <Badge className={getCategoryBadgeColor(atd.categoria)}>
                           {atd.categoria}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm font-mono">
+                        {atd.codigo_reversa || '-'}
                       </TableCell>
                       <TableCell className="text-sm">
                         {atd.atendente || '-'}

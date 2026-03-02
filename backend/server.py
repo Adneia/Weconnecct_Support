@@ -1404,8 +1404,17 @@ async def get_pedidos_by_cpf(cpf: str, current_user: dict = Depends(get_current_
     # Limpar CPF (remover pontos e traços)
     cpf_limpo = cpf.replace('.', '').replace('-', '').replace(' ', '')
     
+    # Remover zeros à esquerda para match com dados do banco
+    cpf_sem_zeros = cpf_limpo.lstrip('0')
+    
+    # Buscar tanto com CPF completo quanto sem zeros à esquerda
     pedidos = await db.pedidos_erp.find(
-        {"cpf_cliente": {"$regex": cpf_limpo}}, 
+        {"$or": [
+            {"cpf_cliente": {"$regex": f"^{cpf_limpo}$"}},
+            {"cpf_cliente": {"$regex": f"^{cpf_sem_zeros}$"}},
+            {"cpf_cliente": {"$regex": cpf_limpo}},
+            {"cpf_cliente": {"$regex": cpf_sem_zeros}}
+        ]}, 
         {"_id": 0}
     ).sort("data_status", -1).to_list(100)
     
