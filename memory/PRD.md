@@ -1,7 +1,16 @@
 # Emergent - Sistema de Atendimentos WeConnect
 
 ## Status: MVP Funcional ✅
-**Última atualização:** 01/03/2026
+**Última atualização:** 02/03/2026
+
+## Changelog Recente
+- ✅ Corrigido crash na página Novo Chamado (estado verificarAdneia já existia)
+- ✅ Reimportados 152.551 pedidos para base de dados
+- ✅ Adicionado campo `verificar_adneia` nos modelos Pydantic
+- ✅ Adicionado card "Adnéia" na Lista de Atendimentos (roxo)
+- ✅ Adicionado badge "Adnéia" na tabela de atendimentos
+- ✅ Adicionado filtro `verificar_adneia` no endpoint GET /api/chamados
+- ✅ Texto "(precisa atuação)" removido do checkbox "Retornar Chamado"
 
 ## Categorias (8)
 1. Falha Produção
@@ -56,9 +65,13 @@ Reversa, Em Devolução, Devolvido, Bloqueio, Outros
 ## Detalhes do Produto
 - SKU, ID, Cód. Fornecedor, Marca, Quantidade, Valor
 
+## Fluxo de Trabalho
+- **Retornar Chamado:** Checkbox amarelo para sinalizar que o chamado precisa de retorno
+- **Verificar Adnéia:** Checkbox roxo para sinalizar que Adnéia precisa verificar
+
 ## Integrações
 - **Google Sheets:** Atendimentos sincronizados ✅
-- **Base de Dados:** ~152.000 pedidos ✅
+- **Base de Dados:** 152.551 pedidos importados ✅
 
 ## Credenciais de Teste
 - Email: test@example.com
