@@ -1803,6 +1803,458 @@ async def get_dashboard_stats(
         "periodo_dias": periodo_dias
     }
 
+# ============== DASHBOARD V2 - MULTI-TAB ==============
+
+@api_router.get("/dashboard/v2/visao-geral")
+async def get_dashboard_visao_geral(
+    periodo_dias: int = 30,
+    canal: Optional[str] = None,
+    fornecedor: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """Aba 1 - Visão Geral"""
+    now = datetime.now(timezone.utc)
+    periodo_inicio = (now - timedelta(days=periodo_dias)).isoformat()
+    
+    base_query = {}
+    if periodo_dias < 365:
+        base_query["data_abertura"] = {"$gte": periodo_inicio}
+    if canal:
+        base_query["$or"] = [{"parceiro": canal}, {"canal_vendas": canal}]
+    if fornecedor:
+        base_query["codigo_fornecedor"] = fornecedor
+    
+    # Totais
+    total = await db.chamados.count_documents(base_query)
+    pendentes = await db.chamados.count_documents({**base_query, "pendente": True})
+    resolvidos = await db.chamados.count_documents({**base_query, "pendente": False})
+    
+    # Atendimento mais antigo
+    mais_antigo = await db.chamados.find_one(
+        {"pendente": True}, 
+        {"_id": 0, "data_abertura": 1, "id_atendimento": 1},
+        sort=[("data_abertura", 1)]
+    )
+    dias_mais_antigo = 0
+    data_mais_antigo = None
+    id_mais_antigo = None
+    if mais_antigo:
+        data_abertura = datetime.fromisoformat(mais_antigo['data_abertura'].replace('Z', '+00:00'))
+        dias_mais_antigo = (now - data_abertura).days
+        data_mais_antigo = mais_antigo['data_abertura']
+        id_mais_antigo = mais_antigo.get('id_atendimento')
+    
+    # Tempo médio
+    pipeline_tempo = [
+        {"$match": {"pendente": False, "data_fechamento": {"$ne": None}}},
+        {"$project": {
+            "tempo": {"$subtract": [
+                {"$dateFromString": {"dateString": "$data_fechamento"}},
+                {"$dateFromString": {"dateString": "$data_abertura"}}
+            ]}
+        }},
+        {"$group": {"_id": None, "media": {"$avg": "$tempo"}}}
+    ]
+    tempo_result = await db.chamados.aggregate(pipeline_tempo).to_list(1)
+    tempo_medio = round((tempo_result[0]['media'] / (1000 * 60 * 60 * 24)), 2) if tempo_result and tempo_result[0]['media'] else 0
+    
+    # Por mês (últimos 6)
+    por_mes = []
+    for i in range(5, -1, -1):
+        mes_ref = now - timedelta(days=i*30)
+        mes_inicio = mes_ref.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        if mes_ref.month == 12:
+            mes_fim = mes_ref.replace(year=mes_ref.year + 1, month=1, day=1) - timedelta(seconds=1)
+        else:
+            mes_fim = mes_ref.replace(month=mes_ref.month + 1, day=1) - timedelta(seconds=1)
+        
+        count = await db.chamados.count_documents({
+            "data_abertura": {"$gte": mes_inicio.isoformat(), "$lte": mes_fim.isoformat()}
+        })
+        por_mes.append({"mes": mes_ref.strftime("%b/%y"), "total": count})
+    
+    # Por dia (últimos N dias)
+    dias_grafico = min(periodo_dias, 30)
+    por_dia = []
+    for i in range(dias_grafico - 1, -1, -1):
+        dia = now - timedelta(days=i)
+        dia_inicio = dia.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+        dia_fim = dia.replace(hour=23, minute=59, second=59, microsecond=999999).isoformat()
+        
+        abertos = await db.chamados.count_documents({"data_abertura": {"$gte": dia_inicio, "$lte": dia_fim}})
+        resolvidos_dia = await db.chamados.count_documents({"data_fechamento": {"$gte": dia_inicio, "$lte": dia_fim}})
+        
+        por_dia.append({"data": dia.strftime("%d/%m"), "abertos": abertos, "resolvidos": resolvidos_dia})
+    
+    # Base Emergent
+    total_pedidos = await db.pedidos_erp.count_documents({})
+    
+    return {
+        "total": total, "pendentes": pendentes, "resolvidos": resolvidos,
+        "tempo_medio": tempo_medio, "dias_mais_antigo": dias_mais_antigo,
+        "data_mais_antigo": data_mais_antigo, "id_mais_antigo": id_mais_antigo,
+        "total_pedidos": total_pedidos, "por_mes": por_mes, "por_dia": por_dia
+    }
+
+@api_router.get("/dashboard/v2/volume-canal")
+async def get_dashboard_volume_canal(
+    periodo_dias: int = 30,
+    current_user: dict = Depends(get_current_user)
+):
+    """Aba 2 - Volume por Canal"""
+    now = datetime.now(timezone.utc)
+    periodo_inicio = (now - timedelta(days=periodo_dias)).isoformat()
+    
+    base_match = {"data_abertura": {"$gte": periodo_inicio}} if periodo_dias < 365 else {}
+    
+    # Por canal (ranking)
+    pipeline_canal = [
+        {"$match": base_match},
+        {"$group": {"_id": {"$ifNull": ["$parceiro", "$canal_vendas"]}, "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}
+    ]
+    por_canal = await db.chamados.aggregate(pipeline_canal).to_list(50)
+    total = sum(c['count'] for c in por_canal)
+    
+    ranking = [{"canal": c['_id'] or 'Não informado', "total": c['count'], 
+                "percentual": round((c['count']/total)*100, 1) if total > 0 else 0} for c in por_canal if c['_id']]
+    
+    # Por mês e canal (empilhado)
+    por_mes_canal = []
+    for i in range(5, -1, -1):
+        mes_ref = now - timedelta(days=i*30)
+        mes_inicio = mes_ref.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        mes_fim = (mes_inicio.replace(month=mes_inicio.month % 12 + 1, day=1) if mes_inicio.month < 12 
+                   else mes_inicio.replace(year=mes_inicio.year + 1, month=1, day=1)) - timedelta(seconds=1)
+        
+        pipeline = [
+            {"$match": {"data_abertura": {"$gte": mes_inicio.isoformat(), "$lte": mes_fim.isoformat()}}},
+            {"$group": {"_id": {"$ifNull": ["$parceiro", "$canal_vendas"]}, "count": {"$sum": 1}}}
+        ]
+        result = await db.chamados.aggregate(pipeline).to_list(50)
+        mes_data = {"mes": mes_ref.strftime("%b/%y")}
+        for r in result:
+            if r['_id']:
+                mes_data[r['_id']] = r['count']
+        por_mes_canal.append(mes_data)
+    
+    return {"ranking": ranking, "por_mes_canal": por_mes_canal, "total": total}
+
+@api_router.get("/dashboard/v2/classificacao")
+async def get_dashboard_classificacao(
+    periodo_dias: int = 30,
+    canal: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """Aba 3 - Classificação"""
+    now = datetime.now(timezone.utc)
+    periodo_inicio = (now - timedelta(days=periodo_dias)).isoformat()
+    
+    base_match = {}
+    if periodo_dias < 365:
+        base_match["data_abertura"] = {"$gte": periodo_inicio}
+    if canal:
+        base_match["$or"] = [{"parceiro": canal}, {"canal_vendas": canal}]
+    
+    # Por categoria
+    pipeline_cat = [
+        {"$match": base_match},
+        {"$group": {"_id": "$categoria", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}
+    ]
+    por_categoria = await db.chamados.aggregate(pipeline_cat).to_list(50)
+    
+    # Pendentes por categoria
+    pipeline_pend_cat = [
+        {"$match": {**base_match, "pendente": True}},
+        {"$group": {"_id": "$categoria", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}
+    ]
+    pend_categoria = await db.chamados.aggregate(pipeline_pend_cat).to_list(50)
+    
+    # Pendentes por motivo
+    pipeline_motivo = [
+        {"$match": {**base_match, "pendente": True}},
+        {"$group": {"_id": "$motivo_pendencia", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}
+    ]
+    pend_motivo = await db.chamados.aggregate(pipeline_motivo).to_list(50)
+    
+    # Top 10 produtos
+    pipeline_prod = [
+        {"$match": base_match},
+        {"$group": {"_id": "$produto", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 10}
+    ]
+    top_produtos = await db.chamados.aggregate(pipeline_prod).to_list(10)
+    
+    # Por fornecedor
+    pipeline_forn = [
+        {"$match": base_match},
+        {"$group": {"_id": "$codigo_fornecedor", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}
+    ]
+    por_fornecedor = await db.chamados.aggregate(pipeline_forn).to_list(50)
+    
+    return {
+        "por_categoria": [{"categoria": c['_id'] or 'N/A', "total": c['count']} for c in por_categoria],
+        "pend_categoria": [{"categoria": c['_id'] or 'N/A', "total": c['count']} for c in pend_categoria],
+        "pend_motivo": [{"motivo": c['_id'] or 'N/A', "total": c['count']} for c in pend_motivo],
+        "top_produtos": [{"produto": c['_id'] or 'N/A', "total": c['count']} for c in top_produtos],
+        "por_fornecedor": [{"fornecedor": c['_id'] or 'N/A', "total": c['count']} for c in por_fornecedor]
+    }
+
+@api_router.get("/dashboard/v2/performance")
+async def get_dashboard_performance(
+    periodo_dias: int = 30,
+    current_user: dict = Depends(get_current_user)
+):
+    """Aba 4 - Performance"""
+    now = datetime.now(timezone.utc)
+    periodo_inicio = (now - timedelta(days=periodo_dias)).isoformat()
+    
+    base_match = {"pendente": False, "data_fechamento": {"$ne": None}}
+    if periodo_dias < 365:
+        base_match["data_abertura"] = {"$gte": periodo_inicio}
+    
+    # Tempo médio por canal
+    pipeline_canal = [
+        {"$match": base_match},
+        {"$project": {
+            "canal": {"$ifNull": ["$parceiro", "$canal_vendas"]},
+            "tempo": {"$subtract": [
+                {"$dateFromString": {"dateString": "$data_fechamento"}},
+                {"$dateFromString": {"dateString": "$data_abertura"}}
+            ]}
+        }},
+        {"$group": {"_id": "$canal", "media": {"$avg": "$tempo"}, "count": {"$sum": 1}}},
+        {"$sort": {"media": -1}}
+    ]
+    tempo_canal = await db.chamados.aggregate(pipeline_canal).to_list(50)
+    
+    # Tempo médio por fornecedor
+    pipeline_forn = [
+        {"$match": base_match},
+        {"$project": {
+            "fornecedor": "$codigo_fornecedor",
+            "tempo": {"$subtract": [
+                {"$dateFromString": {"dateString": "$data_fechamento"}},
+                {"$dateFromString": {"dateString": "$data_abertura"}}
+            ]}
+        }},
+        {"$group": {"_id": "$fornecedor", "media": {"$avg": "$tempo"}, "count": {"$sum": 1}}},
+        {"$sort": {"media": -1}}
+    ]
+    tempo_fornecedor = await db.chamados.aggregate(pipeline_forn).to_list(50)
+    
+    ms_to_days = 1000 * 60 * 60 * 24
+    
+    return {
+        "tempo_por_canal": [{"canal": t['_id'] or 'N/A', "dias": round(t['media']/ms_to_days, 2), "atendimentos": t['count']} for t in tempo_canal if t['_id']],
+        "tempo_por_fornecedor": [{"fornecedor": t['_id'] or 'N/A', "dias": round(t['media']/ms_to_days, 2), "atendimentos": t['count']} for t in tempo_fornecedor if t['_id']]
+    }
+
+@api_router.get("/dashboard/v2/pendencias")
+async def get_dashboard_pendencias(
+    periodo_dias: int = 30,
+    canal: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """Aba 5 - Pendências"""
+    now = datetime.now(timezone.utc)
+    
+    base_match = {"pendente": True}
+    if canal:
+        base_match["$or"] = [{"parceiro": canal}, {"canal_vendas": canal}]
+    
+    total = await db.chamados.count_documents(base_match)
+    
+    # Por categoria
+    pipeline_cat = [
+        {"$match": base_match},
+        {"$group": {"_id": "$categoria", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}
+    ]
+    por_categoria = await db.chamados.aggregate(pipeline_cat).to_list(50)
+    
+    # Por motivo
+    pipeline_motivo = [
+        {"$match": base_match},
+        {"$group": {"_id": "$motivo_pendencia", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}
+    ]
+    por_motivo = await db.chamados.aggregate(pipeline_motivo).to_list(50)
+    
+    # Por canal
+    pipeline_canal = [
+        {"$match": base_match},
+        {"$group": {"_id": {"$ifNull": ["$parceiro", "$canal_vendas"]}, "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}
+    ]
+    por_canal = await db.chamados.aggregate(pipeline_canal).to_list(50)
+    
+    # Tabela detalhada
+    pendentes = await db.chamados.find(base_match, {"_id": 0}).sort("data_abertura", 1).to_list(100)
+    for p in pendentes:
+        data_abertura = datetime.fromisoformat(p['data_abertura'].replace('Z', '+00:00'))
+        p['dias_aberto'] = (now - data_abertura).days
+    
+    return {
+        "total": total,
+        "por_categoria": [{"categoria": c['_id'] or 'N/A', "total": c['count']} for c in por_categoria],
+        "por_motivo": [{"motivo": c['_id'] or 'N/A', "total": c['count']} for c in por_motivo],
+        "por_canal": [{"canal": c['_id'] or 'N/A', "total": c['count']} for c in por_canal if c['_id']],
+        "detalhes": pendentes[:50]
+    }
+
+@api_router.get("/dashboard/v2/estornos")
+async def get_dashboard_estornos(
+    periodo_dias: int = 30,
+    current_user: dict = Depends(get_current_user)
+):
+    """Aba 6 - Estornos"""
+    now = datetime.now(timezone.utc)
+    periodo_inicio = (now - timedelta(days=periodo_dias)).isoformat()
+    
+    base_match = {"categoria": {"$in": ["Arrependimento", "Estorno", "Cancelamento"]}}
+    if periodo_dias < 365:
+        base_match["data_abertura"] = {"$gte": periodo_inicio}
+    
+    total_estornos = await db.chamados.count_documents(base_match)
+    total_geral = await db.chamados.count_documents({"data_abertura": {"$gte": periodo_inicio}} if periodo_dias < 365 else {})
+    percentual_geral = round((total_estornos/total_geral)*100, 2) if total_geral > 0 else 0
+    
+    # Por mês
+    por_mes = []
+    for i in range(5, -1, -1):
+        mes_ref = now - timedelta(days=i*30)
+        mes_inicio = mes_ref.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        mes_fim = (mes_inicio.replace(month=mes_inicio.month % 12 + 1, day=1) if mes_inicio.month < 12 
+                   else mes_inicio.replace(year=mes_inicio.year + 1, month=1, day=1)) - timedelta(seconds=1)
+        
+        estornos_mes = await db.chamados.count_documents({
+            **base_match, "data_abertura": {"$gte": mes_inicio.isoformat(), "$lte": mes_fim.isoformat()}
+        })
+        total_mes = await db.chamados.count_documents({
+            "data_abertura": {"$gte": mes_inicio.isoformat(), "$lte": mes_fim.isoformat()}
+        })
+        
+        por_mes.append({
+            "mes": mes_ref.strftime("%b/%y"),
+            "estornos": estornos_mes,
+            "total": total_mes,
+            "percentual": round((estornos_mes/total_mes)*100, 2) if total_mes > 0 else 0
+        })
+    
+    # Por canal
+    pipeline_canal = [
+        {"$match": base_match},
+        {"$group": {"_id": {"$ifNull": ["$parceiro", "$canal_vendas"]}, "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}
+    ]
+    por_canal = await db.chamados.aggregate(pipeline_canal).to_list(50)
+    
+    # Calcular % por canal
+    canal_data = []
+    for c in por_canal:
+        if c['_id']:
+            total_canal = await db.chamados.count_documents(
+                {"$or": [{"parceiro": c['_id']}, {"canal_vendas": c['_id']}], 
+                 "data_abertura": {"$gte": periodo_inicio}} if periodo_dias < 365 else 
+                {"$or": [{"parceiro": c['_id']}, {"canal_vendas": c['_id']}]}
+            )
+            canal_data.append({
+                "canal": c['_id'],
+                "estornos": c['count'],
+                "percentual": round((c['count']/total_canal)*100, 2) if total_canal > 0 else 0
+            })
+    
+    return {
+        "total": total_estornos,
+        "percentual_geral": percentual_geral,
+        "por_mes": por_mes,
+        "por_canal": sorted(canal_data, key=lambda x: x['percentual'], reverse=True)
+    }
+
+@api_router.get("/dashboard/v2/reincidencia")
+async def get_dashboard_reincidencia(
+    periodo_dias: int = 30,
+    current_user: dict = Depends(get_current_user)
+):
+    """Aba 7 - Reincidência"""
+    now = datetime.now(timezone.utc)
+    periodo_inicio = (now - timedelta(days=periodo_dias)).isoformat()
+    
+    base_match = {"data_abertura": {"$gte": periodo_inicio}} if periodo_dias < 365 else {}
+    
+    # Clientes com múltiplos atendimentos
+    pipeline_reincidencia = [
+        {"$match": base_match},
+        {"$group": {"_id": "$cpf_cliente", "count": {"$sum": 1}}},
+        {"$match": {"count": {"$gt": 1}}}
+    ]
+    reincidentes = await db.chamados.aggregate(pipeline_reincidencia).to_list(1000)
+    
+    total_atendimentos = await db.chamados.count_documents(base_match)
+    total_reincidentes = sum(r['count'] for r in reincidentes) - len(reincidentes)  # Excluir primeira ocorrência
+    taxa_geral = round((total_reincidentes/total_atendimentos)*100, 2) if total_atendimentos > 0 else 0
+    
+    # Por canal
+    pipeline_canal = [
+        {"$match": base_match},
+        {"$group": {
+            "_id": {"canal": {"$ifNull": ["$parceiro", "$canal_vendas"]}, "cpf": "$cpf_cliente"},
+            "count": {"$sum": 1}
+        }},
+        {"$match": {"count": {"$gt": 1}}},
+        {"$group": {"_id": "$_id.canal", "reincidentes": {"$sum": 1}}}
+    ]
+    por_canal = await db.chamados.aggregate(pipeline_canal).to_list(50)
+    
+    # Por produto
+    pipeline_produto = [
+        {"$match": base_match},
+        {"$group": {
+            "_id": {"produto": "$produto", "cpf": "$cpf_cliente"},
+            "count": {"$sum": 1}
+        }},
+        {"$match": {"count": {"$gt": 1}}},
+        {"$group": {"_id": "$_id.produto", "reincidentes": {"$sum": 1}}},
+        {"$sort": {"reincidentes": -1}},
+        {"$limit": 10}
+    ]
+    por_produto = await db.chamados.aggregate(pipeline_produto).to_list(10)
+    
+    return {
+        "taxa_geral": taxa_geral,
+        "total_reincidentes": len(reincidentes),
+        "por_canal": [{"canal": c['_id'] or 'N/A', "reincidentes": c['reincidentes']} for c in por_canal if c['_id']],
+        "por_produto": [{"produto": p['_id'] or 'N/A', "reincidentes": p['reincidentes']} for p in por_produto if p['_id']]
+    }
+
+@api_router.get("/dashboard/v2/filtros")
+async def get_dashboard_filtros(current_user: dict = Depends(get_current_user)):
+    """Obter opções de filtros"""
+    # Canais únicos
+    pipeline_canais = [
+        {"$group": {"_id": {"$ifNull": ["$parceiro", "$canal_vendas"]}}},
+        {"$sort": {"_id": 1}}
+    ]
+    canais = await db.chamados.aggregate(pipeline_canais).to_list(100)
+    
+    # Fornecedores únicos
+    pipeline_forn = [
+        {"$group": {"_id": "$codigo_fornecedor"}},
+        {"$sort": {"_id": 1}}
+    ]
+    fornecedores = await db.chamados.aggregate(pipeline_forn).to_list(100)
+    
+    return {
+        "canais": [c['_id'] for c in canais if c['_id']],
+        "fornecedores": [f['_id'] for f in fornecedores if f['_id']]
+    }
+
 # ============== GOOGLE SHEETS ROUTES ==============
 
 @api_router.get("/google-sheets/status")

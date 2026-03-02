@@ -7,93 +7,530 @@ import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
 import { Skeleton } from '../components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LineChart, Line 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, 
+  LineChart, Line, PieChart, Pie, Cell
 } from 'recharts';
 import { 
-  Clock, CheckCircle, Package, Database, Plus, ArrowRight, User, Cloud, CloudOff, 
-  RefreshCw, FileText, AlertTriangle, Calendar, TrendingUp
+  Clock, CheckCircle, Package, Database, RefreshCw, FileText, AlertTriangle, 
+  Calendar, TrendingUp, LayoutGrid, Tag, Gauge, ListChecks, RotateCcw, Users,
+  BarChart3
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
+const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16'];
+
 const Dashboard = () => {
-  const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [sheetsStatus, setSheetsStatus] = useState(null);
+  const [activeTab, setActiveTab] = useState('visao-geral');
   const [periodoDias, setPeriodoDias] = useState(30);
-  const [categoriaFiltro, setCategoriaFiltro] = useState('');
+  const [canalFiltro, setCanalFiltro] = useState('');
+  const [fornecedorFiltro, setFornecedorFiltro] = useState('');
+  const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
+  
+  // Data states
+  const [visaoGeral, setVisaoGeral] = useState(null);
+  const [volumeCanal, setVolumeCanal] = useState(null);
+  const [classificacao, setClassificacao] = useState(null);
+  const [performance, setPerformance] = useState(null);
+  const [pendencias, setPendencias] = useState(null);
+  const [estornos, setEstornos] = useState(null);
+  const [reincidencia, setReincidencia] = useState(null);
+  const [filtros, setFiltros] = useState({ canais: [], fornecedores: [] });
   
   const navigate = useNavigate();
   const { getAuthHeader, user } = useAuth();
 
-  const fetchData = useCallback(async (showToast = false) => {
+  const fetchFiltros = useCallback(async () => {
     try {
-      setLoading(true);
-      const params = new URLSearchParams();
-      params.append('periodo_dias', periodoDias);
-      if (categoriaFiltro) params.append('categoria', categoriaFiltro);
+      const res = await axios.get(`${API_URL}/api/dashboard/v2/filtros`, { headers: getAuthHeader() });
+      setFiltros(res.data);
+    } catch (e) { console.error(e); }
+  }, [getAuthHeader]);
+
+  const fetchTabData = useCallback(async (tab) => {
+    setLoading(true);
+    const params = new URLSearchParams();
+    params.append('periodo_dias', periodoDias);
+    if (canalFiltro) params.append('canal', canalFiltro);
+    if (fornecedorFiltro) params.append('fornecedor', fornecedorFiltro);
+    
+    try {
+      const endpoint = `${API_URL}/api/dashboard/v2/${tab}?${params.toString()}`;
+      const res = await axios.get(endpoint, { headers: getAuthHeader() });
       
-      const response = await axios.get(
-        `${API_URL}/api/dashboard/stats?${params.toString()}`, 
-        { headers: getAuthHeader() }
-      );
-      setStats(response.data);
+      switch (tab) {
+        case 'visao-geral': setVisaoGeral(res.data); break;
+        case 'volume-canal': setVolumeCanal(res.data); break;
+        case 'classificacao': setClassificacao(res.data); break;
+        case 'performance': setPerformance(res.data); break;
+        case 'pendencias': setPendencias(res.data); break;
+        case 'estornos': setEstornos(res.data); break;
+        case 'reincidencia': setReincidencia(res.data); break;
+      }
       setLastUpdated(new Date());
-      if (showToast) toast.success('Dashboard atualizado');
-    } catch (error) {
-      toast.error('Erro ao carregar dados do dashboard');
+    } catch (e) {
+      toast.error('Erro ao carregar dados');
     } finally {
       setLoading(false);
     }
-  }, [periodoDias, categoriaFiltro, getAuthHeader]);
+  }, [periodoDias, canalFiltro, fornecedorFiltro, getAuthHeader]);
 
-  const fetchSheetsStatus = async () => {
-    try {
-      const response = await axios.get(`${API_URL}/api/google-sheets/status`, { headers: getAuthHeader() });
-      setSheetsStatus(response.data);
-    } catch (error) {
-      console.error('Error fetching sheets status:', error);
-    }
-  };
+  useEffect(() => { fetchFiltros(); }, [fetchFiltros]);
+  useEffect(() => { fetchTabData(activeTab); }, [activeTab, periodoDias, canalFiltro, fornecedorFiltro, fetchTabData]);
 
-  useEffect(() => {
-    fetchData();
-    fetchSheetsStatus();
-  }, [fetchData]);
+  const StatCard = ({ title, value, subtitle, icon: Icon, color = 'slate', onClick }) => (
+    <Card className={`${onClick ? 'cursor-pointer hover:bg-accent/50 transition-colors' : ''}`} onClick={onClick}>
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+        {Icon && <Icon className={`h-4 w-4 text-${color}-500`} />}
+      </CardHeader>
+      <CardContent>
+        <div className="text-3xl font-bold">{value}</div>
+        {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
+      </CardContent>
+    </Card>
+  );
 
-  const getCategoryBadgeColor = (categoria) => {
-    const colors = {
-      'Falha Produção': 'bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-400',
-      'Falha de Compras': 'bg-orange-50 text-orange-700 dark:bg-orange-950/50 dark:text-orange-400',
-      'Falha Transporte': 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400',
-      'Produto com Avaria': 'bg-pink-50 text-pink-700 dark:bg-pink-950/50 dark:text-pink-400',
-      'Divergência de Produto': 'bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-400',
-      'Arrependimento': 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400',
-      'Acompanhamento': 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/50 dark:text-cyan-400',
-      'Reclame Aqui': 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400',
-      'Assistência Técnica': 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-400',
-    };
-    return colors[categoria] || 'bg-slate-100 text-slate-700';
-  };
+  // ABA 1 - VISÃO GERAL
+  const TabVisaoGeral = () => (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <StatCard title="Total" value={visaoGeral?.total || 0} subtitle="no período" icon={FileText} color="blue" />
+        <StatCard title="Pendentes" value={visaoGeral?.pendentes || 0} subtitle="em aberto" icon={Clock} color="amber" 
+          onClick={() => navigate('/chamados?pendente=true')} />
+        <StatCard title="Resolvidos" value={visaoGeral?.resolvidos || 0} subtitle="finalizados" icon={CheckCircle} color="emerald" />
+        <StatCard title="Tempo Médio" value={`${visaoGeral?.tempo_medio || 0}d`} subtitle="para resolver" icon={TrendingUp} color="blue" />
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Mais Antigo</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-red-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">{visaoGeral?.dias_mais_antigo || 0}d</div>
+            <p className="text-xs text-muted-foreground mt-1">em aberto</p>
+          </CardContent>
+        </Card>
+        <StatCard title="Base Emergent" value={visaoGeral?.total_pedidos?.toLocaleString() || 0} subtitle="pedidos" icon={Database} color="purple" />
+      </div>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Atendimentos por Mês</CardTitle>
+            <CardDescription>Últimos 6 meses</CardDescription>
+          </CardHeader>
+          <CardContent className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={visaoGeral?.por_mes || []}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }} />
+                <Line type="monotone" dataKey="total" stroke="#8b5cf6" strokeWidth={2} dot={{ fill: '#8b5cf6' }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Abertos vs Resolvidos</CardTitle>
+            <CardDescription>Período selecionado</CardDescription>
+          </CardHeader>
+          <CardContent className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={visaoGeral?.por_dia || []}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <XAxis dataKey="data" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }} />
+                <Legend />
+                <Bar dataKey="abertos" name="Abertos" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="resolvidos" name="Resolvidos" fill="#10b981" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
 
-  const handleCategoriaClick = (categoria) => {
-    if (categoriaFiltro === categoria) {
-      setCategoriaFiltro('');
-    } else {
-      setCategoriaFiltro(categoria);
-    }
-  };
+  // ABA 2 - VOLUME POR CANAL
+  const TabVolumeCanal = () => (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Ranking por Canal</CardTitle>
+            <CardDescription>Total: {volumeCanal?.total || 0} atendimentos</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 max-h-96 overflow-y-auto">
+            {volumeCanal?.ranking?.map((item, idx) => (
+              <div key={item.canal} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
+                <div className="flex items-center gap-3">
+                  <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">
+                    {idx + 1}
+                  </span>
+                  <span className="font-medium">{item.canal}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Badge variant="secondary">{item.total}</Badge>
+                  <span className="text-sm text-muted-foreground w-16 text-right">{item.percentual}%</span>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Distribuição por Canal</CardTitle>
+          </CardHeader>
+          <CardContent className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={volumeCanal?.ranking?.slice(0, 8) || []}
+                  dataKey="total"
+                  nameKey="canal"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={100}
+                  label={({ canal, percentual }) => `${canal}: ${percentual}%`}
+                  labelLine={false}
+                >
+                  {volumeCanal?.ranking?.slice(0, 8).map((_, idx) => (
+                    <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip />
+              </PieChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
 
-  if (loading && !stats) {
+  // ABA 3 - CLASSIFICAÇÃO
+  const TabClassificacao = () => (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Por Categoria</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 max-h-80 overflow-y-auto">
+            {classificacao?.por_categoria?.map((item) => (
+              <div key={item.categoria} className="flex justify-between items-center p-2 rounded bg-muted/30">
+                <span className="text-sm">{item.categoria}</span>
+                <Badge>{item.total}</Badge>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Pendentes por Categoria</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 max-h-80 overflow-y-auto">
+            {classificacao?.pend_categoria?.map((item) => (
+              <div key={item.categoria} className="flex justify-between items-center p-2 rounded bg-amber-50 dark:bg-amber-950/30">
+                <span className="text-sm">{item.categoria}</span>
+                <Badge variant="outline" className="bg-amber-100 text-amber-800">{item.total}</Badge>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Por Motivo da Pendência</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 max-h-80 overflow-y-auto">
+            {classificacao?.pend_motivo?.map((item) => (
+              <div key={item.motivo} className="flex justify-between items-center p-2 rounded bg-muted/30">
+                <span className="text-sm truncate mr-2">{item.motivo}</span>
+                <Badge variant="secondary">{item.total}</Badge>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Top 10 Produtos</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 max-h-80 overflow-y-auto">
+            {classificacao?.top_produtos?.map((item, idx) => (
+              <div key={item.produto} className="flex justify-between items-center p-2 rounded bg-muted/30">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs flex items-center justify-center">{idx + 1}</span>
+                  <span className="text-sm truncate max-w-xs">{item.produto}</span>
+                </div>
+                <Badge>{item.total}</Badge>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Por Fornecedor</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 max-h-80 overflow-y-auto">
+            {classificacao?.por_fornecedor?.slice(0, 10).map((item) => (
+              <div key={item.fornecedor} className="flex justify-between items-center p-2 rounded bg-muted/30">
+                <span className="text-sm font-mono">{item.fornecedor}</span>
+                <Badge variant="secondary">{item.total}</Badge>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+
+  // ABA 4 - PERFORMANCE
+  const TabPerformance = () => (
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Tempo Médio por Canal</CardTitle>
+            <CardDescription>Em dias (apenas finalizados)</CardDescription>
+          </CardHeader>
+          <CardContent className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={performance?.tempo_por_canal?.slice(0, 10) || []} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <XAxis type="number" tick={{ fontSize: 11 }} />
+                <YAxis dataKey="canal" type="category" width={100} tick={{ fontSize: 10 }} />
+                <Tooltip formatter={(value) => [`${value} dias`, 'Tempo Médio']} />
+                <Bar dataKey="dias" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Tempo Médio por Fornecedor</CardTitle>
+            <CardDescription>Em dias (apenas finalizados)</CardDescription>
+          </CardHeader>
+          <CardContent className="h-80">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={performance?.tempo_por_fornecedor?.slice(0, 10) || []} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <XAxis type="number" tick={{ fontSize: 11 }} />
+                <YAxis dataKey="fornecedor" type="category" width={100} tick={{ fontSize: 10 }} />
+                <Tooltip formatter={(value) => [`${value} dias`, 'Tempo Médio']} />
+                <Bar dataKey="dias" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+
+  // ABA 5 - PENDÊNCIAS
+  const TabPendencias = () => (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard title="Total Pendentes" value={pendencias?.total || 0} icon={Clock} color="amber" />
+      </div>
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card>
+          <CardHeader><CardTitle className="text-lg">Por Categoria</CardTitle></CardHeader>
+          <CardContent className="space-y-2 max-h-60 overflow-y-auto">
+            {pendencias?.por_categoria?.map((item) => (
+              <div key={item.categoria} className="flex justify-between items-center p-2 rounded bg-muted/30">
+                <span className="text-sm">{item.categoria}</span>
+                <Badge>{item.total}</Badge>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader><CardTitle className="text-lg">Por Motivo</CardTitle></CardHeader>
+          <CardContent className="space-y-2 max-h-60 overflow-y-auto">
+            {pendencias?.por_motivo?.map((item) => (
+              <div key={item.motivo} className="flex justify-between items-center p-2 rounded bg-muted/30">
+                <span className="text-sm truncate mr-2">{item.motivo}</span>
+                <Badge variant="secondary">{item.total}</Badge>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader><CardTitle className="text-lg">Por Canal</CardTitle></CardHeader>
+          <CardContent className="space-y-2 max-h-60 overflow-y-auto">
+            {pendencias?.por_canal?.map((item) => (
+              <div key={item.canal} className="flex justify-between items-center p-2 rounded bg-muted/30">
+                <span className="text-sm">{item.canal}</span>
+                <Badge variant="outline">{item.total}</Badge>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Detalhamento</CardTitle>
+          <CardDescription>Lista de pendências</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ID</TableHead>
+                  <TableHead>Data</TableHead>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Canal</TableHead>
+                  <TableHead>Categoria</TableHead>
+                  <TableHead>Motivo</TableHead>
+                  <TableHead>Dias</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pendencias?.detalhes?.slice(0, 20).map((item) => (
+                  <TableRow 
+                    key={item.id} 
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => navigate(`/chamados/editar/${item.id}`)}
+                  >
+                    <TableCell className="font-mono text-xs">{item.id_atendimento}</TableCell>
+                    <TableCell className="text-sm">{new Date(item.data_abertura).toLocaleDateString('pt-BR')}</TableCell>
+                    <TableCell className="text-sm truncate max-w-32">{item.nome_cliente || '-'}</TableCell>
+                    <TableCell className="text-sm">{item.parceiro || item.canal_vendas || '-'}</TableCell>
+                    <TableCell><Badge variant="outline">{item.categoria}</Badge></TableCell>
+                    <TableCell className="text-sm truncate max-w-32">{item.motivo_pendencia || '-'}</TableCell>
+                    <TableCell className={item.dias_aberto > 3 ? 'text-red-600 font-medium' : ''}>{item.dias_aberto}d</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+
+  // ABA 6 - ESTORNOS
+  const TabEstornos = () => (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <StatCard title="Total Estornos" value={estornos?.total || 0} icon={RotateCcw} color="red" />
+        <StatCard title="% Geral" value={`${estornos?.percentual_geral || 0}%`} subtitle="do total" icon={TrendingUp} color="orange" />
+      </div>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">% Estornos por Mês</CardTitle>
+          </CardHeader>
+          <CardContent className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={estornos?.por_mes || []}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 11 }} />
+                <Tooltip formatter={(value, name) => [name === 'percentual' ? `${value}%` : value, name === 'percentual' ? '% Estorno' : 'Estornos']} />
+                <Bar dataKey="percentual" name="% Estorno" fill="#ef4444" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Ranking % por Canal</CardTitle>
+            <CardDescription>Maior taxa de estorno</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2 max-h-72 overflow-y-auto">
+            {estornos?.por_canal?.map((item, idx) => (
+              <div key={item.canal} className="flex items-center justify-between p-2 rounded bg-muted/30">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-red-100 text-red-800 text-xs flex items-center justify-center">{idx + 1}</span>
+                  <span className="text-sm">{item.canal}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline">{item.estornos}</Badge>
+                  <span className="text-sm font-medium text-red-600">{item.percentual}%</span>
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+
+  // ABA 7 - REINCIDÊNCIA
+  const TabReincidencia = () => (
+    <div className="space-y-6">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <StatCard title="Taxa Geral" value={`${reincidencia?.taxa_geral || 0}%`} icon={Users} color="purple" />
+        <StatCard title="Clientes Reincidentes" value={reincidencia?.total_reincidentes || 0} icon={RotateCcw} color="orange" />
+      </div>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Reincidência por Canal</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2 max-h-80 overflow-y-auto">
+            {reincidencia?.por_canal?.map((item) => (
+              <div key={item.canal} className="flex justify-between items-center p-2 rounded bg-muted/30">
+                <span className="text-sm">{item.canal}</span>
+                <Badge variant="secondary">{item.reincidentes}</Badge>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Reincidência por Produto</CardTitle>
+            <CardDescription>Top 10 produtos com mais reincidências</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2 max-h-80 overflow-y-auto">
+            {reincidencia?.por_produto?.map((item, idx) => (
+              <div key={item.produto} className="flex justify-between items-center p-2 rounded bg-muted/30">
+                <div className="flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-purple-100 text-purple-800 text-xs flex items-center justify-center">{idx + 1}</span>
+                  <span className="text-sm truncate max-w-xs">{item.produto}</span>
+                </div>
+                <Badge>{item.reincidentes}</Badge>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+
+  if (loading && !visaoGeral) {
     return (
-      <div className="space-y-6" data-testid="loading">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          {[...Array(5)].map((_, i) => (
+      <div className="space-y-6">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+          {[...Array(6)].map((_, i) => (
             <Card key={i}>
-              <CardHeader className="pb-2"><Skeleton className="h-4 w-24" /></CardHeader>
+              <CardHeader className="pb-2"><Skeleton className="h-4 w-20" /></CardHeader>
               <CardContent><Skeleton className="h-8 w-16" /></CardContent>
             </Card>
           ))}
@@ -104,319 +541,89 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6" data-testid="dashboard">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* Header com Filtros Globais */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight font-['Plus_Jakarta_Sans']">Dashboard Emergent</h1>
-          <div className="flex items-center gap-3 mt-1 flex-wrap">
-            <p className="text-muted-foreground text-sm">Bem-vindo(a), {user?.name || 'Atendente'}</p>
-            {sheetsStatus && (
-              <Badge 
-                variant="outline" 
-                className={sheetsStatus.initialized 
-                  ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-400 dark:border-emerald-800" 
-                  : "bg-red-50 text-red-700 border-red-200 dark:bg-red-950/50 dark:text-red-400 dark:border-red-800"
-                }
-              >
-                {sheetsStatus.initialized ? (
-                  <><Cloud className="h-3 w-3 mr-1" /> Sheets Conectado</>
-                ) : (
-                  <><CloudOff className="h-3 w-3 mr-1" /> Sheets Desconectado</>
-                )}
-              </Badge>
-            )}
-            {lastUpdated && (
-              <span className="text-xs text-muted-foreground">
-                Atualizado: {lastUpdated.toLocaleTimeString('pt-BR')}
-              </span>
-            )}
-          </div>
+          <p className="text-sm text-muted-foreground">
+            {lastUpdated && `Atualizado: ${lastUpdated.toLocaleTimeString('pt-BR')}`}
+          </p>
         </div>
-        <div className="flex gap-2 items-center">
+        
+        <div className="flex flex-wrap gap-2 items-center">
           <Select value={String(periodoDias)} onValueChange={(v) => setPeriodoDias(Number(v))}>
-            <SelectTrigger className="w-32" data-testid="select-periodo">
-              <Calendar className="h-4 w-4 mr-2" />
+            <SelectTrigger className="w-28">
+              <Calendar className="h-4 w-4 mr-1" />
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="7">7 dias</SelectItem>
               <SelectItem value="30">30 dias</SelectItem>
               <SelectItem value="90">90 dias</SelectItem>
-              <SelectItem value="365">Todos</SelectItem>
+              <SelectItem value="365">1 ano</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" size="icon" onClick={() => fetchData(true)} data-testid="btn-atualizar">
+          
+          <Select value={canalFiltro || "all"} onValueChange={(v) => setCanalFiltro(v === "all" ? "" : v)}>
+            <SelectTrigger className="w-36">
+              <SelectValue placeholder="Canal" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos Canais</SelectItem>
+              {filtros.canais.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          
+          <Select value={fornecedorFiltro || "all"} onValueChange={(v) => setFornecedorFiltro(v === "all" ? "" : v)}>
+            <SelectTrigger className="w-36">
+              <SelectValue placeholder="Fornecedor" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos Fornec.</SelectItem>
+              {filtros.fornecedores.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          
+          <Button variant="outline" size="icon" onClick={() => fetchTabData(activeTab)}>
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
           </Button>
-          <Button onClick={() => navigate('/chamados/novo')} data-testid="btn-novo">
-            <Plus className="h-4 w-4 mr-2" />
-            Novo
-          </Button>
         </div>
       </div>
 
-      {/* Filtro ativo */}
-      {categoriaFiltro && (
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Filtro:</span>
-          <Badge 
-            className={`${getCategoryBadgeColor(categoriaFiltro)} cursor-pointer`}
-            onClick={() => setCategoriaFiltro('')}
-          >
-            {categoriaFiltro} ×
-          </Badge>
-        </div>
-      )}
-
-      {/* Stats Cards - 5 colunas */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-        {/* Total Geral */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Geral</CardTitle>
-            <FileText className="h-4 w-4 text-slate-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{stats?.total_geral || 0}</div>
-            <p className="text-xs text-muted-foreground mt-1">no período</p>
-          </CardContent>
-        </Card>
-
-        {/* Pendentes */}
-        <Card className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => navigate('/chamados?filter=pendente')}>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Pendentes</CardTitle>
-            <Clock className="h-4 w-4 text-amber-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-amber-600">{stats?.total_pendentes || 0}</div>
-            <p className="text-xs text-muted-foreground mt-1">em aberto</p>
-            {stats?.dias_mais_antigo > 0 && (
-              <p className="text-xs text-amber-600 mt-2 flex items-center gap-1">
-                <AlertTriangle className="h-3 w-3" />
-                Mais antigo: {stats.dias_mais_antigo} dias
-              </p>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Resolvidos */}
-        <Card className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => navigate('/chamados?pendente=false')}>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Resolvidos</CardTitle>
-            <CheckCircle className="h-4 w-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold text-emerald-600">{stats?.total_resolvidos || 0}</div>
-            <p className="text-xs text-muted-foreground mt-1">finalizados</p>
-          </CardContent>
-        </Card>
-
-        {/* Tempo Médio */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Tempo Médio</CardTitle>
-            <TrendingUp className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{stats?.media_tempo_resolucao_dias || 0}</div>
-            <p className="text-xs text-muted-foreground mt-1">dias para resolver</p>
-          </CardContent>
-        </Card>
-
-        {/* Base Emergent */}
-        <Card className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => navigate('/importar')}>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Base Emergent</CardTitle>
-            <Database className="h-4 w-4 text-purple-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{stats?.total_pedidos_base?.toLocaleString() || 0}</div>
-            <p className="text-xs text-muted-foreground mt-1">pedidos (acumulado)</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Gráficos - Período e Por Mês */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Gráfico de Barras - Últimos N dias */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold">Últimos {stats?.periodo_dias || 7} Dias</CardTitle>
-            <CardDescription>Atendimentos abertos vs resolvidos por dia</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats?.ultimos_dias || []}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="data" className="text-xs" tick={{ fontSize: 10 }} />
-                  <YAxis className="text-xs" />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'hsl(var(--card))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '6px'
-                    }}
-                    formatter={(value, name) => [value, name === 'abertos' ? 'Abertos' : 'Resolvidos']}
-                  />
-                  <Legend />
-                  <Bar dataKey="abertos" name="Abertos" fill="hsl(217, 91%, 60%)" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="resolvidos" name="Resolvidos" fill="hsl(160, 84%, 39%)" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Gráfico de Linha - Atendimentos por Mês */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold">Atendimentos por Mês</CardTitle>
-            <CardDescription>Total de atendimentos nos últimos 6 meses</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={stats?.atendimentos_por_mes || []}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="mes" className="text-xs" />
-                  <YAxis className="text-xs" />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'hsl(var(--card))',
-                      border: '1px solid hsl(var(--border))',
-                      borderRadius: '6px'
-                    }}
-                    formatter={(value) => [value, 'Atendimentos']}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="total" 
-                    stroke="hsl(262, 83%, 58%)" 
-                    strokeWidth={2}
-                    dot={{ fill: 'hsl(262, 83%, 58%)', strokeWidth: 2 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Por Categoria - Lista clicável ordenada */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold">Por Categoria</CardTitle>
-          <CardDescription>Pendentes por tipo (clique para filtrar)</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-            {stats?.por_categoria?.length > 0 ? (
-              stats.por_categoria.map(({ categoria, count }) => (
-                <div 
-                  key={categoria} 
-                  className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all hover:scale-[1.02] ${
-                    categoriaFiltro === categoria ? 'ring-2 ring-primary' : ''
-                  }`}
-                  onClick={() => handleCategoriaClick(categoria)}
-                >
-                  <span className="text-sm truncate mr-2">{categoria}</span>
-                  <Badge className={getCategoryBadgeColor(categoria)}>{count}</Badge>
-                </div>
-              ))
-            ) : (
-              <p className="text-sm text-muted-foreground col-span-full text-center py-4">
-                Nenhum atendimento pendente
-              </p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Por Atendente e Parceiro */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold flex items-center gap-2">
-              <User className="h-5 w-5" />
-              Por Atendente
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {Object.entries(stats?.por_atendente || {}).length > 0 ? (
-              Object.entries(stats?.por_atendente || {})
-                .sort((a, b) => b[1] - a[1])
-                .map(([atendente, count]) => (
-                <div key={atendente} className="flex items-center justify-between">
-                  <span className="text-sm">{atendente || 'Não atribuído'}</span>
-                  <Badge variant="secondary">{count}</Badge>
-                </div>
-              ))
-            ) : (
-              <p className="text-sm text-muted-foreground text-center py-4">Nenhum atendimento pendente</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold flex items-center gap-2">
-              <Package className="h-5 w-5" />
-              Por Parceiro/Canal
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {Object.entries(stats?.por_parceiro || {}).length > 0 ? (
-              Object.entries(stats?.por_parceiro || {})
-                .sort((a, b) => b[1] - a[1])
-                .map(([parceiro, count]) => (
-                <div key={parceiro} className="flex items-center justify-between">
-                  <span className="text-sm">{parceiro || 'Não informado'}</span>
-                  <Badge variant="secondary">{count}</Badge>
-                </div>
-              ))
-            ) : (
-              <p className="text-sm text-muted-foreground text-center py-4">Nenhum atendimento pendente</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Atendimentos que precisam de atenção */}
-      {stats?.chamados_atencao?.length > 0 && (
-        <Card className="border-amber-200 dark:border-amber-800">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5" />
-              Atendimentos que Precisam de Atenção
-            </CardTitle>
-            <CardDescription>Pendentes há mais de 3 dias</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {stats.chamados_atencao.map((atd) => (
-                <div 
-                  key={atd.id}
-                  className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors cursor-pointer"
-                  onClick={() => navigate(`/chamados/editar/${atd.id}`)}
-                >
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-sm font-medium">{atd.id_atendimento}</span>
-                      <Badge className={getCategoryBadgeColor(atd.categoria)}>{atd.categoria}</Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      #{atd.numero_pedido} • {atd.nome_cliente || 'Cliente'} • <span className="text-amber-600 font-medium">{atd.dias_aberto} dias</span>
-                    </p>
-                  </div>
-                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid grid-cols-4 lg:grid-cols-7 w-full">
+          <TabsTrigger value="visao-geral" className="gap-1">
+            <LayoutGrid className="h-4 w-4 hidden sm:block" /> Visão Geral
+          </TabsTrigger>
+          <TabsTrigger value="volume-canal" className="gap-1">
+            <BarChart3 className="h-4 w-4 hidden sm:block" /> Volume
+          </TabsTrigger>
+          <TabsTrigger value="classificacao" className="gap-1">
+            <Tag className="h-4 w-4 hidden sm:block" /> Classificação
+          </TabsTrigger>
+          <TabsTrigger value="performance" className="gap-1">
+            <Gauge className="h-4 w-4 hidden sm:block" /> Performance
+          </TabsTrigger>
+          <TabsTrigger value="pendencias" className="gap-1">
+            <ListChecks className="h-4 w-4 hidden sm:block" /> Pendências
+          </TabsTrigger>
+          <TabsTrigger value="estornos" className="gap-1">
+            <RotateCcw className="h-4 w-4 hidden sm:block" /> Estornos
+          </TabsTrigger>
+          <TabsTrigger value="reincidencia" className="gap-1">
+            <Users className="h-4 w-4 hidden sm:block" /> Reincidência
+          </TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="visao-geral" className="mt-6"><TabVisaoGeral /></TabsContent>
+        <TabsContent value="volume-canal" className="mt-6"><TabVolumeCanal /></TabsContent>
+        <TabsContent value="classificacao" className="mt-6"><TabClassificacao /></TabsContent>
+        <TabsContent value="performance" className="mt-6"><TabPerformance /></TabsContent>
+        <TabsContent value="pendencias" className="mt-6"><TabPendencias /></TabsContent>
+        <TabsContent value="estornos" className="mt-6"><TabEstornos /></TabsContent>
+        <TabsContent value="reincidencia" className="mt-6"><TabReincidencia /></TabsContent>
+      </Tabs>
     </div>
   );
 };

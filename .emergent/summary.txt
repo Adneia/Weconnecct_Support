@@ -1,180 +1,156 @@
 <analysis>**original_problem_statement:**
-O usuário solicitou a criação de um sistema de controle de chamados (tickets) para a equipe de atendimento da WeConnect, uma empresa de e-commerce. O projeto evoluiu para um sistema mais complexo chamado Emergent, com fluxos de trabalho detalhados, uma grande base de dados de pedidos e o requisito de sincronizar os atendimentos criados com uma planilha do Google Sheets.
+O usuário solicitou a criação de um sistema de controle de chamados (tickets) para a equipe de atendimento da WeConnect, uma empresa de e-commerce. O sistema, chamado Emergent, precisa gerenciar fluxos de trabalho detalhados, uma grande base de dados de pedidos (~150k) e sincronizar os atendimentos criados com uma planilha do Google Sheets.
 
-**REQUISITOS DO PRODUTO:**
+**PRODUCT REQUIREMENTS:**
 - **Telas e Funcionalidades:**
-    - : Visão geral e estatísticas.
-    - : Formulário para criar tickets, buscando dados do pedido no banco de dados. Esta tela deve ter uma lógica complexa para auto-preenchimento de campos (categoria, transportadora) e seleção de textos padrão com base no status do pedido e na categoria do problema.
-    - : Tabela com filtros.
-    - : Visão completa do ticket.
+    - : Visão geral e estatísticas, com múltiplas abas e filtros globais.
+    - : Formulário para criar/editar tickets, com busca de pedidos, auto-preenchimento, campos obrigatórios, textos padrão condicionais e validação.
+    - : Tabela com filtros avançados, estatísticas, exportação para Excel e preservação de filtros.
     - : Tela para upload de arquivo Excel/CSV.
 - **Integrações:**
-    - Sincronização de novos atendimentos com uma planilha Google Sheets.
+    - Sincronização de atendimentos com a planilha Google Sheets Atendimentos 2026_E.
+    - Sincronização de devoluções com a planilha Gestão Devoluções 2026_E.
 - **Autenticação:** JWT (email/senha).
-- **Textos Padrão:** Um sistema robusto de textos padrão (templates) que são sugeridos com base em uma hierarquia de categorias e sub-opções (ex: Falha Transporte -> Enviar Rastreio -> [Transportadora específica]). Os textos devem incluir a assinatura do atendente selecionado.
-- **Lógica de Negócio Específica:**
-    - A busca de pedidos deve ser possível por CPF, número do pedido, nome do cliente ou número da entrega.
-    - O Galpão de origem (SP, SC, ES) deve ser derivado da série da nota fiscal, que por sua vez pode ser extraída da chave de acesso da NFe.
-    - A categoria do atendimento e o motivo da pendência devem ser sugeridos automaticamente com base no status do pedido encontrado.
+- **Funcionalidades Chave:**
+    - Um sistema robusto de textos padrão (templates) que são sugeridos com base em categorias e transportadoras.
+    - Busca de pedidos por CPF, número do pedido, etc., tratando diferentes formatações.
+    - Validação de campos obrigatórios com feedback visual (asteriscos, bordas vermelhas).
+    - Funcionalidades de fluxo de trabalho interno (ex: sinalizadores Retornar Chamado, Verificar).
 
 **User's preferred language**: Portuguese (pt-BR)
 
 **what currently exists?**
-Um sistema de atendimento full-stack (React + FastAPI + MongoDB) chamado Emergent está funcional. Ele permite autenticação de usuários, criação e gestão de atendimentos. A base de dados contém mais de 150.000 pedidos importados de um arquivo Excel. A aplicação web foi integrada com sucesso ao Google Sheets, de modo que cada novo atendimento criado no sistema é também adicionado como uma nova linha em uma planilha designada. A tela Novo Chamado é altamente customizada, com lógicas complexas para busca de pedidos, auto-preenchimento de campos e uma árvore de seleção de textos padrão baseada em categorias (Avaria, Falha Produção, Falha Transporte, Arrependimento, etc.) e sub-opções dinâmicas.
+Uma aplicação full-stack (React + FastAPI + MongoDB) robusta e funcional. O sistema está estável, com os bugs críticos de crash e busca de pedidos corrigidos. A aplicação inclui autenticação, CRUD de atendimentos, e múltiplas funcionalidades de fluxo de trabalho solicitadas pelo usuário, como os sinalizadores Retornar Chamado e Verificar. A UI/UX foi significativamente melhorada, com validação de campos obrigatórios, feedback visual, filtros persistentes na navegação e uma função de exportação para Excel. O sistema está integrado com duas planilhas Google Sheets: uma para atendimentos gerais e outra específica para devoluções. Um dashboard complexo com várias métricas e gráficos foi implementado e, em seguida, substituído por uma nova estrutura para um painel multi-abas.
 
 **Last working item**:
--   **Last item agent was working:** O agente concluiu uma grande leva de solicitações de refinamento para a página Novo Chamado, com base em feedback detalhado do usuário. As últimas alterações implementadas foram:
-    1.  Adição de um sistema complexo de textos padrão para a categoria Arrependimento, com múltiplas sub-opções (Reversa, Devolução, Bloqueio, etc.).
-    2.  Remoção da categoria Divergência de Produto.
-    3.  Ajustes na lógica e na interface para garantir que todos os novos textos e opções condicionais estivessem funcionando conforme solicitado.
--   **Status:** USER VERIFICATION PENDING
--   **Agent Testing Done:** Y (Apenas através de screenshots para cada grupo de funcionalidades. O  não foi executado após estas últimas alterações massivas).
--   **Which testing method agent to use?** both (É altamente recomendável executar o agente de testes para garantir que as dezenas de alterações recentes na UI e na lógica do frontend e backend não introduziram regressões).
+-   **Last item agent was working:** O agente estava começando a implementação de uma reformulação completa do dashboard, transformando-o em um painel de análise com 7 abas distintas (Visão Geral, Volume por Canal, Classificação, Performance, etc.), conforme a solicitação detalhada do usuário. O agente criou um novo arquivo frontend () e um novo endpoint no backend () para suportar a nova estrutura com abas.
+-   **Status:** NOT STARTED (A estrutura dos arquivos foi criada, mas a lógica e a UI para as novas abas ainda não foram implementadas).
+-   **Agent Testing Done:** N
+-   **Which testing method agent to use?** frontend testing agent (após a conclusão do novo dashboard para validar todas as abas, gráficos e filtros).
 -   **User Testing Done:** N
 
 **All Pending/In progress Issue list**:
--   **Issue 1:** Verificar e validar com o usuário todas as últimas alterações na página Novo Chamado. (P0)
--   **Issue 2:** O campo  não está aparecendo nos detalhes do produto na tela Novo Chamado. (P1)
-
-**Issues Detail:**
--   **Issue 1:**
-    -   **Attempted fixes:** N/A. O trabalho acabou de ser concluído.
-    -   **Next debug checklist:**
-        1.  Apresentar um resumo das últimas alterações implementadas ao usuário (novos textos para Arrependimento, remoção de Divergência de Produto).
-        2.  Compartilhar o último screenshot (Chat Message 407) que mostra a nova UI para Arrependimento.
-        3.  Pedir a confirmação do usuário se tudo está de acordo com o esperado.
-    -   **Why fix this issue and what will be achieved with the fix?** Garante que o desenvolvimento está alinhado com as expectativas do usuário antes de prosseguir para novas tarefas.
-    -   **Status:** NOT STARTED
-    -   **Is recurring issue?** N
-    -   **Should Test frontend/backend/both after fix?** both (Após a verificação do usuário, um teste completo é recomendado).
-    -   **Blocked on other issue:** Não.
-
--   **Issue 2:**
-    -   **Attempted fixes:** O agente verificou que o campo não estava populado para um pedido de teste e supôs que a coluna não foi importada corretamente. A investigação parou aí.
-    -   **Next debug checklist:**
-        1.  Verificar no arquivo  (se disponível nos artefatos) ou pedir ao usuário para confirmar o nome exato da coluna para código do fornecedor. O usuário mencionou planilha de SIGEQ0230.
-        2.  Verificar a lógica de importação em  no endpoint  e corrigir o mapeamento de colunas, se necessário.
-        3.  Considerar reimportar os dados se a correção do mapeamento for a solução, avisando o usuário sobre a operação.
-        4.  Verificar se o campo  está no modelo Pydantic  e está sendo retornado pelas APIs de busca ().
-    -   **Why fix this issue and what will be achieved with the fix?** Atende a um requisito do usuário de ter essa informação visível ao criar um atendimento.
-    -   **Status:** NOT STARTED
-    -   **Is recurring issue?** N
-    -   **Should Test frontend/backend/both after fix?** backend
-    -   **Blocked on other issue:** Não.
+Nenhum. As questões críticas anteriores foram resolvidas.
 
 **In progress Task List**:
-Nenhum.
+-   **Task 1:** Implementar o novo Dashboard multi-abas. (P0)
+    -   **Where to resume:**
+        1.  No backend (), implementar a lógica para os novos endpoints de dashboard (, , etc.) para calcular e retornar os dados de cada aba.
+        2.  No frontend (), construir a interface com as 7 abas usando os componentes do Shadcn UI (). Para cada aba, buscar os dados do endpoint correspondente e renderizar os gráficos (usando ) e os cards de métricas.
+        3.  Implementar os filtros globais (Período, Canal de Venda, Fornecedor) que afetam todas as abas.
+    -   **What will be achieved with this?** Atenderá à solicitação do usuário de ter uma visão analítica completa e segmentada dos dados de atendimento.
+    -   **Status:** IN PROGRESS
+    -   **Should Test frontend/backend/both after fix?** both
+    -   **Blocked on something:** Não.
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks:**
-    -   **P1: Implementar fluxo completo de Devoluções (Reversas):** Além dos textos padrão, criar a lógica e as telas para gerenciar o ciclo de vida completo de uma devolução.
-    -   **P2: Implementar a interface conversacional:** Adaptar a interface atual, baseada em formulários, para um estilo de chatbot/comando (ex: digitar novo atendimento), conforme descrito no prompt original Emergent.
+    -   **P1: Refatoração do Código:** Conforme identificado na análise inicial, os arquivos  e  são monolíticos e complexos. É crucial propor a refatoração para garantir a manutenibilidade do projeto.
+        -   : Dividir em , , .
+        -   : Decompor em componentes menores (, , ).
 -   **Future Tasks:**
-    -   **P2: Integração com APIs de Rastreio:** Conectar com Correios e Total Express para atualizações automáticas de status.
+    -   **P1: Implementar fluxo completo de Devoluções (Reversas):** Além da integração com a planilha, criar a lógica e as telas para gerenciar o ciclo de vida completo de uma devolução.
+    -   **P2: Implementar a interface conversacional:** Adaptar a interface atual, baseada em formulários, para um estilo de chatbot.
+    -   **P2: Integração com APIs de Rastreio:** Conectar com Correios e Total Express.
     -   **P3: Geração de Relatórios:** Adicionar uma funcionalidade nativa de relatórios.
-    -   **P3: Integração com Canais de Entrada:** Conectar com Microsoft Graph API (Outlook) e Zendesk.
+    -   **P3: Integração com Canais de Entrada:** Microsoft Graph API (Outlook) e Zendesk.
     -   **P3: Integração com IA:** Adicionar IA para sugerir categorias e gerar resumos.
 
 **Completed work in this session**
--   **Integração com Google Sheets:**
-    -   O backend agora sincroniza todos os novos atendimentos com uma planilha Google Sheets usando uma Service Account.
-    -   Criado o módulo  para encapsular a lógica de comunicação.
-    -   Endpoint  atualizado para enfileirar a sincronização.
-    -   Adicionado um indicador de status da conexão com o Google Sheets no Dashboard do frontend ().
--   **Refinamento da Tela Novo Chamado ():**
-    -   Alterada a ordem e as opções de busca de pedidos para: CPF, Pedido, Nome, Entrega.
-    -   Adicionada lógica para extrair o Galpão da chave da NFe e exibi-lo de forma simplificada.
-    -   Implementado auto-preenchimento da categoria do atendimento e destaque da transportadora com base nos dados do pedido.
-    -   Adicionada uma vasta gama de textos padrão com UI condicional para as categorias: Produto com Avaria, Falha Produção, Falha Transporte e Arrependimento.
-    -   Removida a categoria Divergência de Produto.
-    -   Movido o campo Motivo da Pendência para o bloco de anotações.
-    -   Atualizados os textos para incluir dinamicamente a assinatura do atendente e seguir o formato Olá, Boa tarde....
--   **Backend ():**
-    -   Adicionados e atualizados dezenas de textos padrão para suportar a nova UI do frontend.
-    -   Adicionado endpoint de busca de pedido por nome do cliente e número do pedido.
+-   **Correção de Bugs Críticos:**
+    -   Resolvido o crash na página  ().
+    -   Corrigida a busca de pedidos que não funcionava por usar a coleção errada ( em vez de ) e por problemas de formatação de CPF (agora aceita com/sem máscara e com/sem zero à esquerda).
+-   **Implementação de Funcionalidades:**
+    -   Finalizada a funcionalidade Verificar Adnéia, que foi renomeada para Verificar, incluindo checkbox na UI, lógica no backend, card de estatística, badge na tabela e filtro na lista de atendimentos.
+    -   Adicionada a funcionalidade de Exportar para Excel na lista de atendimentos.
+    -   Implementada a integração com a planilha Google Gestão Devoluções 2026_E quando o motivo da pendência é Em devolução, incluindo um diálogo de confirmação para registrar e/ou encerrar o chamado.
+    -   Implementado um dashboard complexo com várias métricas, gráficos e cache, que serviu de base para a nova solicitação.
+-   **Melhorias de UI/UX:**
+    -   Implementada a persistência de filtros na página de atendimentos ao navegar para editar um chamado e retornar.
+    -   Adicionada validação de campos obrigatórios no formulário  com feedback visual (asteriscos vermelhos, bordas e labels vermelhos em caso de erro).
+    -   O card de informações do pedido na página  agora é expansível/colapsável.
+    -   Após a criação de um novo atendimento, o usuário é redirecionado para a lista de atendimentos.
+    -   Ajustados os templates de texto padrão para as transportadoras (Total Express, J&T, ASAP), corrigindo a URL e o formato dos dados.
+    -   A coluna ID foi ocultada na lista de atendimentos e a coluna Reversa foi adicionada.
 
 **Earlier issues found/mentioned but not fixed**
 Nenhum.
 
 **Known issue recurrence from previous fork**
-Nenhum.
+-   **Issue recurrence in previous fork:** Perda de dados dos pedidos na coleção .
+-   **Recurrence count:** 2
+-   **Status:** RESOLVED. O agente identificou que a coleção correta a ser usada é , que é persistente. O problema não deve ocorrer novamente.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Backend:** FastAPI, Pydantic, MongoDB (), JWT, , .
--   **Frontend:** React, React Router, , TailwindCSS,  (toasts).
--   **Data Processing:** , .
--   **Deployment:** .
+-   **Backend:** FastAPI, Pydantic, MongoDB (),  para caching.
+-   **Frontend:** React, React Router, , TailwindCSS, , ,  para gráficos,  para exportação.
+-   **Integração:**  para Google Sheets.
 
 **key DB schema**
--   **users:** 
--   **pedidos:** 
--   **atendimentos:** 
+-   **atendimentos:**  inclui , ,  e outros campos de dados do chamado.
+-   **pedidos_erp:** coleção com ~152k registros de pedidos, usada para busca e preenchimento de dados.
 
 **changes in tech stack**
--   Adicionadas as bibliotecas  e  para a integração com o Google Sheets.
+-   Adicionada a biblioteca  e  no frontend.
+-   Adicionada a biblioteca  no backend.
 
 **All files of reference**
--   : Arquivo principal que contém a lógica da tela de criação de atendimentos. Foi extensivamente modificado nesta sessão.
--   : Arquivo principal do backend. Contém todos os endpoints, modelos e a lógica de negócio, incluindo a chamada para a sincronização com Google Sheets e todos os textos padrão.
--   : Novo arquivo para a lógica de integração com Google Sheets.
--   : Modificado para exibir o status da conexão com Google Sheets.
--   : Documento de requisitos, atualizado ao longo da sessão.
+-   : Arquivo principal para a implementação da próxima tarefa.
+-   : Precisará de novas rotas para suportar o .
+-   : Arquivo de referência para a lógica de negócio, que pode ser necessária para as métricas do dashboard.
+-   : Arquivo de referência para a lógica de filtros.
 
 **Areas that need refactoring**:
--   ****: Este arquivo tornou-se extremamente grande e complexo, misturando rotas de API, modelos de dados, lógica de negócio, e agora, a inicialização de integrações externas. Ele deve ser urgentemente refatorado em uma estrutura de diretórios mais modular (ex: , , , ).
--   ****: Este componente React cresceu para mais de 1000 linhas, com gerenciamento de estado complexo e dezenas de condicionais de renderização. Ele deve ser decomposto em componentes menores e mais gerenciáveis (ex: , , , ).
+-   ****: **URGENTE**. O arquivo cresceu ainda mais e mistura rotas, lógica de negócio e modelos de dados. A complexidade dos cálculos do dashboard reforça a necessidade de dividir em uma arquitetura mais limpa (ex: , , , ).
+-   ****: **URGENTE**. Com mais de 2.800 linhas, este componente é extremamente difícil de manter. A decomposição em componentes menores e hooks customizados é crítica para a saúde do projeto.
 
 **key api endpoints**
--   : Cria um atendimento (agora também sincroniza com Google Sheets).
--   : Busca pedidos por CPF.
--   : Busca pedido por número do pedido do cliente.
--   : Busca pedidos por nome do cliente.
--   : Busca pedido por número de entrega.
--   : Verifica o status da conexão com o Google Sheets.
+-   , : Cria e atualiza atendimentos, sincronizando com o Google Sheets.
+-   : Lista atendimentos com suporte a múltiplos filtros (, , ).
+-   : Busca pedidos na base .
+-   : Registra uma nova devolução na planilha Gestão Devoluções 2026_E.
+-   : **(NOVO)** Endpoint a ser implementado para fornecer dados para o novo dashboard multi-abas.
 
 **Critical Info for New Agent**
--   O usuário fornece feedback muito detalhado e iterativo. É crucial seguir suas instruções à risca.
--   A complexidade da aplicação está concentrada na tela . Qualquer alteração nesta tela requer atenção cuidadosa devido aos muitos estados e lógicas condicionais.
--   A refatoração de  e  é tecnicamente necessária para a manutenibilidade do projeto. Isso deve ser proposto ao usuário como um passo importante para organizar o código antes de adicionar novas funcionalidades grandes.
--   A última grande bateria de alterações de UI/UX não foi validada por testes automatizados. Recomenda-se fortemente a execução do  após a confirmação do usuário.
+-   **Prioridade Máxima:** A próxima tarefa é construir o novo dashboard de 7 abas. O usuário forneceu requisitos muito detalhados. Comece implementando a lógica do backend para cada aba e, em seguida, construa a interface do frontend usando os arquivos  e o novo endpoint .
+-   **Refatoração:** O código, especialmente nos arquivos  e , está se tornando insustentável. Após concluir o dashboard, você DEVE propor e priorizar uma tarefa de refatoração para garantir a estabilidade futura do projeto.
+-   **Código Funcional:** A aplicação está estável e todas as funcionalidades solicitadas anteriormente foram implementadas e testadas. Não há bugs conhecidos no momento.
 
 **documents and test reports created in this job**
 -   
--   
+-    (atualizado pelo agente anterior).
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User (pending):** Solicitou a adição de textos padrão para Arrependimento e a remoção da categoria Divergência de Produto.
-2.  **Agent:** Concluiu a implementação e mostrou o screenshot final (Chat Message 364).
-3.  **User:** Solicitou a adição de vários textos padrão para Falha Transporte, com sub-opções, e pediu para mover o campo Motivo da Pendência.
-4.  **Agent:** Concluiu a implementação e mostrou o screenshot (Chat Message 327).
-5.  **User:** Solicitou auto-preenchimento da categoria e da transportadora com base nos dados do pedido.
-6.  **Agent:** Concluiu a implementação e mostrou o screenshot (Chat Message 282).
-7.  **User:** Solicitou novos textos para Falha de Compras e Falha Produção (com opções por transportadora) e ajustes de layout (Galpão na mesma linha da NF).
-8.  **Agent:** Concluiu a implementação e mostrou o screenshot (Chat Message 268).
-9.  **User:** Solicitou alterações na busca (adicionar pedido), nos detalhes do produto (adicionar SKU/Cód. Fornecedor), simplificar a exibição do Galpão e adicionar novos textos para Avaria com assinatura dinâmica.
-10. **Agent:** Concluiu a implementação e mostrou os screenshots de validação.
+-   **User:** Forneceu uma especificação extremamente detalhada para um novo dashboard com 7 abas, substituindo o dashboard existente.
+-   **User:** Solicitou que qualquer alteração em um atendimento seja refletida na planilha do Google Sheets e iniciou a especificação do novo dashboard.
+-   **User:** Reportou que a integração com a planilha de devoluções não estava funcionando e que o encerramento automático não ocorria. (Resolvido)
+-   **User:** Solicitou a manutenção do filtro ao salvar/editar, a exportação para Excel, a remoção da gestão de Reversas e a integração com a planilha de Devoluções. (Resolvido)
+-   **User:** Perguntou como filtrar por Retornar ou Verificar usando os menus de filtro. (Resolvido)
+-   **User:** Reportou que a busca por CPF formatado falhava e solicitou várias melhorias de UI/UX (redirecionamento, campos obrigatórios com asteriscos/bordas vermelhas, e mudanças nas colunas da lista). (Resolvido)
+-   **User:** Corrigiu os textos padrão para a transportadora Total Express e solicitou várias outras funcionalidades (renomear Verificar Adnéia, card de pedido expansível e validação de campos obrigatórios). (Resolvido)
+-   **User:** Solicitou ajustes nos textos padrão de rastreio para várias transportadoras. (Resolvido)
+-   **User:** Confirmou que o agente deveria prosseguir com as correções.
+-   **Agent:** Apresentou um plano de ação para corrigir os bugs críticos (crash e busca) e recebeu aprovação.
 
 **Project Health Check:**
--   **Broken:** Nada.
--   **Mocked:** Nenhum.
+-   **Broken:** Não. O aplicativo está estável e funcional.
+-   **Mocked:** Nenhum. A integração com o Google Sheets é real.
 
 **3rd Party Integrations**
--   **Google Sheets:** Implementado e funcional, usando  com uma Service Account.
+-   **Google Sheets:** Integrado via  e . As credenciais estão em . Conecta-se a duas planilhas: Atendimentos 2026_E e Gestão Devoluções 2026_E.
 
 **Testing status**
--   **Testing agent used after significant changes:** YES (Após a integração com Google Sheets).
--   **Troubleshoot agent used after agent stuck in loop:** NO.
--   **Test files created:** N/A.
--   **Known regressions:** Nenhuma conhecida, mas o risco é alto devido às últimas alterações não terem sido testadas automaticamente.
+-   **Testing agent used after significant changes:** Sim, o agente de teste foi usado e confirmou que as correções de bugs e as novas funcionalidades (como Verificar Adnéia) estavam funcionando.
+-   **Troubleshoot agent used after agent stuck in loop:** Não foi necessário.
+-   **Test files created:** Nenhum.
+-   **Known regressions:** Nenhuma no final da sessão.
 
 **Credentials to test flow:**
 -   **Email:** 
 -   **Senha:** 
-(Um novo usuário pode ser registrado na tela de login para obter um token JWT).
 
 **What agent forgot to execute**
--   O agente não executou o  após a última grande leva de alterações na UI e na lógica da tela Novo Chamado, que foi a parte mais significativa do trabalho na sessão. A validação foi feita apenas com screenshots.
--   O agente não resolveu completamente a questão do Cód. Fornecedor ausente, deixando a investigação pela metade. Apenas constatou que o campo estava vazio em um registro de teste.</analysis>
+-   Durante a sessão, o agente esqueceu inicialmente de declarar o estado  no React, causando o bug original, mas isso foi corrigido. Todas as tarefas e correções solicitadas pelo usuário na sessão foram concluídas antes da nova grande solicitação do dashboard.</analysis>
