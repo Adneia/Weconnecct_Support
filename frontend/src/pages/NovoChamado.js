@@ -1259,7 +1259,7 @@ const NovoAtendimento = () => {
       // Substituir [ASSINATURA] pelo nome do atendente selecionado
       let texto = response.data.texto;
       if (formData.atendente) {
-        texto = texto.replace(/\[ASSINATURA\]/g, formData.atendente);
+        texto = texto.replace(/\[ASSINATURA\]/g, user?.name || formData.atendente);
       }
       // Substituir [NOME_CLIENTE] pelo nome do cliente
       if (pedidoErp?.nome_cliente) {
@@ -1277,7 +1277,7 @@ const NovoAtendimento = () => {
     let texto = TEXTOS_AVARIA[tipoAvaria] || '';
     // Substituir placeholders
     if (formData.atendente) {
-      texto = texto.replace(/\[ASSINATURA\]/g, formData.atendente);
+      texto = texto.replace(/\[ASSINATURA\]/g, user?.name || formData.atendente);
     }
     if (pedidoErp?.nome_cliente) {
       texto = texto.replace(/\[NOME_CLIENTE\]/g, pedidoErp.nome_cliente);
@@ -1291,7 +1291,7 @@ const NovoAtendimento = () => {
     let texto = TEXTOS_FALHA_PRODUCAO[tipoFalha] || '';
     // Substituir placeholders
     if (formData.atendente) {
-      texto = texto.replace(/\[ASSINATURA\]/g, formData.atendente);
+      texto = texto.replace(/\[ASSINATURA\]/g, user?.name || formData.atendente);
     }
     if (pedidoErp?.nota_fiscal) {
       // Remover dígito após o ponto (ex: 10753.0 -> 10753)
@@ -1317,7 +1317,7 @@ const NovoAtendimento = () => {
     let texto = TEXTOS_FALHA_TRANSPORTE[tipoFalha] || '';
     // Substituir placeholders
     if (formData.atendente) {
-      texto = texto.replace(/\[ASSINATURA\]/g, formData.atendente);
+      texto = texto.replace(/\[ASSINATURA\]/g, user?.name || formData.atendente);
     }
     if (pedidoErp?.nota_fiscal) {
       // Remover dígito após o ponto (ex: 10753.0 -> 10753)
@@ -1370,7 +1370,7 @@ const NovoAtendimento = () => {
     let texto = TEXTOS_ARREPENDIMENTO[tipo] || '';
     // Substituir placeholders
     if (formData.atendente) {
-      texto = texto.replace(/\[ASSINATURA\]/g, formData.atendente);
+      texto = texto.replace(/\[ASSINATURA\]/g, user?.name || formData.atendente);
     }
     if (pedidoErp?.nome_cliente) {
       texto = texto.replace(/\[NOME_CLIENTE\]/g, pedidoErp.nome_cliente);
@@ -1398,7 +1398,7 @@ const NovoAtendimento = () => {
     let texto = TEXTOS_ACOMPANHAMENTO[tipo] || '';
     // Substituir placeholders
     if (formData.atendente) {
-      texto = texto.replace(/\[ASSINATURA\]/g, formData.atendente);
+      texto = texto.replace(/\[ASSINATURA\]/g, user?.name || formData.atendente);
     }
     if (pedidoErp?.nome_cliente) {
       texto = texto.replace(/\[NOME_CLIENTE\]/g, pedidoErp.nome_cliente);
@@ -1466,7 +1466,7 @@ const NovoAtendimento = () => {
     let texto = TEXTOS_ASSISTENCIA[tipo] || '';
     // Substituir placeholders
     if (formData.atendente) {
-      texto = texto.replace(/\[ASSINATURA\]/g, formData.atendente);
+      texto = texto.replace(/\[ASSINATURA\]/g, user?.name || formData.atendente);
     }
     if (pedidoErp?.nome_cliente) {
       texto = texto.replace(/\[NOME_CLIENTE\]/g, pedidoErp.nome_cliente);
@@ -1495,7 +1495,7 @@ const NovoAtendimento = () => {
     let texto = TEXTOS_MOTIVO_PENDENCIA[tipo] || '';
     // Substituir placeholders
     if (formData.atendente) {
-      texto = texto.replace(/\[ASSINATURA\]/g, formData.atendente);
+      texto = texto.replace(/\[ASSINATURA\]/g, user?.name || formData.atendente);
     }
     if (pedidoErp?.nome_cliente) {
       const primeiroNome = pedidoErp.nome_cliente.split(' ')[0];
