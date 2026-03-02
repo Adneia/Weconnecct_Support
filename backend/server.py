@@ -106,6 +106,7 @@ class ChamadoBase(BaseModel):
     codigo_reversa: Optional[str] = None  # Código da reversa
     data_vencimento_reversa: Optional[str] = None  # Data de vencimento da reversa
     retornar_chamado: bool = False  # Sinaliza que precisa retorno/atuação
+    verificar_adneia: bool = False  # Sinaliza que Adnéia precisa verificar
 
 class ChamadoCreate(ChamadoBase):
     pass
@@ -125,6 +126,7 @@ class ChamadoUpdate(BaseModel):
     codigo_reversa: Optional[str] = None
     data_vencimento_reversa: Optional[str] = None
     retornar_chamado: Optional[bool] = None  # Sinaliza que precisa retorno/atuação
+    verificar_adneia: Optional[bool] = None  # Sinaliza que Adnéia precisa verificar
 
 class Chamado(ChamadoBase):
     model_config = ConfigDict(extra="ignore")
@@ -1092,6 +1094,7 @@ async def list_chamados(
     atendente: Optional[str] = None,
     parceiro: Optional[str] = None,
     retornar_chamado: Optional[bool] = None,
+    verificar_adneia: Optional[bool] = None,
     search: Optional[str] = None,
     search_type: Optional[str] = None,  # 'todos', 'solicitacao', 'entrega', 'cpf', 'nome'
     current_user: dict = Depends(get_current_user)
@@ -1107,6 +1110,8 @@ async def list_chamados(
         query['parceiro'] = parceiro
     if retornar_chamado is not None:
         query['retornar_chamado'] = retornar_chamado
+    if verificar_adneia is not None:
+        query['verificar_adneia'] = verificar_adneia
     if search:
         search_regex = {"$regex": search, "$options": "i"}
         if search_type == 'solicitacao':

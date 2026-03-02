@@ -1063,6 +1063,11 @@ const NovoAtendimento = () => {
         setRetornarChamado(atd.retornar_chamado);
       }
       
+      // Carregar verificar_adneia
+      if (atd.verificar_adneia !== undefined) {
+        setVerificarAdneia(atd.verificar_adneia);
+      }
+      
       // Buscar dados do pedido ERP
       if (atd.numero_pedido) {
         setSearchValue(atd.numero_pedido);
@@ -1528,7 +1533,8 @@ const NovoAtendimento = () => {
         motivo_pendencia: motivoPendencia || null,
         codigo_reversa: codigoReversa || null,
         data_vencimento_reversa: dataVencimentoReversa || null,
-        retornar_chamado: retornarChamado
+        retornar_chamado: retornarChamado,
+        verificar_adneia: verificarAdneia
       };
       
       if (isEditMode && atendimentoId) {
@@ -1585,6 +1591,7 @@ const NovoAtendimento = () => {
         { 
           pendente: false,
           retornar_chamado: false,
+          verificar_adneia: false,
           anotacoes: novasAnotacoes
         },
         { headers: getAuthHeader() }

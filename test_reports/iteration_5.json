@@ -1,0 +1,115 @@
+{
+  "summary": "Completed comprehensive testing of new checkbox features ('Retornar Chamado' and 'Verificar Adnéia'), CPF search functionality, and Lista de Atendimentos stats cards. All 32 backend tests passed (100%). Frontend UI tests confirmed all features working correctly including checkboxes, CPF search, and badges in the table.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Recharts BarChart on Dashboard",
+        "issue": "Console warning: width(-1) and height(-1) of chart should be greater than 0",
+        "selector": ".recharts-wrapper",
+        "priority": "LOW",
+        "impact": "Charts display correctly but generate console warnings - existing issue from previous iterations"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+
+  "passed_tests": [
+    "API: Login with test@example.com credentials",
+    "API: Protected endpoints require authentication",
+    "API: CPF search returns correct pedido (CPF: 10856880620 → Pedido #92512612)",
+    "API: CPF search with formatted CPF works (108.568.806-20)",
+    "API: Create chamado with retornar_chamado=true",
+    "API: Create chamado with verificar_adneia=true",
+    "API: Create chamado with both checkboxes=true",
+    "API: Filter chamados by retornar_chamado=true",
+    "API: Filter chamados by verificar_adneia=true",
+    "API: Update chamado checkbox fields",
+    "API: Google Sheets connection status (initialized=true, connected=true)",
+    "UI: Login form working correctly",
+    "UI: Novo Chamado page loads correctly",
+    "UI: Search type dropdown works (Pedido, CPF, Nome, Entrega)",
+    "UI: CPF search returns pedido #92512612 for EDSON SOARES DE ARAUJO NETO",
+    "UI: 'Retornar Chamado' checkbox visible and clickable",
+    "UI: 'Verificar Adnéia' checkbox visible and clickable",
+    "UI: 'Aguardando' badges appear when checkboxes are checked",
+    "UI: Lista de Atendimentos page loads correctly",
+    "UI: Stats cards displayed: Pendentes, Retornar, Adnéia, Resolvidos, Total",
+    "UI: 'Adnéia' stats card visible with purple icon",
+    "UI: 'Retornar' stats card visible with rose icon",
+    "UI: 'Retornar' badge visible in atendimentos table",
+    "UI: 'Adnéia' badge visible in atendimentos table"
+  ],
+
+  "features_verified": {
+    "checkbox_retornar_chamado": {
+      "status": "WORKING",
+      "details": "Checkbox displays in Novo Chamado form, saves to database, filters work, badge shows in table"
+    },
+    "checkbox_verificar_adneia": {
+      "status": "WORKING",
+      "details": "Checkbox displays in Novo Chamado form, saves to database, filters work, badge shows in table"
+    },
+    "cpf_search": {
+      "status": "WORKING",
+      "details": "CPF search correctly finds pedidos by customer CPF. Test CPF 10856880620 returns pedido #92512612"
+    },
+    "stats_cards_adneia": {
+      "status": "WORKING",
+      "details": "New 'Adnéia' stats card displays in Lista de Atendimentos with purple icon showing count of verificar_adneia=true"
+    },
+    "table_badges": {
+      "status": "WORKING",
+      "details": "Both 'Retornar' and 'Adnéia' badges display correctly in the atendimentos table STATUS column"
+    },
+    "google_sheets_integration": {
+      "status": "WORKING - NOT MOCKED",
+      "details": "Google Sheets connection initialized, atendimentos sync working"
+    }
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_checkbox_fields.py",
+    "/app/backend/tests/test_emergent_api.py",
+    "/app/backend/tests/test_new_features.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+
+  "action_items": [],
+
+  "critical_code_review_comments": [],
+
+  "updated_files": [
+    "/app/backend/tests/test_checkbox_fields.py"
+  ],
+
+  "success_rate": {
+    "backend": "100% (32/32 tests passed)",
+    "frontend": "100% (all features verified)"
+  },
+
+  "test_credentials": {
+    "email": "test@example.com",
+    "password": "password123"
+  },
+
+  "test_data": {
+    "cpf_teste": "10856880620",
+    "pedido_teste": "92512612",
+    "nome_cliente_teste": "EDSON SOARES DE ARAUJO NETO"
+  },
+
+  "seed_data_creation": "No new seed data created. Used existing pedido #92512612 from database",
+
+  "retest_needed": false,
+
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "All requested features are working correctly: 1) 'Retornar Chamado' checkbox in Novo Chamado form with data-testid='checkbox-retornar' and id='retornar-chamado', 2) 'Verificar Adnéia' checkbox with data-testid='checkbox-verificar-adneia' and id='verificar-adneia', 3) Both checkboxes show 'Aguardando' badge when checked, 4) CPF search works by selecting 'CPF' from dropdown (data-testid='select-search-type') then entering CPF in search box, 5) Lista de Atendimentos has 5 stats cards including new 'Adnéia' card, 6) Table shows 'Retornar' and 'Adnéia' badges in STATUS column. Backend filters work: ?retornar_chamado=true and ?verificar_adneia=true"
+}

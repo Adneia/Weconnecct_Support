@@ -44,7 +44,8 @@ const ListaAtendimentos = () => {
     pendente: '',
     categoria: '',
     atendente: '',
-    retornar_chamado: ''
+    retornar_chamado: '',
+    verificar_adneia: ''
   });
   const [showFilters, setShowFilters] = useState(false);
 
@@ -62,6 +63,7 @@ const ListaAtendimentos = () => {
       if (filters.categoria) params.append('categoria', filters.categoria);
       if (filters.atendente) params.append('atendente', filters.atendente);
       if (filters.retornar_chamado !== '') params.append('retornar_chamado', filters.retornar_chamado);
+      if (filters.verificar_adneia !== '') params.append('verificar_adneia', filters.verificar_adneia);
       if (globalFilter) {
         params.append('search', globalFilter);
         params.append('search_type', searchType);
@@ -85,7 +87,7 @@ const ListaAtendimentos = () => {
   };
 
   const clearFilters = () => {
-    setFilters({ pendente: '', categoria: '', atendente: '', retornar_chamado: '' });
+    setFilters({ pendente: '', categoria: '', atendente: '', retornar_chamado: '', verificar_adneia: '' });
     setGlobalFilter('');
   };
 
@@ -109,6 +111,7 @@ const ListaAtendimentos = () => {
   const totalPendentes = atendimentos.filter(a => a.pendente).length;
   const totalResolvidos = atendimentos.filter(a => !a.pendente).length;
   const totalRetornar = atendimentos.filter(a => a.retornar_chamado).length;
+  const totalVerificarAdneia = atendimentos.filter(a => a.verificar_adneia).length;
 
   if (loading) {
     return (
@@ -145,8 +148,8 @@ const ListaAtendimentos = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-        <Card className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setFilters(f => ({ ...f, pendente: 'true', retornar_chamado: '' }))}>
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+        <Card className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setFilters(f => ({ ...f, pendente: 'true', retornar_chamado: '', verificar_adneia: '' }))}>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-2 rounded-md bg-amber-100 dark:bg-amber-900/30">
               <Clock className="h-5 w-5 text-amber-600" />
@@ -158,7 +161,7 @@ const ListaAtendimentos = () => {
           </CardContent>
         </Card>
         
-        <Card className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setFilters(f => ({ ...f, retornar_chamado: 'true', pendente: '' }))}>
+        <Card className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setFilters(f => ({ ...f, retornar_chamado: 'true', pendente: '', verificar_adneia: '' }))}>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-2 rounded-md bg-rose-100 dark:bg-rose-900/30">
               <AlertCircle className="h-5 w-5 text-rose-600" />
@@ -170,7 +173,19 @@ const ListaAtendimentos = () => {
           </CardContent>
         </Card>
         
-        <Card className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setFilters(f => ({ ...f, pendente: 'false', retornar_chamado: '' }))}>
+        <Card className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setFilters(f => ({ ...f, verificar_adneia: 'true', pendente: '', retornar_chamado: '' }))}>
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="p-2 rounded-md bg-purple-100 dark:bg-purple-900/30">
+              <AlertCircle className="h-5 w-5 text-purple-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{totalVerificarAdneia}</p>
+              <p className="text-sm text-muted-foreground">Adnéia</p>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setFilters(f => ({ ...f, pendente: 'false', retornar_chamado: '', verificar_adneia: '' }))}>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-2 rounded-md bg-emerald-100 dark:bg-emerald-900/30">
               <CheckCircle className="h-5 w-5 text-emerald-600" />
@@ -182,7 +197,7 @@ const ListaAtendimentos = () => {
           </CardContent>
         </Card>
         
-        <Card className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setFilters({ pendente: '', categoria: '', atendente: '', retornar_chamado: '' })}>
+        <Card className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setFilters({ pendente: '', categoria: '', atendente: '', retornar_chamado: '', verificar_adneia: '' })}>
           <CardContent className="p-4 flex items-center gap-4">
             <div className="p-2 rounded-md bg-blue-100 dark:bg-blue-900/30">
               <FileText className="h-5 w-5 text-blue-600" />
@@ -347,6 +362,11 @@ const ListaAtendimentos = () => {
                           <Badge className="bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400 mr-1">
                             <RotateCcw className="h-3 w-3 mr-1" />
                             Retornar
+                          </Badge>
+                        )}
+                        {atd.verificar_adneia && (
+                          <Badge className="bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-400 mr-1">
+                            Adnéia
                           </Badge>
                         )}
                         {atd.pendente ? (
