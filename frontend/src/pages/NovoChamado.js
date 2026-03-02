@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
@@ -937,6 +937,11 @@ Atenciosamente!
 const NovoAtendimento = () => {
   const { id: atendimentoId } = useParams(); // ID do atendimento para edição
   const isEditMode = !!atendimentoId;
+  const location = useLocation();
+  
+  // Pegar filtros da query string para preservar ao voltar
+  const searchParams = new URLSearchParams(location.search);
+  const filterParam = searchParams.get('filter'); // 'retornar' ou 'verificar'
   
   const [loading, setLoading] = useState(false);
   const [loadingAtendimento, setLoadingAtendimento] = useState(false);
@@ -980,6 +985,8 @@ const NovoAtendimento = () => {
     motivoPendencia: false,
     anotacoes: false
   });
+  const [showDevolucaoDialog, setShowDevolucaoDialog] = useState(false);
+  const [devolucaoRegistrada, setDevolucaoRegistrada] = useState(false);
   
   const [formData, setFormData] = useState({
     numero_pedido: '',
@@ -1586,7 +1593,9 @@ const NovoAtendimento = () => {
         );
         
         toast.success('Atendimento atualizado com sucesso!');
-        navigate('/chamados');
+        // Navegar para lista mantendo o filtro
+        const redirectUrl = filterParam ? `/chamados?filter=${filterParam}` : '/chamados';
+        navigate(redirectUrl);
       } else {
         // Criar novo atendimento
         const response = await axios.post(
@@ -1601,7 +1610,9 @@ const NovoAtendimento = () => {
             <span className="text-xs opacity-80">Sincronizando com Google Sheets...</span>
           </div>
         );
-        navigate('/chamados');
+        // Navegar para lista mantendo o filtro
+        const redirectUrl = filterParam ? `/chamados?filter=${filterParam}` : '/chamados';
+        navigate(redirectUrl);
       }
     } catch (error) {
       toast.error(error.response?.data?.detail || `Erro ao ${isEditMode ? 'atualizar' : 'criar'} atendimento`);
@@ -1687,6 +1698,57 @@ const NovoAtendimento = () => {
       toast.error('Erro ao encerrar atendimento');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Função para registrar devolução na planilha
+  const registrarDevolucao = async () => {
+    try {
+      await axios.post(
+        `${API_URL}/api/devolucoes`,
+        {
+          numero_pedido: formData.numero_pedido,
+          nome_cliente: pedidoErp?.nome_cliente || '',
+          cpf_cliente: pedidoErp?.cpf_cliente || '',
+          solicitacao: formData.solicitacao || '',
+          canal_vendas: formData.parceiro || pedidoErp?.canal_vendas || '',
+          motivo: formData.motivo || '',
+          codigo_reversa: codigoReversa || '',
+          chamado_id: atendimentoId || ''
+        },
+        { headers: getAuthHeader() }
+      );
+      
+      toast.success('Devolução registrada na planilha!');
+      setDevolucaoRegistrada(true);
+      return true;
+    } catch (error) {
+      toast.error('Erro ao registrar devolução na planilha');
+      return false;
+    }
+  };
+
+  // Handler para quando muda o motivo da pendência para "Em devolução"
+  const handleMotivoPendenciaChange = async (value) => {
+    setMotivoPendencia(value);
+    if (fieldErrors.motivoPendencia) setFieldErrors(prev => ({...prev, motivoPendencia: false}));
+    
+    // Se selecionou "Em devolução", mostrar diálogo
+    if (value === 'Em devolução' && formData.numero_pedido) {
+      setShowDevolucaoDialog(true);
+    }
+  };
+
+  // Handler para confirmar devolução e encerrar
+  const handleDevolucaoConfirm = async (encerrar) => {
+    setShowDevolucaoDialog(false);
+    
+    // Registrar na planilha
+    await registrarDevolucao();
+    
+    if (encerrar && isEditMode && atendimentoId) {
+      // Encerrar atendimento
+      handleEncerrar();
     }
   };
 
@@ -2629,10 +2691,7 @@ const NovoAtendimento = () => {
                   </Label>
                   <Select 
                     value={motivoPendencia} 
-                    onValueChange={(v) => {
-                      setMotivoPendencia(v);
-                      if (fieldErrors.motivoPendencia) setFieldErrors(prev => ({...prev, motivoPendencia: false}));
-                    }}
+                    onValueChange={handleMotivoPendenciaChange}
                   >
                     <SelectTrigger 
                       data-testid="select-motivo-pendencia"
@@ -2984,6 +3043,43 @@ const NovoAtendimento = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowTextoDialog(false)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de Confirmação de Devolução */}
+      <Dialog open={showDevolucaoDialog} onOpenChange={setShowDevolucaoDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-rose-600" />
+              Registrar Devolução
+            </DialogTitle>
+            <DialogDescription className="space-y-2">
+              <p>O atendimento será registrado na planilha <strong>Gestão Devoluções 2026_E</strong>.</p>
+              <div className="p-3 bg-muted rounded-lg mt-2">
+                <p><strong>Pedido:</strong> #{formData.numero_pedido}</p>
+                <p><strong>Cliente:</strong> {pedidoErp?.nome_cliente || '-'}</p>
+                <p><strong>Motivo:</strong> {formData.motivo || '-'}</p>
+              </div>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex flex-col sm:flex-row gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => handleDevolucaoConfirm(false)}
+              className="w-full sm:w-auto"
+            >
+              Apenas Registrar
+            </Button>
+            {isEditMode && (
+              <Button 
+                onClick={() => handleDevolucaoConfirm(true)}
+                className="w-full sm:w-auto bg-rose-600 hover:bg-rose-700"
+              >
+                Registrar e Encerrar
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

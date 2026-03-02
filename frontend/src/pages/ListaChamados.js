@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -23,7 +23,8 @@ import {
   TableRow,
 } from '../components/ui/table';
 import { toast } from 'sonner';
-import { Search, Plus, Filter, X, Clock, CheckCircle, AlertCircle, FileText, RotateCcw } from 'lucide-react';
+import { Search, Plus, Filter, X, Clock, CheckCircle, AlertCircle, FileText, RotateCcw, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -50,7 +51,19 @@ const ListaAtendimentos = () => {
   const [showFilters, setShowFilters] = useState(false);
 
   const navigate = useNavigate();
+  const location = useLocation();
   const { getAuthHeader } = useAuth();
+  
+  // Ler filtro da URL ao carregar
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const filterParam = searchParams.get('filter');
+    if (filterParam === 'retornar') {
+      setFilters(f => ({ ...f, retornar_chamado: 'true', pendente: '', verificar_adneia: '' }));
+    } else if (filterParam === 'verificar') {
+      setFilters(f => ({ ...f, verificar_adneia: 'true', pendente: '', retornar_chamado: '' }));
+    }
+  }, [location.search]);
 
   useEffect(() => {
     fetchData();
@@ -92,6 +105,68 @@ const ListaAtendimentos = () => {
   };
 
   const hasActiveFilters = Object.values(filters).some(v => v !== '') || globalFilter;
+
+  // Função para exportar para Excel
+  const exportToExcel = () => {
+    if (atendimentos.length === 0) {
+      toast.error('Nenhum atendimento para exportar');
+      return;
+    }
+
+    try {
+      // Preparar dados para exportação
+      const dataToExport = atendimentos.map(atd => ({
+        'Entrega': atd.numero_pedido || '',
+        'Cliente': atd.nome_cliente || '',
+        'CPF': atd.cpf_cliente || '',
+        'Parceiro': atd.parceiro || atd.canal_vendas || '',
+        'Categoria': atd.categoria || '',
+        'Motivo': atd.motivo || '',
+        'Reversa': atd.codigo_reversa || '',
+        'Atendente': atd.atendente || '',
+        'Status': atd.pendente ? 'Pendente' : 'Resolvido',
+        'Retornar': atd.retornar_chamado ? 'Sim' : '',
+        'Verificar': atd.verificar_adneia ? 'Sim' : '',
+        'Data': atd.data_abertura ? new Date(atd.data_abertura).toLocaleDateString('pt-BR') : '',
+        'Solicitação': atd.solicitacao || '',
+        'Anotações': atd.anotacoes || ''
+      }));
+
+      // Criar workbook e worksheet
+      const ws = XLSX.utils.json_to_sheet(dataToExport);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Atendimentos');
+
+      // Ajustar largura das colunas
+      ws['!cols'] = [
+        { wch: 12 }, // Entrega
+        { wch: 25 }, // Cliente
+        { wch: 15 }, // CPF
+        { wch: 15 }, // Parceiro
+        { wch: 18 }, // Categoria
+        { wch: 30 }, // Motivo
+        { wch: 15 }, // Reversa
+        { wch: 18 }, // Atendente
+        { wch: 10 }, // Status
+        { wch: 10 }, // Retornar
+        { wch: 10 }, // Verificar
+        { wch: 12 }, // Data
+        { wch: 15 }, // Solicitação
+        { wch: 50 }, // Anotações
+      ];
+
+      // Nome do arquivo com data atual
+      const dataAtual = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+      const fileName = `atendimentos_${dataAtual}.xlsx`;
+
+      // Download
+      XLSX.writeFile(wb, fileName);
+      toast.success(`Exportado ${atendimentos.length} atendimentos para ${fileName}`);
+    } catch (error) {
+      console.error('Erro ao exportar:', error);
+      toast.error('Erro ao exportar para Excel');
+    }
+  };
 
   const getCategoryBadgeColor = (categoria) => {
     const colors = {
@@ -141,10 +216,16 @@ const ListaAtendimentos = () => {
           <h1 className="text-2xl font-bold tracking-tight font-['Plus_Jakarta_Sans']">Atendimentos</h1>
           <p className="text-muted-foreground text-sm">{atendimentos.length} atendimentos encontrados</p>
         </div>
-        <Button onClick={() => navigate('/chamados/novo')} data-testid="btn-novo">
-          <Plus className="h-4 w-4 mr-2" />
-          Novo Atendimento
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={exportToExcel} data-testid="btn-exportar">
+            <Download className="h-4 w-4 mr-2" />
+            Exportar Excel
+          </Button>
+          <Button onClick={() => navigate('/chamados/novo')} data-testid="btn-novo">
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Atendimento
+          </Button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -347,11 +428,19 @@ const ListaAtendimentos = () => {
               </TableHeader>
               <TableBody>
                 {atendimentos.length > 0 ? (
-                  atendimentos.map((atd) => (
+                  atendimentos.map((atd) => {
+                    // Determinar qual filtro está ativo para passar na navegação
+                    const activeFilter = filters.retornar_chamado === 'true' ? 'retornar' : 
+                                        filters.verificar_adneia === 'true' ? 'verificar' : '';
+                    const editUrl = activeFilter 
+                      ? `/chamados/editar/${atd.id}?filter=${activeFilter}`
+                      : `/chamados/editar/${atd.id}`;
+                    
+                    return (
                     <TableRow
                       key={atd.id}
                       className="cursor-pointer hover:bg-muted/50 transition-colors"
-                      onClick={() => navigate(`/chamados/editar/${atd.id}`)}
+                      onClick={() => navigate(editUrl)}
                       data-testid={`row-${atd.id}`}
                     >
                       <TableCell className="font-medium">
@@ -405,7 +494,8 @@ const ListaAtendimentos = () => {
                         {atd.dias_aberto}
                       </TableCell>
                     </TableRow>
-                  ))
+                    );
+                  })
                 ) : (
                   <TableRow>
                     <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">

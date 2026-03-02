@@ -408,6 +408,47 @@ class GoogleSheetsClient:
             logger.error(f"Error finding atendimento in Google Sheets: {e}")
             return None
     
+    def add_devolucao_row(self, row_data: Dict[str, Any]) -> bool:
+        """Add a row to the Devoluções spreadsheet"""
+        if not self._initialized:
+            if not self.initialize():
+                return False
+        
+        try:
+            worksheet = self._get_devolucoes_worksheet()
+            if not worksheet:
+                logger.error("Could not get devoluções worksheet")
+                return False
+            
+            # Get headers from the first row
+            headers = worksheet.row_values(1)
+            if not headers:
+                # If no headers, use default columns
+                headers = ['Data', 'Pedido', 'Cliente', 'CPF', 'Solicitação', 'Canal', 'Motivo', 'Código Reversa', 'Status', 'Responsável']
+                worksheet.update('A1', [headers])
+            
+            # Prepare row values in the same order as headers
+            row_values = []
+            for header in headers:
+                # Map row_data keys to headers (handle slight variations)
+                value = row_data.get(header, '')
+                if not value:
+                    # Try variations
+                    header_normalized = header.lower().replace(' ', '_').replace('ã', 'a').replace('ç', 'c')
+                    for key, val in row_data.items():
+                        if key.lower().replace(' ', '_').replace('ã', 'a').replace('ç', 'c') == header_normalized:
+                            value = val
+                            break
+                row_values.append(str(value) if value else '')
+            
+            # Append row
+            worksheet.append_row(row_values, value_input_option='USER_ENTERED')
+            logger.info(f"Devolução added to Google Sheets: {row_data.get('Pedido', 'N/A')}")
+            return True
+        except Exception as e:
+            logger.error(f"Error adding devolução to Google Sheets: {e}")
+            return False
+    
     def get_connection_status(self) -> Dict[str, Any]:
         """Get the connection status of Google Sheets"""
         return {

@@ -30,7 +30,6 @@ const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/chamados/novo', label: 'Novo Atendimento', icon: Plus },
   { path: '/chamados', label: 'Atendimentos', icon: List },
-  { path: '/reversas', label: 'Reversas', icon: RotateCcw },
   { path: '/importar', label: 'Base Emergent', icon: Upload },
 ];
 

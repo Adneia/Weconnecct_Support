@@ -11,7 +11,6 @@ import Dashboard from "./pages/Dashboard";
 import NovoChamado from "./pages/NovoChamado";
 import ListaChamados from "./pages/ListaChamados";
 import DetalhesChamado from "./pages/DetalhesChamado";
-import Reversas from "./pages/Reversas";
 import ImportarPedidos from "./pages/ImportarPedidos";
 
 // Protected Route wrapper
@@ -103,14 +102,6 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <ListaChamados />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/reversas"
-        element={
-          <ProtectedRoute>
-            <Reversas />
           </ProtectedRoute>
         }
       />

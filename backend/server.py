@@ -1370,6 +1370,56 @@ async def update_reversa(reversa_id: str, reversa_data: ReversaUpdate, current_u
     
     return {"message": "Reversa atualizada com sucesso"}
 
+# ============== DEVOLUCOES ROUTES ==============
+
+class DevolucaoCreate(BaseModel):
+    numero_pedido: str
+    nome_cliente: str
+    cpf_cliente: Optional[str] = None
+    solicitacao: Optional[str] = None
+    canal_vendas: Optional[str] = None
+    motivo: Optional[str] = None
+    data_devolucao: Optional[str] = None
+    codigo_reversa: Optional[str] = None
+    chamado_id: Optional[str] = None
+
+@api_router.post("/devolucoes", response_model=dict)
+async def create_devolucao(devolucao_data: DevolucaoCreate, current_user: dict = Depends(get_current_user)):
+    """Registrar uma devolução na planilha Google Sheets"""
+    try:
+        from google_sheets import sheets_client
+        
+        # Preparar dados para a planilha
+        data_atual = datetime.now(timezone.utc).strftime('%d/%m/%Y')
+        
+        row_data = {
+            'Data': devolucao_data.data_devolucao or data_atual,
+            'Pedido': devolucao_data.numero_pedido,
+            'Cliente': devolucao_data.nome_cliente,
+            'CPF': devolucao_data.cpf_cliente or '',
+            'Solicitação': devolucao_data.solicitacao or '',
+            'Canal': devolucao_data.canal_vendas or '',
+            'Motivo': devolucao_data.motivo or '',
+            'Código Reversa': devolucao_data.codigo_reversa or '',
+            'Status': 'Em devolução',
+            'Responsável': current_user.get('name', '')
+        }
+        
+        # Adicionar à planilha de devoluções
+        result = sheets_client.add_devolucao_row(row_data)
+        
+        return {
+            "message": "Devolução registrada com sucesso na planilha",
+            "sync_status": "success" if result else "failed"
+        }
+    except Exception as e:
+        logger.error(f"Erro ao registrar devolução: {str(e)}")
+        return {
+            "message": "Erro ao registrar devolução na planilha",
+            "sync_status": "error",
+            "error": str(e)
+        }
+
 # ============== PEDIDOS ERP ROUTES ==============
 
 def get_galpao_from_serie(serie_nf: str, chave_nota: str = None) -> dict:
