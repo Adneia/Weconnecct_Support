@@ -1584,6 +1584,7 @@ const NovoAtendimento = () => {
     try {
       const payload = {
         ...formData,
+        atendente: user?.name || formData.atendente, // Sempre usa o usuário logado como última revisão
         motivo_pendencia: motivoPendencia || null,
         codigo_reversa: codigoReversa || null,
         data_vencimento_reversa: dataVencimentoReversa || null,
@@ -2048,14 +2049,14 @@ const NovoAtendimento = () => {
                   </div>
 
                   <div>
-                    <Label>Atendente</Label>
+                    <Label>Atendente (última revisão)</Label>
                     <Input
-                      value={formData.atendente || user?.name || ''}
+                      value={user?.name || formData.atendente || ''}
                       readOnly
                       className="bg-muted cursor-not-allowed"
                       data-testid="input-atendente"
                     />
-                    <p className="text-xs text-muted-foreground mt-1">Preenchido automaticamente</p>
+                    <p className="text-xs text-muted-foreground mt-1">Atualizado automaticamente ao salvar</p>
                   </div>
 
                   <div className="sm:col-span-2 lg:col-span-3">
