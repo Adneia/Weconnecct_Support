@@ -1704,7 +1704,7 @@ const NovoAtendimento = () => {
   // Função para registrar devolução na planilha
   const registrarDevolucao = async () => {
     try {
-      await axios.post(
+      const response = await axios.post(
         `${API_URL}/api/devolucoes`,
         {
           numero_pedido: formData.numero_pedido,
@@ -1714,14 +1714,22 @@ const NovoAtendimento = () => {
           canal_vendas: formData.parceiro || pedidoErp?.canal_vendas || '',
           motivo: formData.motivo || '',
           codigo_reversa: codigoReversa || '',
-          chamado_id: atendimentoId || ''
+          chamado_id: atendimentoId || '',
+          id_atendimento: atendimentoOriginal?.id_atendimento || '',
+          produto: pedidoErp?.produto || '',
+          filial: pedidoErp?.uf_galpao || ''
         },
         { headers: getAuthHeader() }
       );
       
-      toast.success('Devolução registrada na planilha!');
-      setDevolucaoRegistrada(true);
-      return true;
+      if (response.data.sync_status === 'success') {
+        toast.success('Devolução registrada na planilha!');
+        setDevolucaoRegistrada(true);
+        return true;
+      } else {
+        toast.error('Falha ao registrar na planilha');
+        return false;
+      }
     } catch (error) {
       toast.error('Erro ao registrar devolução na planilha');
       return false;
@@ -1742,13 +1750,43 @@ const NovoAtendimento = () => {
   // Handler para confirmar devolução e encerrar
   const handleDevolucaoConfirm = async (encerrar) => {
     setShowDevolucaoDialog(false);
+    setLoading(true);
     
-    // Registrar na planilha
-    await registrarDevolucao();
-    
-    if (encerrar && isEditMode && atendimentoId) {
-      // Encerrar atendimento
-      handleEncerrar();
+    try {
+      // Registrar na planilha
+      const registrado = await registrarDevolucao();
+      
+      if (encerrar && isEditMode && atendimentoId && registrado) {
+        // Encerrar atendimento automaticamente
+        const hoje = new Date().toLocaleDateString('pt-BR');
+        const novaAnotacao = `[${hoje}] *** ATENDIMENTO ENCERRADO - DEVOLUÇÃO ***`;
+        const anotacoesAtuais = formData.anotacoes;
+        const novasAnotacoes = anotacoesAtuais 
+          ? `${novaAnotacao}\n\n${anotacoesAtuais}`
+          : novaAnotacao;
+        
+        await axios.put(
+          `${API_URL}/api/chamados/${atendimentoId}`,
+          { 
+            pendente: false,
+            retornar_chamado: false,
+            verificar_adneia: false,
+            motivo_pendencia: 'Em devolução',
+            anotacoes: novasAnotacoes
+          },
+          { headers: getAuthHeader() }
+        );
+        
+        toast.success('Atendimento encerrado com sucesso!');
+        
+        // Navegar para lista mantendo o filtro
+        const redirectUrl = filterParam ? `/chamados?filter=${filterParam}` : '/chamados';
+        navigate(redirectUrl);
+      }
+    } catch (error) {
+      toast.error('Erro ao processar devolução');
+    } finally {
+      setLoading(false);
     }
   };
 

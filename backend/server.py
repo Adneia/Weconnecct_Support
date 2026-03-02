@@ -1382,6 +1382,9 @@ class DevolucaoCreate(BaseModel):
     data_devolucao: Optional[str] = None
     codigo_reversa: Optional[str] = None
     chamado_id: Optional[str] = None
+    id_atendimento: Optional[str] = None
+    produto: Optional[str] = None
+    filial: Optional[str] = None
 
 @api_router.post("/devolucoes", response_model=dict)
 async def create_devolucao(devolucao_data: DevolucaoCreate, current_user: dict = Depends(get_current_user)):
@@ -1389,20 +1392,28 @@ async def create_devolucao(devolucao_data: DevolucaoCreate, current_user: dict =
     try:
         from google_sheets import sheets_client
         
-        # Preparar dados para a planilha
+        # Gerar ID único da devolução
+        from uuid import uuid4
+        id_devolucao = f"DEV-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{str(uuid4())[:6].upper()}"
+        
+        # Preparar dados para a planilha no formato das colunas
         data_atual = datetime.now(timezone.utc).strftime('%d/%m/%Y')
         
         row_data = {
-            'Data': devolucao_data.data_devolucao or data_atual,
-            'Pedido': devolucao_data.numero_pedido,
-            'Cliente': devolucao_data.nome_cliente,
-            'CPF': devolucao_data.cpf_cliente or '',
-            'Solicitação': devolucao_data.solicitacao or '',
-            'Canal': devolucao_data.canal_vendas or '',
-            'Motivo': devolucao_data.motivo or '',
-            'Código Reversa': devolucao_data.codigo_reversa or '',
-            'Status': 'Em devolução',
-            'Responsável': current_user.get('name', '')
+            'id_devolucao': id_devolucao,
+            'id_atendimento': devolucao_data.id_atendimento or '',
+            'data_entrada': devolucao_data.data_devolucao or data_atual,
+            'numero_pedido': devolucao_data.numero_pedido,
+            'cpf_cliente': devolucao_data.cpf_cliente or '',
+            'nome_cliente': devolucao_data.nome_cliente,
+            'produto': devolucao_data.produto or '',
+            'filial': devolucao_data.filial or '',
+            'codigo_reversa': devolucao_data.codigo_reversa or '',
+            'canal_vendas': devolucao_data.canal_vendas or '',
+            'motivo': devolucao_data.motivo or '',
+            'solicitacao': devolucao_data.solicitacao or '',
+            'status': 'Em devolução',
+            'responsavel': current_user.get('name', '')
         }
         
         # Adicionar à planilha de devoluções
@@ -1410,10 +1421,13 @@ async def create_devolucao(devolucao_data: DevolucaoCreate, current_user: dict =
         
         return {
             "message": "Devolução registrada com sucesso na planilha",
-            "sync_status": "success" if result else "failed"
+            "sync_status": "success" if result else "failed",
+            "id_devolucao": id_devolucao
         }
     except Exception as e:
         logger.error(f"Erro ao registrar devolução: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
         return {
             "message": "Erro ao registrar devolução na planilha",
             "sync_status": "error",

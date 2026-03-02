@@ -234,6 +234,19 @@ class GoogleSheetsClient:
                 return worksheets[0]
             return self.atendimentos_sheet.add_worksheet("Atendimentos", rows=1000, cols=20)
     
+    def _get_devolucoes_worksheet(self):
+        """Get the devoluções worksheet (uses first sheet if not found)"""
+        if not self.devolucoes_sheet:
+            logger.error("Devoluções spreadsheet not connected")
+            return None
+        try:
+            return self.devolucoes_sheet.worksheet("Devoluções")
+        except gspread.exceptions.WorksheetNotFound:
+            worksheets = self.devolucoes_sheet.worksheets()
+            if worksheets:
+                return worksheets[0]
+            return self.devolucoes_sheet.add_worksheet("Devoluções", rows=1000, cols=20)
+    
     def update_atendimento(self, id_atendimento: str, updates: Dict[str, Any]) -> bool:
         """
         Update an existing atendimento in the Google Sheet
@@ -422,31 +435,49 @@ class GoogleSheetsClient:
             
             # Get headers from the first row
             headers = worksheet.row_values(1)
+            logger.info(f"Planilha devoluções - Colunas: {headers}")
+            
             if not headers:
-                # If no headers, use default columns
-                headers = ['Data', 'Pedido', 'Cliente', 'CPF', 'Solicitação', 'Canal', 'Motivo', 'Código Reversa', 'Status', 'Responsável']
-                worksheet.update('A1', [headers])
+                logger.error("Planilha de devoluções não tem cabeçalhos")
+                return False
+            
+            # Map row_data keys to the exact column names in the spreadsheet
+            # Colunas: ID_Devolucao, ID_Atendimento, Data_Entrada_Lista, Entrega, CPF, Nome, Produto, Filial, 
+            #          Codigo_Reversa, Status_Galpao, Data_Recebimento, Condicao_Produto, Proxima_Acao, 
+            #          Responsavel_Galpao, Observacoes_Galpao, Data_Conclusao
+            column_mapping = {
+                'ID_Devolucao': row_data.get('id_devolucao', ''),
+                'ID_Atendimento': row_data.get('id_atendimento', ''),
+                'Data_Entrada_Lista': row_data.get('data_entrada', ''),
+                'Entrega': row_data.get('numero_pedido', ''),
+                'CPF': row_data.get('cpf_cliente', ''),
+                'Nome': row_data.get('nome_cliente', ''),
+                'Produto': row_data.get('produto', ''),
+                'Filial': row_data.get('filial', ''),
+                'Codigo_Reversa': row_data.get('codigo_reversa', ''),
+                'Status_Galpao': '',  # Preenchido posteriormente
+                'Data_Recebimento': '',  # Preenchido posteriormente
+                'Condicao_Produto': '',  # Preenchido posteriormente
+                'Proxima_Acao': 'Aguardando recebimento',
+                'Responsavel_Galpao': '',  # Preenchido posteriormente
+                'Observacoes_Galpao': row_data.get('motivo', ''),
+                'Data_Conclusao': '',  # Preenchido posteriormente
+            }
             
             # Prepare row values in the same order as headers
             row_values = []
             for header in headers:
-                # Map row_data keys to headers (handle slight variations)
-                value = row_data.get(header, '')
-                if not value:
-                    # Try variations
-                    header_normalized = header.lower().replace(' ', '_').replace('ã', 'a').replace('ç', 'c')
-                    for key, val in row_data.items():
-                        if key.lower().replace(' ', '_').replace('ã', 'a').replace('ç', 'c') == header_normalized:
-                            value = val
-                            break
+                value = column_mapping.get(header, '')
                 row_values.append(str(value) if value else '')
             
             # Append row
             worksheet.append_row(row_values, value_input_option='USER_ENTERED')
-            logger.info(f"Devolução added to Google Sheets: {row_data.get('Pedido', 'N/A')}")
+            logger.info(f"Devolução added to Google Sheets: Entrega={row_data.get('numero_pedido', 'N/A')}, Nome={row_data.get('nome_cliente', 'N/A')}")
             return True
         except Exception as e:
             logger.error(f"Error adding devolução to Google Sheets: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
             return False
     
     def get_connection_status(self) -> Dict[str, Any]:
