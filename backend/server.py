@@ -69,6 +69,10 @@ class TokenResponse(BaseModel):
     token: str
     user: UserResponse
 
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
 # Chamado/Atendimento Models (Emergent)
 # Categorias: Falha Produção, Falha de Compras, Falha Transporte, Produto com Avaria, 
 #             Divergência de Produto, Arrependimento, Dúvida, Reclamação, Assistência Técnica
@@ -289,7 +293,9 @@ async def register(user_data: UserCreate):
 @api_router.post("/auth/login", response_model=TokenResponse)
 async def login(credentials: UserLogin):
     user = await db.users.find_one({"email": credentials.email}, {"_id": 0})
-    if not user or not verify_password(credentials.password, user.get('password_hash', '')):
+    password_hash = user.get('password_hash') or user.get('password', '') if user else ''
+    
+    if not user or not verify_password(credentials.password, password_hash):
         raise HTTPException(status_code=401, detail="Credenciais inválidas")
     
     token = create_token(user['id'], user['email'])
@@ -306,6 +312,28 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         name=current_user['name'],
         created_at=current_user['created_at']
     )
+
+@api_router.post("/auth/change-password")
+async def change_password(request: ChangePasswordRequest, current_user: dict = Depends(get_current_user)):
+    """Alterar senha do usuário logado"""
+    user = await db.users.find_one({"id": current_user['id']})
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    
+    # Verificar senha atual
+    if not bcrypt.checkpw(request.current_password.encode('utf-8'), user['password'].encode('utf-8')):
+        raise HTTPException(status_code=400, detail="Senha atual incorreta")
+    
+    # Hash da nova senha
+    new_password_hash = bcrypt.hashpw(request.new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    
+    # Atualizar no banco
+    await db.users.update_one(
+        {"id": current_user['id']},
+        {"$set": {"password": new_password_hash}}
+    )
+    
+    return {"message": "Senha alterada com sucesso"}
 
 @api_router.get("/users", response_model=List[UserResponse])
 async def list_users(current_user: dict = Depends(get_current_user)):

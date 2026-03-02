@@ -995,11 +995,18 @@ const NovoAtendimento = () => {
     categoria: '',
     motivo: '',
     anotacoes: '',
-    atendente: 'Letícia Martelo'
+    atendente: '' // Será preenchido automaticamente pelo useEffect
   });
 
   const navigate = useNavigate();
-  const { getAuthHeader } = useAuth();
+  const { getAuthHeader, user } = useAuth();
+  
+  // Atualizar atendente automaticamente quando o usuário logado mudar
+  useEffect(() => {
+    if (user?.name && !isEditMode) {
+      setFormData(prev => ({ ...prev, atendente: user.name }));
+    }
+  }, [user, isEditMode]);
 
   // Busca automática com debounce
   useEffect(() => {
@@ -2042,16 +2049,13 @@ const NovoAtendimento = () => {
 
                   <div>
                     <Label>Atendente</Label>
-                    <Select value={formData.atendente} onValueChange={(v) => handleChange('atendente', v)}>
-                      <SelectTrigger data-testid="select-atendente">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ATENDENTES.map(a => (
-                          <SelectItem key={a} value={a}>{a}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Input
+                      value={formData.atendente || user?.name || ''}
+                      readOnly
+                      className="bg-muted cursor-not-allowed"
+                      data-testid="input-atendente"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Preenchido automaticamente</p>
                   </div>
 
                   <div className="sm:col-span-2 lg:col-span-3">
