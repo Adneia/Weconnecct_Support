@@ -1646,34 +1646,72 @@ async def list_pedidos_erp(current_user: dict = Depends(get_current_user)):
 # ============== DASHBOARD ROUTES ==============
 
 @api_router.get("/dashboard/stats", response_model=dict)
-async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
-    # Total atendimentos pendentes vs resolvidos
-    total_pendentes = await db.chamados.count_documents({"pendente": True})
-    total_resolvidos = await db.chamados.count_documents({"pendente": False})
+async def get_dashboard_stats(
+    periodo_dias: int = 30,
+    categoria: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    now = datetime.now(timezone.utc)
     
-    # Atendimentos por categoria
+    # Filtro base por período
+    periodo_inicio = (now - timedelta(days=periodo_dias)).isoformat()
+    base_query = {}
+    
+    if periodo_dias < 365:  # Se não for "todos"
+        base_query["data_abertura"] = {"$gte": periodo_inicio}
+    
+    if categoria:
+        base_query["categoria"] = categoria
+    
+    # Total geral de atendimentos no período
+    total_geral = await db.chamados.count_documents(base_query)
+    
+    # Total atendimentos pendentes vs resolvidos
+    pendentes_query = {**base_query, "pendente": True}
+    resolvidos_query = {**base_query, "pendente": False}
+    
+    total_pendentes = await db.chamados.count_documents(pendentes_query)
+    total_resolvidos = await db.chamados.count_documents(resolvidos_query)
+    
+    # Atendimento mais antigo em aberto
+    atendimento_mais_antigo = await db.chamados.find_one(
+        {"pendente": True},
+        {"_id": 0, "data_abertura": 1, "id_atendimento": 1}
+    )
+    dias_mais_antigo = 0
+    id_mais_antigo = None
+    if atendimento_mais_antigo:
+        data_abertura = datetime.fromisoformat(
+            atendimento_mais_antigo['data_abertura'].replace('Z', '+00:00')
+        ) if isinstance(atendimento_mais_antigo['data_abertura'], str) else atendimento_mais_antigo['data_abertura']
+        dias_mais_antigo = (now - data_abertura).days
+        id_mais_antigo = atendimento_mais_antigo.get('id_atendimento')
+    
+    # Atendimentos por categoria com contagem
     pipeline_categoria = [
         {"$match": {"pendente": True}},
-        {"$group": {"_id": "$categoria", "count": {"$sum": 1}}}
+        {"$group": {"_id": "$categoria", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}  # Ordenar da maior para menor
     ]
     por_categoria = await db.chamados.aggregate(pipeline_categoria).to_list(100)
     
     # Atendimentos por atendente
     pipeline_atendente = [
         {"$match": {"pendente": True}},
-        {"$group": {"_id": "$atendente", "count": {"$sum": 1}}}
+        {"$group": {"_id": "$atendente", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}
     ]
     por_atendente = await db.chamados.aggregate(pipeline_atendente).to_list(100)
     
     # Atendimentos por parceiro/canal
     pipeline_parceiro = [
         {"$match": {"pendente": True}},
-        {"$group": {"_id": "$parceiro", "count": {"$sum": 1}}}
+        {"$group": {"_id": "$parceiro", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}
     ]
     por_parceiro = await db.chamados.aggregate(pipeline_parceiro).to_list(100)
     
     # Atendimentos que precisam de atenção (pendentes há mais de 3 dias)
-    now = datetime.now(timezone.utc)
     tres_dias_atras = (now - timedelta(days=3)).isoformat()
     
     chamados_atencao = await db.chamados.find({
@@ -1686,9 +1724,10 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
         data_abertura = datetime.fromisoformat(c['data_abertura'].replace('Z', '+00:00')) if isinstance(c['data_abertura'], str) else c['data_abertura']
         c['dias_aberto'] = (now - data_abertura).days
     
-    # Últimos 7 dias - abertos vs resolvidos
-    ultimos_7_dias = []
-    for i in range(6, -1, -1):
+    # Últimos N dias - abertos vs resolvidos (dinâmico)
+    dias_grafico = min(periodo_dias, 30)  # Max 30 dias no gráfico
+    ultimos_dias = []
+    for i in range(dias_grafico - 1, -1, -1):
         dia = now - timedelta(days=i)
         dia_inicio = dia.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
         dia_fim = dia.replace(hour=23, minute=59, second=59, microsecond=999999).isoformat()
@@ -1701,15 +1740,37 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
             "data_fechamento": {"$gte": dia_inicio, "$lte": dia_fim}
         })
         
-        ultimos_7_dias.append({
+        ultimos_dias.append({
             "data": dia.strftime("%d/%m"),
             "abertos": abertos_dia,
             "resolvidos": resolvidos_dia
         })
     
-    # Média de tempo de resolução
+    # Total de atendimentos por mês (últimos 6 meses)
+    atendimentos_por_mes = []
+    for i in range(5, -1, -1):
+        mes = now - timedelta(days=i*30)
+        mes_inicio = mes.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        if mes.month == 12:
+            mes_fim = mes.replace(year=mes.year + 1, month=1, day=1) - timedelta(seconds=1)
+        else:
+            mes_fim = mes.replace(month=mes.month + 1, day=1) - timedelta(seconds=1)
+        
+        count = await db.chamados.count_documents({
+            "data_abertura": {
+                "$gte": mes_inicio.isoformat(),
+                "$lte": mes_fim.isoformat()
+            }
+        })
+        
+        atendimentos_por_mes.append({
+            "mes": mes.strftime("%b/%y"),
+            "total": count
+        })
+    
+    # Média de tempo de resolução (apenas finalizados)
     pipeline_tempo = [
-        {"$match": {"data_fechamento": {"$ne": None}}},
+        {"$match": {"pendente": False, "data_fechamento": {"$ne": None}}},
         {"$project": {
             "tempo": {"$subtract": [
                 {"$dateFromString": {"dateString": "$data_fechamento"}},
@@ -1720,21 +1781,26 @@ async def get_dashboard_stats(current_user: dict = Depends(get_current_user)):
     ]
     tempo_result = await db.chamados.aggregate(pipeline_tempo).to_list(1)
     media_tempo_ms = tempo_result[0]['media'] if tempo_result else 0
-    media_tempo_dias = round(media_tempo_ms / (1000 * 60 * 60 * 24), 1) if media_tempo_ms else 0
+    media_tempo_dias = round(media_tempo_ms / (1000 * 60 * 60 * 24), 2) if media_tempo_ms else 0
     
     # Total de pedidos na base
     total_pedidos = await db.pedidos_erp.count_documents({})
     
     return {
+        "total_geral": total_geral,
         "total_pendentes": total_pendentes,
         "total_resolvidos": total_resolvidos,
         "total_pedidos_base": total_pedidos,
-        "por_categoria": {item['_id']: item['count'] for item in por_categoria if item['_id']},
+        "dias_mais_antigo": dias_mais_antigo,
+        "id_mais_antigo": id_mais_antigo,
+        "por_categoria": [{"categoria": item['_id'], "count": item['count']} for item in por_categoria if item['_id']],
         "por_atendente": {item['_id']: item['count'] for item in por_atendente if item['_id']},
         "por_parceiro": {item['_id']: item['count'] for item in por_parceiro if item['_id']},
         "chamados_atencao": chamados_atencao,
-        "ultimos_7_dias": ultimos_7_dias,
-        "media_tempo_resolucao_dias": media_tempo_dias
+        "ultimos_dias": ultimos_dias,
+        "atendimentos_por_mes": atendimentos_por_mes,
+        "media_tempo_resolucao_dias": media_tempo_dias,
+        "periodo_dias": periodo_dias
     }
 
 # ============== GOOGLE SHEETS ROUTES ==============
