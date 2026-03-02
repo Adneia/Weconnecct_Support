@@ -180,7 +180,7 @@ const ListaAtendimentos = () => {
             </div>
             <div>
               <p className="text-2xl font-bold">{totalVerificarAdneia}</p>
-              <p className="text-sm text-muted-foreground">Adnéia</p>
+              <p className="text-sm text-muted-foreground">Verificar</p>
             </div>
           </CardContent>
         </Card>
@@ -366,7 +366,7 @@ const ListaAtendimentos = () => {
                         )}
                         {atd.verificar_adneia && (
                           <Badge className="bg-purple-50 text-purple-700 dark:bg-purple-950/50 dark:text-purple-400 mr-1">
-                            Adnéia
+                            Verificar
                           </Badge>
                         )}
                         {atd.pendente ? (

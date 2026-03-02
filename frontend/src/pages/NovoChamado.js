@@ -29,7 +29,7 @@ import {
   Loader2, Search, Package, Truck, User, MapPin, 
   Phone, Mail, Calendar, ShoppingBag, Copy,
   FileText, Hash, Building, AlertCircle, CheckCircle,
-  MessageSquare, RotateCcw, Warehouse, Plus
+  MessageSquare, RotateCcw, Warehouse, Plus, ChevronDown, ChevronUp
 } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
@@ -287,7 +287,6 @@ Atenciosamente!
 Informamos que o pedido já foi entregue à transportadora. Pedimos, por gentileza, que aguarde o prazo de até 48 horas úteis para que as informações de rastreamento e a previsão de entrega sejam atualizadas no sistema.
 
 Segue rastreio para acompanhamento:
-
 https://status.ondeestameupedido.com/tracking/41693/[ENTREGA]
 
 Permanecemos à disposição.
@@ -328,8 +327,6 @@ const TEXTOS_FALHA_TRANSPORTE = {
 Pedido em processo de entrega, podendo ser entregue a qualquer momento.
 
 Segue rastreio para acompanhamento:
-Previsão de entrega até dia [DATA_PREVISAO]
-
 https://status.ondeestameupedido.com/tracking/41693/[ENTREGA]
 
 Seguimos a disposição.
@@ -685,9 +682,8 @@ Atenciosamente,
 Pedido em processo de entrega, podendo ser entregue a qualquer momento. 
 
 Segue rastreio para acompanhamento:
-Previsão de entrega até dia [DATA_PREVISAO]
-
 https://status.ondeestameupedido.com/tracking/41693/[ENTREGA]
+Previsão de entrega até dia [DATA_PREVISAO]
 
 Seguimos a disposição. 
 Atenciosamente, 
@@ -976,6 +972,7 @@ const NovoAtendimento = () => {
   const [transportadoraDetectada, setTransportadoraDetectada] = useState(null);
   const [retornarChamado, setRetornarChamado] = useState(false);
   const [verificarAdneia, setVerificarAdneia] = useState(false);
+  const [pedidoExpanded, setPedidoExpanded] = useState(false);
   
   const [formData, setFormData] = useState({
     numero_pedido: '',
@@ -1276,7 +1273,9 @@ const NovoAtendimento = () => {
       texto = texto.replace(/\[ASSINATURA\]/g, formData.atendente);
     }
     if (pedidoErp?.nota_fiscal) {
-      texto = texto.replace(/\[NOTA_FISCAL\]/g, pedidoErp.nota_fiscal);
+      // Remover dígito após o ponto (ex: 10753.0 -> 10753)
+      const nfLimpa = String(pedidoErp.nota_fiscal).split('.')[0];
+      texto = texto.replace(/\[NOTA_FISCAL\]/g, nfLimpa);
     }
     if (pedidoErp?.chave_nota) {
       texto = texto.replace(/\[CHAVE_ACESSO\]/g, pedidoErp.chave_nota);
@@ -1300,7 +1299,9 @@ const NovoAtendimento = () => {
       texto = texto.replace(/\[ASSINATURA\]/g, formData.atendente);
     }
     if (pedidoErp?.nota_fiscal) {
-      texto = texto.replace(/\[NOTA_FISCAL\]/g, pedidoErp.nota_fiscal);
+      // Remover dígito após o ponto (ex: 10753.0 -> 10753)
+      const nfLimpa = String(pedidoErp.nota_fiscal).split('.')[0];
+      texto = texto.replace(/\[NOTA_FISCAL\]/g, nfLimpa);
     }
     if (pedidoErp?.chave_nota) {
       texto = texto.replace(/\[CHAVE_ACESSO\]/g, pedidoErp.chave_nota);
@@ -1382,7 +1383,9 @@ const NovoAtendimento = () => {
       texto = texto.replace(/\[NOME_CLIENTE\]/g, pedidoErp.nome_cliente);
     }
     if (pedidoErp?.nota_fiscal) {
-      texto = texto.replace(/\[NOTA_FISCAL\]/g, pedidoErp.nota_fiscal);
+      // Remover dígito após o ponto (ex: 10753.0 -> 10753)
+      const nfLimpa = String(pedidoErp.nota_fiscal).split('.')[0];
+      texto = texto.replace(/\[NOTA_FISCAL\]/g, nfLimpa);
     }
     if (pedidoErp?.chave_nota) {
       texto = texto.replace(/\[CHAVE_ACESSO\]/g, pedidoErp.chave_nota);
@@ -1518,12 +1521,21 @@ const NovoAtendimento = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Validação de campos obrigatórios
     if (!formData.numero_pedido.trim()) {
       toast.error('Busque e selecione um pedido');
       return;
     }
+    if (!formData.solicitacao.trim()) {
+      toast.error('Preencha o campo Solicitação');
+      return;
+    }
     if (!formData.categoria) {
       toast.error('Selecione a categoria');
+      return;
+    }
+    if (!formData.motivo.trim()) {
+      toast.error('Preencha o campo Motivo');
       return;
     }
 
@@ -1577,6 +1589,28 @@ const NovoAtendimento = () => {
 
   const handleEncerrar = async () => {
     if (!isEditMode || !atendimentoId) return;
+    
+    // Validação de campos obrigatórios para encerrar
+    if (!formData.solicitacao.trim()) {
+      toast.error('Preencha o campo Solicitação antes de encerrar');
+      return;
+    }
+    if (!formData.categoria) {
+      toast.error('Selecione a categoria antes de encerrar');
+      return;
+    }
+    if (!formData.motivo.trim()) {
+      toast.error('Preencha o campo Motivo antes de encerrar');
+      return;
+    }
+    if (!motivoPendencia.trim()) {
+      toast.error('Preencha o Motivo da Pendência antes de encerrar');
+      return;
+    }
+    if (!formData.anotacoes.trim()) {
+      toast.error('Preencha as Anotações antes de encerrar');
+      return;
+    }
     
     const hoje = new Date().toLocaleDateString('pt-BR');
     const novaAnotacao = `[${hoje}] *** ATENDIMENTO ENCERRADO ***`;
@@ -1701,11 +1735,23 @@ const NovoAtendimento = () => {
                   <Package className="h-5 w-5 text-emerald-600" />
                   Pedido #{pedidoErp.numero_pedido}
                 </CardTitle>
-                <Badge className={getStatusBadgeColor(pedidoErp.status_pedido)}>
-                  {pedidoErp.status_pedido || 'Sem status'}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge className={getStatusBadgeColor(pedidoErp.status_pedido)}>
+                    {pedidoErp.status_pedido || 'Sem status'}
+                  </Badge>
+                  <Button 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => setPedidoExpanded(!pedidoExpanded)}
+                    className="h-8 w-8 p-0"
+                    data-testid="expand-pedido-btn"
+                  >
+                    {pedidoExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                  </Button>
+                </div>
               </div>
             </CardHeader>
+            {pedidoExpanded && (
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Cliente */}
@@ -1803,6 +1849,7 @@ const NovoAtendimento = () => {
                 </>
               )}
             </CardContent>
+            )}
           </Card>
         )}
 
@@ -2732,7 +2779,7 @@ const NovoAtendimento = () => {
                         data-testid="checkbox-verificar-adneia"
                       />
                       <Label htmlFor="verificar-adneia" className="text-purple-800 dark:text-purple-200 font-medium cursor-pointer">
-                        Verificar Adnéia
+                        Verificar
                       </Label>
                     </div>
                     {verificarAdneia && (
