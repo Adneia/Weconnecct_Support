@@ -57,8 +57,15 @@ const MOTIVOS_PENDENCIA = [
   "Aguardando",
   "Em devolução",
   "Ag. Confirmação de Entrega",
-  "Ag. Parceiro"
+  "Ag. Parceiro",
+  // --- Motivos que finalizam o atendimento ---
+  "Entregue",
+  "Estornado",
+  "Atendido"
 ];
+
+// Motivos que permitem encerrar o atendimento
+const MOTIVOS_FINALIZADORES = ["Entregue", "Estornado", "Atendido", "Em devolução"];
 
 // Textos para Motivo da Pendência
 const TEXTOS_MOTIVO_PENDENCIA = {
@@ -1675,6 +1682,13 @@ const NovoAtendimento = () => {
       hasError = true;
     }
     
+    // Validar se o motivo de pendência permite encerrar
+    if (!MOTIVOS_FINALIZADORES.includes(motivoPendencia)) {
+      toast.error(`O motivo "${motivoPendencia}" não permite encerrar o atendimento. Use: Entregue, Estornado, Atendido ou Em devolução.`);
+      newErrors.motivoPendencia = true;
+      hasError = true;
+    }
+    
     if (hasError) {
       setFieldErrors(newErrors);
       return;
@@ -2750,8 +2764,19 @@ const NovoAtendimento = () => {
                       <SelectValue placeholder="Selecione o motivo" />
                     </SelectTrigger>
                     <SelectContent>
-                      {MOTIVOS_PENDENCIA.map(m => (
+                      <SelectItem value="" disabled className="text-muted-foreground">
+                        -- Motivos de Acompanhamento --
+                      </SelectItem>
+                      {MOTIVOS_PENDENCIA.filter(m => !MOTIVOS_FINALIZADORES.includes(m)).map(m => (
                         <SelectItem key={m} value={m}>{m}</SelectItem>
+                      ))}
+                      <SelectItem value="" disabled className="text-muted-foreground border-t mt-2 pt-2">
+                        -- Motivos Finalizadores --
+                      </SelectItem>
+                      {MOTIVOS_FINALIZADORES.map(m => (
+                        <SelectItem key={m} value={m} className="text-emerald-700 dark:text-emerald-400">
+                          ✓ {m}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -2992,16 +3017,26 @@ const NovoAtendimento = () => {
             <div className="flex justify-between pb-6">
               <div>
                 {isEditMode && formData.pendente !== false && (
-                  <Button 
-                    type="button" 
-                    variant="destructive"
-                    onClick={handleEncerrar}
-                    disabled={loading}
-                    data-testid="btn-encerrar"
-                  >
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Encerrar Atendimento
-                  </Button>
+                  <div className="flex flex-col gap-2">
+                    <Button 
+                      type="button" 
+                      variant="destructive"
+                      onClick={handleEncerrar}
+                      disabled={loading || !MOTIVOS_FINALIZADORES.includes(motivoPendencia)}
+                      data-testid="btn-encerrar"
+                      title={!MOTIVOS_FINALIZADORES.includes(motivoPendencia) 
+                        ? `Para encerrar, selecione um motivo finalizador: Entregue, Estornado, Atendido ou Em devolução` 
+                        : 'Encerrar atendimento'}
+                    >
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Encerrar Atendimento
+                    </Button>
+                    {motivoPendencia && !MOTIVOS_FINALIZADORES.includes(motivoPendencia) && (
+                      <p className="text-xs text-amber-600">
+                        Motivo "{motivoPendencia}" não permite encerrar
+                      </p>
+                    )}
+                  </div>
                 )}
                 {isEditMode && formData.pendente === false && (
                   <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-300 py-2 px-4">
