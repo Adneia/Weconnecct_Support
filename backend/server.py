@@ -461,6 +461,15 @@ Identificamos uma falha operacional, a qual, está sendo resolvida. O pedido enc
 Seguimos a disposição.
 Atenciosamente!
 [ASSINATURA]""",
+
+    "Falha de Compras - Cancelamento sem Estoque": """Olá,
+
+Infelizmente, durante a preparação do item [PRODUTO] - [ENTREGA], identificamos uma avaria, o que nos levou a optar pelo cancelamento devido à indisponibilidade para reposição.
+
+Poderia, por gentileza, seguir com o cancelamento e o estorno ao cliente?
+
+Atenciosamente,
+Letícia Martelo""",
     
     "Falha Transporte": """Olá, Boa tarde.
 

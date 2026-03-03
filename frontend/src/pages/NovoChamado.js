@@ -1294,6 +1294,13 @@ const NovoAtendimento = () => {
       if (formData.parceiro) {
         texto = texto.replace(/\[PARCEIRO\]/g, formData.parceiro);
       }
+      // Substituir [PRODUTO] e [ENTREGA]
+      if (pedidoErp?.produto) {
+        texto = texto.replace(/\[PRODUTO\]/g, pedidoErp.produto);
+      }
+      if (pedidoErp?.numero_pedido || formData.numero_pedido) {
+        texto = texto.replace(/\[ENTREGA\]/g, pedidoErp?.numero_pedido || formData.numero_pedido);
+      }
       setTextoPadrao(texto);
       setShowTextoDialog(true);
     } catch (error) {
