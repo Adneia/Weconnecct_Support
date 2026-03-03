@@ -31,7 +31,7 @@ const API_URL = process.env.REACT_APP_BACKEND_URL;
 const CATEGORIAS = [
   "Falha Produção", "Falha de Compras", "Falha Transporte",
   "Produto com Avaria", "Divergência de Produto", "Arrependimento",
-  "Dúvida", "Reclamação", "Assistência Técnica"
+  "Dúvida", "Reclamação", "Assistência Técnica", "Falha de Integração"
 ];
 
 const MOTIVOS_PENDENCIA = [
@@ -195,6 +195,7 @@ const ListaAtendimentos = () => {
       'Acompanhamento': 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/50 dark:text-cyan-400',
       'Reclame Aqui': 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400',
       'Assistência Técnica': 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-400',
+      'Falha de Integração': 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300',
     };
     return colors[categoria] || 'bg-slate-100 text-slate-700';
   };
@@ -449,6 +450,7 @@ const ListaAtendimentos = () => {
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Cliente</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Parceiro</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Categoria</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Motivo Pend.</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Reversa</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Atendente</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Status</TableHead>
@@ -490,6 +492,9 @@ const ListaAtendimentos = () => {
                         <Badge className={getCategoryBadgeColor(atd.categoria)}>
                           {atd.categoria}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {atd.motivo_pendencia || '-'}
                       </TableCell>
                       <TableCell className="text-sm font-mono">
                         {atd.codigo_reversa || '-'}

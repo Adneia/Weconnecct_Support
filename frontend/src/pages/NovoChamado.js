@@ -42,7 +42,8 @@ const CATEGORIAS = [
   "Arrependimento",
   "Acompanhamento",
   "Reclame Aqui",
-  "Assistência Técnica"
+  "Assistência Técnica",
+  "Falha de Integração"
 ];
 
 const ATENDENTES = ["Letícia Martelo", "Adnéia Campos"];
@@ -941,6 +942,17 @@ Atenciosamente!
 [ASSINATURA]`
 };
 
+// Texto para Falha de Integração
+const TEXTO_FALHA_INTEGRACAO = `Olá,
+
+Não fomos acionados pela Vtex para preparação deste pedido. Status Vtex (Aguardando autorização para despachar).
+
+Por favor verificar o ocorrido entre Vtex e [PARCEIRO].
+
+Seguimos a disposição.
+Atenciosamente,
+[ASSINATURA]`;
+
 const NovoAtendimento = () => {
   const { id: atendimentoId } = useParams(); // ID do atendimento para edição
   const isEditMode = !!atendimentoId;
@@ -954,6 +966,7 @@ const NovoAtendimento = () => {
   const [loadingAtendimento, setLoadingAtendimento] = useState(false);
   const [searchingPedido, setSearchingPedido] = useState(false);
   const [pedidoNotFound, setPedidoNotFound] = useState(false);
+  const [modoFalhaIntegracao, setModoFalhaIntegracao] = useState(false);
   const [pedidoErp, setPedidoErp] = useState(null);
   const [pedidosList, setPedidosList] = useState([]);
   const [showPedidosDialog, setShowPedidosDialog] = useState(false);
@@ -1915,13 +1928,117 @@ const NovoAtendimento = () => {
               </div>
             </div>
             
-            {pedidoNotFound && (
-              <p className="text-sm text-amber-600">
-                Nenhum pedido encontrado. Verifique o número e tente novamente.
-              </p>
+            {pedidoNotFound && !modoFalhaIntegracao && (
+              <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                <p className="text-sm text-amber-700 dark:text-amber-300 mb-3">
+                  Nenhum pedido encontrado. Verifique o número e tente novamente.
+                </p>
+                <Button 
+                  type="button"
+                  variant="outline"
+                  className="border-amber-500 text-amber-700 hover:bg-amber-100"
+                  onClick={() => {
+                    setModoFalhaIntegracao(true);
+                    setFormData(prev => ({
+                      ...prev,
+                      numero_pedido: searchValue,
+                      categoria: 'Falha de Integração',
+                      motivo: 'Pedido não localizado na base'
+                    }));
+                    setPedidoNotFound(false);
+                  }}
+                  data-testid="btn-falha-integracao"
+                >
+                  <AlertCircle className="h-4 w-4 mr-2" />
+                  Abrir Chamado de Falha de Integração
+                </Button>
+              </div>
             )}
           </CardContent>
         </Card>
+
+        {/* Modo Falha de Integração */}
+        {modoFalhaIntegracao && (
+          <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/30 dark:bg-amber-950/20">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2 text-amber-700 dark:text-amber-300">
+                  <AlertCircle className="h-5 w-5" />
+                  Falha de Integração
+                </CardTitle>
+                <Button 
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setModoFalhaIntegracao(false);
+                    setFormData(prev => ({ ...prev, categoria: '', motivo: '', numero_pedido: '' }));
+                  }}
+                >
+                  Cancelar
+                </Button>
+              </div>
+              <CardDescription className="text-amber-600 dark:text-amber-400">
+                Pedido não encontrado na base. Preencha os dados manualmente.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label>Número do Pedido/Entrega</Label>
+                  <Input
+                    value={formData.numero_pedido}
+                    onChange={(e) => handleChange('numero_pedido', e.target.value)}
+                    placeholder="Digite o número"
+                    data-testid="input-numero-pedido-falha"
+                  />
+                </div>
+                <div>
+                  <Label>Solicitação <span className="text-red-500">*</span></Label>
+                  <Input
+                    value={formData.solicitacao}
+                    onChange={(e) => handleChange('solicitacao', e.target.value)}
+                    placeholder="Número da solicitação"
+                    className={fieldErrors.solicitacao ? 'border-red-500' : ''}
+                    data-testid="input-solicitacao-falha"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <Label>Parceiro/Canal <span className="text-red-500">*</span></Label>
+                <Input
+                  value={formData.parceiro}
+                  onChange={(e) => handleChange('parceiro', e.target.value)}
+                  placeholder="Digite o parceiro ou canal de venda"
+                  data-testid="input-parceiro-falha"
+                />
+              </div>
+
+              {/* Texto Padrão para Falha de Integração */}
+              <div className="pt-2">
+                <Label className="text-sm font-medium">Texto Padrão</Label>
+                <Button 
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => {
+                    let texto = TEXTO_FALHA_INTEGRACAO;
+                    texto = texto.replace(/\[PARCEIRO\]/g, formData.parceiro || '[Preencher Parceiro]');
+                    texto = texto.replace(/\[ASSINATURA\]/g, user?.name || formData.atendente);
+                    setTextoPadrao(texto);
+                    setShowTextoDialog(true);
+                  }}
+                  data-testid="btn-texto-falha-integracao"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Gerar Texto Falha de Integração
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Dados do Pedido */}
         {pedidoErp && (
@@ -2058,7 +2175,7 @@ const NovoAtendimento = () => {
         )}
 
         {/* Classificação */}
-        {pedidoErp && (
+        {(pedidoErp || modoFalhaIntegracao) && (
           <>
             <Card>
               <CardHeader className="pb-3">
