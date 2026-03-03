@@ -251,7 +251,7 @@ Autorização de Postagem em Agência
 
 Dados da Emissão:
 
-Objeto: 
+Objeto: [CÓDIGO_REVERSA]
 Emitido em: [DATA_EMISSAO]
 Data de Validade: [DATA_VALIDADE]
 Remetente autorizado: [NOME_CLIENTE]
@@ -650,7 +650,7 @@ Atenciosamente,
 const TEXTOS_ACOMPANHAMENTO = {
   "Entregue - Possível Contestação": `Olá, 
 
-Informamos que o pedido foi entregue em [DATA_ENTREGA]. Por favor confirmar entrega junto ao cliente.
+Informamos que o pedido foi entregue em [DATA_ULTIMO_PONTO]. Por favor confirmar entrega junto ao cliente.
 
 Ressaltamos que o prazo para contestação da entrega ou solicitação de acareação é de até 10 dias corridos, contados da data da entrega. Caso haja qualquer divergência, pedimos que nos informe dentro desse período para que possamos realizar as devidas análises.
 
@@ -664,7 +664,7 @@ Atenciosamente,
 
   "Entregue - Contestação Expirada": `Olá, 
 
-Informamos que o pedido foi entregue em [DATA_ENTREGA]. Encaminhamos em anexo o comprovante de entrega para sua conferência.
+Informamos que o pedido foi entregue em [DATA_ULTIMO_PONTO]. Encaminhamos em anexo o comprovante de entrega para sua conferência.
 
 Ressaltamos que o prazo para contestação da entrega ou solicitação de acareação é de até 10 dias corridos, contados a partir da data da entrega. Dessa forma, informamos que o prazo para solicitação de acareação já se encontra expirado.
 
@@ -1289,6 +1289,20 @@ const NovoAtendimento = () => {
     if (pedidoErp?.nome_cliente) {
       texto = texto.replace(/\[NOME_CLIENTE\]/g, pedidoErp.nome_cliente);
     }
+    // Dados da Reversa
+    if (codigoReversa) {
+      texto = texto.replace(/\[CÓDIGO_REVERSA\]/g, codigoReversa);
+    }
+    // Data de emissão (hoje)
+    const hoje = new Date();
+    const dataEmissao = hoje.toLocaleDateString('pt-BR');
+    texto = texto.replace(/\[DATA_EMISSAO\]/g, dataEmissao);
+    
+    // Data de vencimento da reversa
+    if (dataVencimentoReversa) {
+      const dataValidade = new Date(dataVencimentoReversa + 'T00:00:00').toLocaleDateString('pt-BR');
+      texto = texto.replace(/\[DATA_VALIDADE\]/g, dataValidade);
+    }
     setTextoPadrao(texto);
     setSelectedAvaria(tipoAvaria);
     setShowTextoDialog(true);
@@ -1428,9 +1442,16 @@ const NovoAtendimento = () => {
     if (pedidoErp?.numero_pedido) {
       texto = texto.replace(/\[ENTREGA\]/g, pedidoErp.numero_pedido);
     }
-    // Data de entrega (se disponível)
-    if (pedidoErp?.data_entrega) {
-      texto = texto.replace(/\[DATA_ENTREGA\]/g, pedidoErp.data_entrega);
+    // Data de entrega / Data do último ponto (formato DD/MM/AAAA)
+    if (pedidoErp?.data_status) {
+      // Converter para formato DD/MM/AAAA (pode vir como "14/04/2024 16:15:00" ou outro formato)
+      let dataFormatada = pedidoErp.data_status;
+      // Se tiver hora, pegar apenas a data
+      if (dataFormatada.includes(' ')) {
+        dataFormatada = dataFormatada.split(' ')[0];
+      }
+      texto = texto.replace(/\[DATA_ENTREGA\]/g, dataFormatada);
+      texto = texto.replace(/\[DATA_ULTIMO_PONTO\]/g, dataFormatada);
     }
     setTextoPadrao(texto);
     setSelectedAcompanhamento(tipo);
@@ -2639,41 +2660,53 @@ const NovoAtendimento = () => {
                       </div>
                     ) : formData.categoria === 'Assistência Técnica' ? (
                       <div className="space-y-3">
+                        {/* Indicador do fornecedor do pedido */}
+                        {pedidoErp?.departamento && (
+                          <div className="p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800">
+                            <p className="text-sm text-emerald-700 dark:text-emerald-300">
+                              <span className="font-semibold">Fornecedor do pedido:</span> {pedidoErp.departamento}
+                            </p>
+                          </div>
+                        )}
                         {/* Fornecedores */}
                         <div className="space-y-2">
                           <Label className="text-sm font-medium">SAC do Fornecedor</Label>
                           <div className="flex flex-wrap gap-2">
                             <Button 
                               type="button" 
-                              variant={selectedAssistencia === 'Oderço' ? 'default' : 'outline'}
+                              variant={selectedAssistencia === 'Oderço' ? 'default' : pedidoErp?.departamento?.toLowerCase().includes('oderço') || pedidoErp?.departamento?.toLowerCase().includes('oderco') ? 'secondary' : 'outline'}
                               size="sm"
                               onClick={() => loadTextoAssistencia('Oderço')}
+                              className={pedidoErp?.departamento?.toLowerCase().includes('oderço') || pedidoErp?.departamento?.toLowerCase().includes('oderco') ? 'ring-2 ring-emerald-500' : ''}
                             >
-                              Oderço
+                              {(pedidoErp?.departamento?.toLowerCase().includes('oderço') || pedidoErp?.departamento?.toLowerCase().includes('oderco')) && '✓ '}Oderço
                             </Button>
                             <Button 
                               type="button" 
-                              variant={selectedAssistencia === 'Ventisol' ? 'default' : 'outline'}
+                              variant={selectedAssistencia === 'Ventisol' ? 'default' : pedidoErp?.departamento?.toLowerCase().includes('ventisol') ? 'secondary' : 'outline'}
                               size="sm"
                               onClick={() => loadTextoAssistencia('Ventisol')}
+                              className={pedidoErp?.departamento?.toLowerCase().includes('ventisol') ? 'ring-2 ring-emerald-500' : ''}
                             >
-                              Ventisol
+                              {pedidoErp?.departamento?.toLowerCase().includes('ventisol') && '✓ '}Ventisol
                             </Button>
                             <Button 
                               type="button" 
-                              variant={selectedAssistencia === 'OEX' ? 'default' : 'outline'}
+                              variant={selectedAssistencia === 'OEX' ? 'default' : pedidoErp?.departamento?.toLowerCase().includes('oex') ? 'secondary' : 'outline'}
                               size="sm"
                               onClick={() => loadTextoAssistencia('OEX')}
+                              className={pedidoErp?.departamento?.toLowerCase().includes('oex') ? 'ring-2 ring-emerald-500' : ''}
                             >
-                              OEX
+                              {pedidoErp?.departamento?.toLowerCase().includes('oex') && '✓ '}OEX
                             </Button>
                             <Button 
                               type="button" 
-                              variant={selectedAssistencia === 'Hoopson' ? 'default' : 'outline'}
+                              variant={selectedAssistencia === 'Hoopson' ? 'default' : pedidoErp?.departamento?.toLowerCase().includes('hoopson') ? 'secondary' : 'outline'}
                               size="sm"
                               onClick={() => loadTextoAssistencia('Hoopson')}
+                              className={pedidoErp?.departamento?.toLowerCase().includes('hoopson') ? 'ring-2 ring-emerald-500' : ''}
                             >
-                              Hoopson
+                              {pedidoErp?.departamento?.toLowerCase().includes('hoopson') && '✓ '}Hoopson
                             </Button>
                           </div>
                         </div>
@@ -2684,19 +2717,21 @@ const NovoAtendimento = () => {
                           <div className="flex flex-wrap gap-2">
                             <Button 
                               type="button" 
-                              variant={selectedAssistencia === 'Ventisol + Reversa' ? 'default' : 'outline'}
+                              variant={selectedAssistencia === 'Ventisol + Reversa' ? 'default' : pedidoErp?.departamento?.toLowerCase().includes('ventisol') ? 'secondary' : 'outline'}
                               size="sm"
                               onClick={() => loadTextoAssistencia('Ventisol + Reversa')}
+                              className={pedidoErp?.departamento?.toLowerCase().includes('ventisol') ? 'ring-2 ring-emerald-500' : ''}
                             >
-                              Ventisol + Reversa
+                              {pedidoErp?.departamento?.toLowerCase().includes('ventisol') && '✓ '}Ventisol + Reversa
                             </Button>
                             <Button 
                               type="button" 
-                              variant={selectedAssistencia === 'OEX + Reversa' ? 'default' : 'outline'}
+                              variant={selectedAssistencia === 'OEX + Reversa' ? 'default' : pedidoErp?.departamento?.toLowerCase().includes('oex') ? 'secondary' : 'outline'}
                               size="sm"
                               onClick={() => loadTextoAssistencia('OEX + Reversa')}
+                              className={pedidoErp?.departamento?.toLowerCase().includes('oex') ? 'ring-2 ring-emerald-500' : ''}
                             >
-                              OEX + Reversa
+                              {pedidoErp?.departamento?.toLowerCase().includes('oex') && '✓ '}OEX + Reversa
                             </Button>
                           </div>
                         </div>
