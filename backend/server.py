@@ -1206,6 +1206,89 @@ async def list_pendentes(
     
     return chamados
 
+# ============== RELATÓRIOS ESPECIAIS ==============
+
+@api_router.get("/relatorios/ag-compras")
+async def get_relatorio_ag_compras(current_user: dict = Depends(get_current_user)):
+    """
+    Relatório de chamados com motivo_pendencia = 'Ag. Compras'
+    Retorna dados do chamado + dados do pedido ERP
+    """
+    # Buscar chamados com Ag. Compras
+    chamados = await db.chamados.find(
+        {"motivo_pendencia": "Ag. Compras", "pendente": True},
+        {"_id": 0}
+    ).to_list(5000)
+    
+    resultado = []
+    for chamado in chamados:
+        # Buscar dados do pedido ERP
+        pedido = await db.pedidos_erp.find_one(
+            {"numero_pedido": chamado.get('numero_pedido')},
+            {"_id": 0}
+        )
+        
+        # Determinar status do atendimento
+        status_atendimento = ""
+        if chamado.get('retornar_chamado'):
+            status_atendimento = "Retornar"
+        elif chamado.get('verificar_adneia'):
+            status_atendimento = "Verificar"
+        
+        item = {
+            "fornecedor": pedido.get('departamento', '') if pedido else '',
+            "produto": pedido.get('produto', '') if pedido else chamado.get('produto', ''),
+            "id_atendimento": chamado.get('id_atendimento', ''),
+            "quantidade": pedido.get('quantidade', '') if pedido else '',
+            "codigo_fornecedor": pedido.get('codigo_fornecedor', '') if pedido else '',
+            "entrega": chamado.get('numero_pedido', ''),
+            "status_atendimento": status_atendimento,
+            "status_entrega": pedido.get('status_pedido', '') if pedido else '',
+            "data_ultimo_ponto": pedido.get('data_status', '') if pedido else ''
+        }
+        resultado.append(item)
+    
+    return resultado
+
+@api_router.get("/relatorios/ag-logistica")
+async def get_relatorio_ag_logistica(current_user: dict = Depends(get_current_user)):
+    """
+    Relatório de chamados com motivo_pendencia = 'Ag. Logística'
+    Retorna dados do chamado + dados do pedido ERP
+    """
+    # Buscar chamados com Ag. Logística
+    chamados = await db.chamados.find(
+        {"motivo_pendencia": "Ag. Logística", "pendente": True},
+        {"_id": 0}
+    ).to_list(5000)
+    
+    resultado = []
+    for chamado in chamados:
+        # Buscar dados do pedido ERP
+        pedido = await db.pedidos_erp.find_one(
+            {"numero_pedido": chamado.get('numero_pedido')},
+            {"_id": 0}
+        )
+        
+        # Determinar status do atendimento
+        status_atendimento = ""
+        if chamado.get('retornar_chamado'):
+            status_atendimento = "Retornar"
+        elif chamado.get('verificar_adneia'):
+            status_atendimento = "Verificar"
+        
+        item = {
+            "entrega": chamado.get('numero_pedido', ''),
+            "nota": pedido.get('nota_fiscal', '') if pedido else '',
+            "galpao": pedido.get('filial', '') if pedido else '',
+            "status_entrega": pedido.get('status_pedido', '') if pedido else '',
+            "data_ultimo_ponto": pedido.get('data_status', '') if pedido else '',
+            "status_atendimento": status_atendimento
+        }
+        resultado.append(item)
+    
+    return resultado
+
 @api_router.get("/chamados/{chamado_id}", response_model=dict)
 async def get_chamado(chamado_id: str, current_user: dict = Depends(get_current_user)):
     # Buscar por ID ou por id_atendimento (ATD-2026-XXX)

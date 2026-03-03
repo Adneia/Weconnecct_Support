@@ -23,7 +23,7 @@ import {
   TableRow,
 } from '../components/ui/table';
 import { toast } from 'sonner';
-import { Search, Plus, Filter, X, Clock, CheckCircle, AlertCircle, FileText, RotateCcw, Download } from 'lucide-react';
+import { Search, Plus, Filter, X, Clock, CheckCircle, AlertCircle, FileText, RotateCcw, Download, FileSpreadsheet } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
@@ -185,6 +185,110 @@ const ListaAtendimentos = () => {
     }
   };
 
+  // Função para exportar relatório Ag. Compras
+  const exportRelatorioCompras = async () => {
+    try {
+      toast.info('Gerando relatório Ag. Compras...');
+      const response = await axios.get(
+        `${API_URL}/api/relatorios/ag-compras`,
+        { headers: getAuthHeader() }
+      );
+      
+      const data = response.data;
+      if (data.length === 0) {
+        toast.warning('Nenhum atendimento com Ag. Compras encontrado');
+        return;
+      }
+
+      // Preparar dados para exportação
+      const dataToExport = data.map(item => ({
+        'Fornecedor': item.fornecedor || '',
+        'Produto': item.produto || '',
+        'ID': item.id_atendimento || '',
+        'Qtd. Pedido': item.quantidade || '',
+        'Cód. Fornecedor': item.codigo_fornecedor || '',
+        'Entrega': item.entrega || '',
+        'Status Atendimento': item.status_atendimento || '',
+        'Status Entrega': item.status_entrega || '',
+        'Data Último Ponto': item.data_ultimo_ponto || ''
+      }));
+
+      // Criar workbook
+      const ws = XLSX.utils.json_to_sheet(dataToExport);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Ag Compras');
+
+      // Ajustar largura das colunas
+      ws['!cols'] = [
+        { wch: 20 }, // Fornecedor
+        { wch: 35 }, // Produto
+        { wch: 15 }, // ID
+        { wch: 12 }, // Qtd
+        { wch: 15 }, // Cód Fornecedor
+        { wch: 15 }, // Entrega
+        { wch: 18 }, // Status Atendimento
+        { wch: 18 }, // Status Entrega
+        { wch: 18 }, // Data
+      ];
+
+      const dataAtual = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+      XLSX.writeFile(wb, `relatorio_ag_compras_${dataAtual}.xlsx`);
+      toast.success(`Relatório Ag. Compras exportado (${data.length} registros)`);
+    } catch (error) {
+      console.error('Erro ao exportar relatório:', error);
+      toast.error('Erro ao gerar relatório Ag. Compras');
+    }
+  };
+
+  // Função para exportar relatório Ag. Logística
+  const exportRelatorioLogistica = async () => {
+    try {
+      toast.info('Gerando relatório Ag. Logística...');
+      const response = await axios.get(
+        `${API_URL}/api/relatorios/ag-logistica`,
+        { headers: getAuthHeader() }
+      );
+      
+      const data = response.data;
+      if (data.length === 0) {
+        toast.warning('Nenhum atendimento com Ag. Logística encontrado');
+        return;
+      }
+
+      // Preparar dados para exportação
+      const dataToExport = data.map(item => ({
+        'Entrega': item.entrega || '',
+        'Nota': item.nota || '',
+        'Galpão': item.galpao || '',
+        'Status Entrega': item.status_entrega || '',
+        'Data Último Ponto': item.data_ultimo_ponto || '',
+        'Status Atendimento': item.status_atendimento || ''
+      }));
+
+      // Criar workbook
+      const ws = XLSX.utils.json_to_sheet(dataToExport);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Ag Logistica');
+
+      // Ajustar largura das colunas
+      ws['!cols'] = [
+        { wch: 15 }, // Entrega
+        { wch: 15 }, // Nota
+        { wch: 15 }, // Galpão
+        { wch: 18 }, // Status Entrega
+        { wch: 18 }, // Data
+        { wch: 18 }, // Status Atendimento
+      ];
+
+      const dataAtual = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+      XLSX.writeFile(wb, `relatorio_ag_logistica_${dataAtual}.xlsx`);
+      toast.success(`Relatório Ag. Logística exportado (${data.length} registros)`);
+    } catch (error) {
+      console.error('Erro ao exportar relatório:', error);
+      toast.error('Erro ao gerar relatório Ag. Logística');
+    }
+  };
+
   const getCategoryBadgeColor = (categoria) => {
     const colors = {
       'Falha Produção': 'bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-400',
@@ -234,7 +338,16 @@ const ListaAtendimentos = () => {
           <h1 className="text-2xl font-bold tracking-tight font-['Plus_Jakarta_Sans']">Atendimentos</h1>
           <p className="text-muted-foreground text-sm">{atendimentos.length} atendimentos encontrados</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          {/* Relatórios Especiais */}
+          <Button variant="outline" onClick={exportRelatorioCompras} className="bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-200" data-testid="btn-relatorio-compras">
+            <FileSpreadsheet className="h-4 w-4 mr-2" />
+            Relatório Ag. Compras
+          </Button>
+          <Button variant="outline" onClick={exportRelatorioLogistica} className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200" data-testid="btn-relatorio-logistica">
+            <FileSpreadsheet className="h-4 w-4 mr-2" />
+            Relatório Ag. Logística
+          </Button>
           <Button variant="outline" onClick={exportToExcel} data-testid="btn-exportar">
             <Download className="h-4 w-4 mr-2" />
             Exportar Excel
