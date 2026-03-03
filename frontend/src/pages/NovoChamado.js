@@ -2037,7 +2037,7 @@ const NovoAtendimento = () => {
                   onClick={() => {
                     let texto = TEXTO_FALHA_INTEGRACAO;
                     texto = texto.replace(/\[PARCEIRO\]/g, formData.parceiro || '[Preencher Parceiro]');
-                    texto = texto.replace(/\[ASSINATURA\]/g, user?.name || formData.atendente);
+                    texto = texto.replace(/\[ASSINATURA\]/g, user?.name || formData.atendente || 'Atendente');
                     setTextoPadrao(texto);
                     setShowTextoDialog(true);
                   }}

@@ -166,19 +166,35 @@ const Dashboard = () => {
             Atendimentos por Canal
           </CardTitle>
           <CardDescription>
-            AR = Aguardando Resposta (Pendentes) | A = Abertos | F = Fechados
+            AR = Abertos | A = Em Andamento | F = Fechados
           </CardDescription>
         </CardHeader>
         <CardContent>
+          {/* Somatória */}
+          <div className="flex gap-4 mb-4 p-3 bg-muted/50 rounded-lg">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Total:</span>
+              <Badge variant="outline" className="bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                AR: {visaoGeral?.por_canal?.reduce((acc, c) => acc + c.ar, 0) || 0}
+              </Badge>
+              <Badge variant="outline" className="bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                A: {visaoGeral?.por_canal?.reduce((acc, c) => acc + c.a, 0) || 0}
+              </Badge>
+              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                F: {visaoGeral?.por_canal?.reduce((acc, c) => acc + c.f, 0) || 0}
+              </Badge>
+            </div>
+          </div>
+          
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="font-semibold">Canal</TableHead>
-                <TableHead className="text-center w-20 bg-amber-50 dark:bg-amber-950/30">
-                  <span className="text-amber-700 dark:text-amber-400">AR</span>
-                </TableHead>
                 <TableHead className="text-center w-20 bg-blue-50 dark:bg-blue-950/30">
-                  <span className="text-blue-700 dark:text-blue-400">A</span>
+                  <span className="text-blue-700 dark:text-blue-400">AR</span>
+                </TableHead>
+                <TableHead className="text-center w-20 bg-amber-50 dark:bg-amber-950/30">
+                  <span className="text-amber-700 dark:text-amber-400">A</span>
                 </TableHead>
                 <TableHead className="text-center w-20 bg-emerald-50 dark:bg-emerald-950/30">
                   <span className="text-emerald-700 dark:text-emerald-400">F</span>
@@ -189,13 +205,13 @@ const Dashboard = () => {
               {visaoGeral?.por_canal?.map((item) => (
                 <TableRow key={item.canal} className="hover:bg-muted/50">
                   <TableCell className="font-medium">{item.canal}</TableCell>
-                  <TableCell className="text-center bg-amber-50/50 dark:bg-amber-950/20">
-                    <span className="font-semibold text-amber-700 dark:text-amber-400">
+                  <TableCell className="text-center bg-blue-50/50 dark:bg-blue-950/20">
+                    <span className="font-semibold text-blue-700 dark:text-blue-400">
                       {item.ar || 0}
                     </span>
                   </TableCell>
-                  <TableCell className="text-center bg-blue-50/50 dark:bg-blue-950/20">
-                    <span className="font-semibold text-blue-700 dark:text-blue-400">
+                  <TableCell className="text-center bg-amber-50/50 dark:bg-amber-950/20">
+                    <span className="font-semibold text-amber-700 dark:text-amber-400">
                       {item.a || 0}
                     </span>
                   </TableCell>
@@ -213,6 +229,69 @@ const Dashboard = () => {
                   </TableCell>
                 </TableRow>
               )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+      
+      {/* Tabela Última Semana */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Última Semana
+          </CardTitle>
+          <CardDescription>
+            AR = Abertos no dia | F = Fechados no dia
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {/* Somatória da Semana */}
+          <div className="flex gap-4 mb-4 p-3 bg-muted/50 rounded-lg">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-muted-foreground">Total Semana:</span>
+              <Badge variant="outline" className="bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                AR: {visaoGeral?.totais_semana?.ar || 0}
+              </Badge>
+              <Badge variant="outline" className="bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                A: {visaoGeral?.totais_semana?.a || 0}
+              </Badge>
+              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                F: {visaoGeral?.totais_semana?.f || 0}
+              </Badge>
+            </div>
+          </div>
+          
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="font-semibold">Data</TableHead>
+                <TableHead className="text-center w-20 bg-blue-50 dark:bg-blue-950/30">
+                  <span className="text-blue-700 dark:text-blue-400">AR</span>
+                </TableHead>
+                <TableHead className="text-center w-20 bg-emerald-50 dark:bg-emerald-950/30">
+                  <span className="text-emerald-700 dark:text-emerald-400">F</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {visaoGeral?.dias_semana?.map((item) => (
+                <TableRow key={item.data} className="hover:bg-muted/50">
+                  <TableCell className="font-medium">
+                    {item.data} <span className="text-muted-foreground">({item.dia_semana})</span>
+                  </TableCell>
+                  <TableCell className="text-center bg-blue-50/50 dark:bg-blue-950/20">
+                    <span className="font-semibold text-blue-700 dark:text-blue-400">
+                      {item.ar || 0}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-center bg-emerald-50/50 dark:bg-emerald-950/20">
+                    <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                      {item.f || 0}
+                    </span>
+                  </TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </CardContent>
