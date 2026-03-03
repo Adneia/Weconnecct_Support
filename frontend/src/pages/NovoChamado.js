@@ -2004,9 +2004,10 @@ const NovoAtendimento = () => {
                   <Input
                     value={formData.numero_pedido}
                     onChange={(e) => handleChange('numero_pedido', e.target.value)}
-                    placeholder="Digite o número"
+                    placeholder="Digite o CPF do cliente"
                     data-testid="input-numero-pedido-falha"
                   />
+                  <p className="text-xs text-amber-600 mt-1">* Registre o CPF do cliente neste campo</p>
                 </div>
                 <div>
                   <Label>Solicitação <span className="text-red-500">*</span></Label>
