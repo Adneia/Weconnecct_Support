@@ -85,7 +85,8 @@ CATEGORIAS_EMERGENT = [
     "Arrependimento",
     "Acompanhamento",
     "Reclame Aqui",
-    "Assistência Técnica"
+    "Assistência Técnica",
+    "Falha de Integração"
 ]
 
 STATUS_CLIENTE = [
@@ -1005,6 +1006,16 @@ reversa@newex.com.br
 📞 0800 887 0505 OU 11 973928421
 
 Seguimos à disposição para qualquer apoio necessário.
+Atenciosamente,
+[ASSINATURA]""",
+
+    "Falha de Integração": """Olá,
+
+Não fomos acionados pela Vtex para preparação deste pedido. Status Vtex (Aguardando autorização para despachar).
+
+Por favor verificar o ocorrido entre Vtex e [PARCEIRO].
+
+Seguimos a disposição.
 Atenciosamente,
 [ASSINATURA]"""
 }

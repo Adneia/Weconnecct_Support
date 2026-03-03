@@ -1290,6 +1290,10 @@ const NovoAtendimento = () => {
         texto = texto.replace(/\[NOME_CLIENTE\]/g, pedidoErp.nome_cliente);
         texto = texto.replace(/\[NOME\]/g, pedidoErp.nome_cliente);
       }
+      // Substituir [PARCEIRO] (usado em Falha de Integração)
+      if (formData.parceiro) {
+        texto = texto.replace(/\[PARCEIRO\]/g, formData.parceiro);
+      }
       setTextoPadrao(texto);
       setShowTextoDialog(true);
     } catch (error) {
@@ -2024,28 +2028,6 @@ const NovoAtendimento = () => {
                   placeholder="Digite o parceiro ou canal de venda"
                   data-testid="input-parceiro-falha"
                 />
-              </div>
-
-              {/* Texto Padrão para Falha de Integração */}
-              <div className="pt-2">
-                <Label className="text-sm font-medium">Texto Padrão</Label>
-                <Button 
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="mt-2"
-                  onClick={() => {
-                    let texto = TEXTO_FALHA_INTEGRACAO;
-                    texto = texto.replace(/\[PARCEIRO\]/g, formData.parceiro || '[Preencher Parceiro]');
-                    texto = texto.replace(/\[ASSINATURA\]/g, user?.name || formData.atendente || 'Atendente');
-                    setTextoPadrao(texto);
-                    setShowTextoDialog(true);
-                  }}
-                  data-testid="btn-texto-falha-integracao"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Gerar Texto Falha de Integração
-                </Button>
               </div>
             </CardContent>
           </Card>
