@@ -132,14 +132,29 @@ const ImportarPedidos = () => {
             ...getAuthHeader(),
             'Content-Type': 'multipart/form-data'
           },
-          timeout: 300000, // 5 minutos de timeout para arquivos grandes
+          timeout: 300000,
           maxContentLength: Infinity,
           maxBodyLength: Infinity
         }
       );
 
-      setResult({ success: true, message: response.data.message });
-      toast.success('Importação concluída!');
+      // Verificar se é processamento em background
+      if (response.data.status === 'processing' && response.data.import_id) {
+        toast.info('Importação iniciada em background. Aguarde...');
+        setResult({ 
+          success: true, 
+          message: `Importação de ${response.data.total_rows} linhas iniciada em background.`,
+          isBackground: true,
+          importId: response.data.import_id
+        });
+        
+        // Iniciar polling para verificar status
+        pollImportStatus(response.data.import_id);
+      } else {
+        setResult({ success: true, message: response.data.message });
+        toast.success('Importação concluída!');
+        setUploading(false);
+      }
     } catch (error) {
       console.error('Erro de importação:', error);
       const errorMessage = error.response?.data?.detail 
@@ -150,9 +165,52 @@ const ImportarPedidos = () => {
         message: errorMessage
       });
       toast.error(errorMessage);
-    } finally {
       setUploading(false);
     }
+  };
+
+  // Função para verificar status de importação em background
+  const pollImportStatus = async (importId) => {
+    const checkStatus = async () => {
+      try {
+        const response = await axios.get(
+          `${API_URL}/api/pedidos-erp/import-status/${importId}`,
+          { headers: getAuthHeader() }
+        );
+        
+        const data = response.data;
+        
+        if (data.status === 'completed') {
+          setResult({ 
+            success: true, 
+            message: `Importação concluída: ${data.imported} novos, ${data.updated} atualizados, ${data.skipped_old} ignorados (>6 meses), ${data.errors} erros`
+          });
+          toast.success('Importação concluída!');
+          setUploading(false);
+          return true; // Para o polling
+        } else {
+          // Ainda processando - atualizar progresso
+          const processed = data.imported + data.updated + data.skipped_old + data.errors;
+          setResult({ 
+            success: true, 
+            message: `Processando... ${processed} de ${data.total_rows} linhas (${data.imported} novos, ${data.updated} atualizados)`,
+            isBackground: true
+          });
+          return false; // Continua polling
+        }
+      } catch (error) {
+        console.error('Erro ao verificar status:', error);
+        return false;
+      }
+    };
+    
+    // Verificar a cada 3 segundos
+    const interval = setInterval(async () => {
+      const completed = await checkStatus();
+      if (completed) {
+        clearInterval(interval);
+      }
+    }, 3000);
   };
 
   const clearFile = () => {

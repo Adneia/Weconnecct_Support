@@ -1661,7 +1661,11 @@ async def get_pedido_erp(numero_pedido: str, current_user: dict = Depends(get_cu
     return pedido
 
 @api_router.post("/pedidos-erp/import", response_model=dict)
-async def import_pedidos(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
+async def import_pedidos(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...), 
+    current_user: dict = Depends(get_current_user)
+):
     if not file.filename:
         raise HTTPException(status_code=400, detail="Arquivo não fornecido")
     
@@ -1669,7 +1673,8 @@ async def import_pedidos(file: UploadFile = File(...), current_user: dict = Depe
     
     try:
         content = await file.read()
-        logger.info(f"Arquivo recebido: {filename}, tamanho: {len(content)} bytes")
+        file_size_mb = len(content) / (1024 * 1024)
+        logger.info(f"Arquivo recebido: {filename}, tamanho: {file_size_mb:.2f} MB")
     except Exception as e:
         logger.error(f"Erro ao ler arquivo: {e}")
         raise HTTPException(status_code=400, detail=f"Erro ao ler arquivo: {str(e)}")
@@ -1682,116 +1687,243 @@ async def import_pedidos(file: UploadFile = File(...), current_user: dict = Depe
         else:
             raise HTTPException(status_code=400, detail="Formato de arquivo não suportado. Use CSV ou Excel.")
         
-        logger.info(f"Arquivo parseado com sucesso: {len(df)} linhas")
+        total_rows = len(df)
+        logger.info(f"Arquivo parseado com sucesso: {total_rows} linhas")
         
-        # Mapping for Base_Emergent format (Power Query export)
-        # A=Entrega, B=Canal, C=Ped.Cliente, D=Ped.Externo, E=CPF, F=Nome, G=CEP, H=Cidade, I=UF
-        # J=Fone, K=Email, L=Status, M=Dt.Ult.Ponto, N=Transportadora, O=Fornecedor, P=Item
-        # Q=Produto, R=Cód.Terceiro, S=Qtde, T=Preço, U=Frete, V=UF, W=Nota, X=Chave, Y=Troca, Z=CodFornecedor
-        column_mapping = {
-            'numero_pedido': ['entrega'],  # Coluna A - Número do pedido
-            'canal_vendas': ['nome canal de vendas'],  # Coluna B
-            'pedido_cliente': ['ped. cliente'],  # Coluna C
-            'pedido_externo': ['ped. externo'],  # Coluna D
-            'cpf_cliente': ['cpf'],  # Coluna E
-            'nome_cliente': ['nome'],  # Coluna F
-            'cep': ['cep'],  # Coluna G
-            'cidade': ['cidade'],  # Coluna H
-            'uf': ['uf'],  # Coluna I
-            'fone_cliente': ['fone'],  # Coluna J
-            'email_cliente': ['e-mail'],  # Coluna K
-            'status_pedido': ['status da entrega', 'status'],  # Coluna L - Status do pedido
-            'data_status': ['dt.ult.ponto de controle'],  # Coluna M
-            'transportadora': ['transportadora'],  # Coluna N
-            'departamento': ['nome_5'],  # Coluna O - Fornecedor/Marca
-            'codigo_item_bseller': ['item'],  # Coluna P - Código do item
-            'produto': ['nome do produto'],  # Coluna Q - Nome do produto
-            'codigo_item_vtex': ['c?d. terceiro', 'cód. terceiro'],  # Coluna R
-            'quantidade': ['qtde pedido'],  # Coluna S
-            'preco_final': ['pre?o final', 'preço final'],  # Coluna T
-            'frete': ['frete'],  # Coluna U
-            'filial': ['uf.1'],  # Coluna V
-            'nota_fiscal': ['nota'],  # Coluna W
-            'serie_nf': ['série', 'serie'],  # Série da NF (1=SC, 6=SP, 2=ES)
-            'chave_nota': ['chave acesso'],  # Coluna X
-            'pedido_troca': ['pedido troca'],  # Coluna Y
-            'codigo_fornecedor': ['cód. fornecedor', 'cód. fornecedor do sigeq230', 'codigo_fornecedor', 'cod. fornecedor', 'cod fornecedor', 'codfornecedor'],  # Coluna Z - variações
-        }
+        # Para arquivos grandes (>5000 linhas), processar em background
+        if total_rows > 5000:
+            import_id = str(uuid.uuid4())
+            
+            # Criar registro de importação
+            await db.import_jobs.insert_one({
+                "import_id": import_id,
+                "filename": filename,
+                "total_rows": total_rows,
+                "status": "processing",
+                "imported": 0,
+                "updated": 0,
+                "skipped_old": 0,
+                "errors": 0,
+                "started_at": datetime.now(timezone.utc).isoformat(),
+                "completed_at": None
+            })
+            
+            # Iniciar processamento em background
+            background_tasks.add_task(process_import_background, import_id, df)
+            
+            return {
+                "message": f"Importação iniciada em background. {total_rows} linhas serão processadas.",
+                "import_id": import_id,
+                "status": "processing",
+                "total_rows": total_rows
+            }
         
-        # Normalize column names (strip whitespace and lowercase)
-        df.columns = df.columns.str.strip().str.lower()
-        original_columns = list(df.columns)
-        
-        # Calcular data limite (6 meses atrás)
-        data_limite = datetime.now(timezone.utc) - timedelta(days=180)
-        logger.info(f"Filtrando pedidos dos últimos 6 meses (após {data_limite.strftime('%d/%m/%Y')})")
-        
-        imported = 0
-        updated = 0
-        errors = 0
-        skipped_old = 0
-        
-        for idx, row in df.iterrows():
-            try:
-                pedido_data = {}
-                
-                for field, possible_names in column_mapping.items():
-                    for name in possible_names:
-                        name_lower = name.lower()
-                        if name_lower in original_columns:
-                            value = row.get(name_lower)
-                            if pd.notna(value):
-                                pedido_data[field] = str(value).strip()
-                            break
-                
-                # Skip if no numero_pedido
-                if 'numero_pedido' not in pedido_data or not pedido_data['numero_pedido']:
-                    continue
-                
-                # Filtrar por data - apenas últimos 6 meses
-                if 'data_status' in pedido_data and pedido_data['data_status']:
-                    try:
-                        # Tentar parsear a data (formato: dd/mm/yyyy hh:mm:ss ou dd/mm/yyyy)
-                        data_str = pedido_data['data_status'].split()[0]  # Pegar apenas a parte da data
-                        data_pedido = datetime.strptime(data_str, '%d/%m/%Y')
-                        data_pedido = data_pedido.replace(tzinfo=timezone.utc)
-                        
-                        if data_pedido < data_limite:
-                            skipped_old += 1
-                            continue  # Pular pedidos mais antigos que 6 meses
-                    except (ValueError, IndexError):
-                        pass  # Se não conseguir parsear a data, continua com a importação
-                
-                existing = await db.pedidos_erp.find_one({"numero_pedido": pedido_data['numero_pedido']})
-                
-                if existing:
-                    pedido_data['ultima_atualizacao'] = datetime.now(timezone.utc).isoformat()
-                    await db.pedidos_erp.update_one(
-                        {"numero_pedido": pedido_data['numero_pedido']},
-                        {"$set": pedido_data}
-                    )
-                    updated += 1
-                else:
-                    pedido = PedidoERPBase(**pedido_data)
-                    pedido_dict = pedido.model_dump()
-                    pedido_dict['ultima_atualizacao'] = pedido_dict['ultima_atualizacao'].isoformat()
-                    await db.pedidos_erp.insert_one(pedido_dict)
-                    imported += 1
-            except Exception as e:
-                logger.error(f"Erro na linha {idx}: {str(e)} - dados: {pedido_data.get('numero_pedido', 'N/A')}")
-                errors += 1
-                continue
-        
-        return {
-            "message": f"Importação concluída: {imported} novos, {updated} atualizados, {skipped_old} ignorados (>6 meses), {errors} erros",
-            "imported": imported,
-            "updated": updated,
-            "skipped_old": skipped_old,
-            "errors": errors
-        }
+        # Para arquivos pequenos, processar imediatamente
+        result = await process_import_sync(df)
+        return result
     
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Erro ao processar arquivo: {str(e)}")
+
+# Função auxiliar para processamento síncrono
+async def process_import_sync(df):
+    """Processa importação de forma síncrona para arquivos pequenos"""
+    column_mapping = get_column_mapping()
+    
+    # Normalize column names
+    df.columns = df.columns.str.strip().str.lower()
+    original_columns = list(df.columns)
+    
+    # Calcular data limite (6 meses atrás)
+    data_limite = datetime.now(timezone.utc) - timedelta(days=180)
+    
+    imported = 0
+    updated = 0
+    errors = 0
+    skipped_old = 0
+    
+    for idx, row in df.iterrows():
+        try:
+            pedido_data = extract_pedido_data(row, column_mapping, original_columns)
+            
+            if not pedido_data.get('numero_pedido'):
+                continue
+            
+            # Filtrar por data
+            if should_skip_old_pedido(pedido_data, data_limite):
+                skipped_old += 1
+                continue
+            
+            existing = await db.pedidos_erp.find_one({"numero_pedido": pedido_data['numero_pedido']})
+            
+            if existing:
+                pedido_data['ultima_atualizacao'] = datetime.now(timezone.utc).isoformat()
+                await db.pedidos_erp.update_one(
+                    {"numero_pedido": pedido_data['numero_pedido']},
+                    {"$set": pedido_data}
+                )
+                updated += 1
+            else:
+                pedido = PedidoERPBase(**pedido_data)
+                pedido_dict = pedido.model_dump()
+                pedido_dict['ultima_atualizacao'] = pedido_dict['ultima_atualizacao'].isoformat()
+                await db.pedidos_erp.insert_one(pedido_dict)
+                imported += 1
+        except Exception as e:
+            logger.error(f"Erro na linha {idx}: {str(e)}")
+            errors += 1
+            continue
+    
+    return {
+        "message": f"Importação concluída: {imported} novos, {updated} atualizados, {skipped_old} ignorados (>6 meses), {errors} erros",
+        "imported": imported,
+        "updated": updated,
+        "skipped_old": skipped_old,
+        "errors": errors
+    }
+
+# Função para processamento em background (para arquivos grandes)
+async def process_import_background(import_id: str, df):
+    """Processa importação em background para arquivos grandes"""
+    column_mapping = get_column_mapping()
+    
+    # Normalize column names
+    df.columns = df.columns.str.strip().str.lower()
+    original_columns = list(df.columns)
+    
+    # Calcular data limite (6 meses atrás)
+    data_limite = datetime.now(timezone.utc) - timedelta(days=180)
+    logger.info(f"[{import_id}] Iniciando processamento em background: {len(df)} linhas")
+    
+    imported = 0
+    updated = 0
+    errors = 0
+    skipped_old = 0
+    
+    for idx, row in df.iterrows():
+        try:
+            pedido_data = extract_pedido_data(row, column_mapping, original_columns)
+            
+            if not pedido_data.get('numero_pedido'):
+                continue
+            
+            # Filtrar por data
+            if should_skip_old_pedido(pedido_data, data_limite):
+                skipped_old += 1
+                continue
+            
+            existing = await db.pedidos_erp.find_one({"numero_pedido": pedido_data['numero_pedido']})
+            
+            if existing:
+                pedido_data['ultima_atualizacao'] = datetime.now(timezone.utc).isoformat()
+                await db.pedidos_erp.update_one(
+                    {"numero_pedido": pedido_data['numero_pedido']},
+                    {"$set": pedido_data}
+                )
+                updated += 1
+            else:
+                pedido = PedidoERPBase(**pedido_data)
+                pedido_dict = pedido.model_dump()
+                pedido_dict['ultima_atualizacao'] = pedido_dict['ultima_atualizacao'].isoformat()
+                await db.pedidos_erp.insert_one(pedido_dict)
+                imported += 1
+            
+            # Atualizar progresso a cada 1000 registros
+            if (idx + 1) % 1000 == 0:
+                await db.import_jobs.update_one(
+                    {"import_id": import_id},
+                    {"$set": {
+                        "imported": imported,
+                        "updated": updated,
+                        "skipped_old": skipped_old,
+                        "errors": errors
+                    }}
+                )
+                logger.info(f"[{import_id}] Progresso: {idx + 1} linhas processadas")
+                
+        except Exception as e:
+            logger.error(f"[{import_id}] Erro na linha {idx}: {str(e)}")
+            errors += 1
+            continue
+    
+    # Atualizar status final
+    await db.import_jobs.update_one(
+        {"import_id": import_id},
+        {"$set": {
+            "status": "completed",
+            "imported": imported,
+            "updated": updated,
+            "skipped_old": skipped_old,
+            "errors": errors,
+            "completed_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    logger.info(f"[{import_id}] Importação concluída: {imported} novos, {updated} atualizados, {skipped_old} ignorados, {errors} erros")
+
+def get_column_mapping():
+    """Retorna o mapeamento de colunas para importação"""
+    return {
+        'numero_pedido': ['entrega'],
+        'canal_vendas': ['nome canal de vendas'],
+        'pedido_cliente': ['ped. cliente'],
+        'pedido_externo': ['ped. externo'],
+        'cpf_cliente': ['cpf'],
+        'nome_cliente': ['nome'],
+        'cep': ['cep'],
+        'cidade': ['cidade'],
+        'uf': ['uf'],
+        'fone_cliente': ['fone'],
+        'email_cliente': ['e-mail'],
+        'status_pedido': ['status da entrega', 'status'],
+        'data_status': ['dt.ult.ponto de controle'],
+        'transportadora': ['transportadora'],
+        'departamento': ['nome_5'],
+        'codigo_item_bseller': ['item'],
+        'produto': ['nome do produto'],
+        'codigo_item_vtex': ['c?d. terceiro', 'cód. terceiro'],
+        'quantidade': ['qtde pedido'],
+        'preco_final': ['pre?o final', 'preço final'],
+        'frete': ['frete'],
+        'filial': ['uf.1'],
+        'nota_fiscal': ['nota'],
+        'serie_nf': ['série', 'serie'],
+        'chave_nota': ['chave acesso'],
+        'pedido_troca': ['pedido troca'],
+        'codigo_fornecedor': ['cód. fornecedor', 'cód. fornecedor do sigeq230', 'codigo_fornecedor', 'cod. fornecedor', 'cod fornecedor', 'codfornecedor'],
+    }
+
+def extract_pedido_data(row, column_mapping, original_columns):
+    """Extrai dados do pedido de uma linha do DataFrame"""
+    pedido_data = {}
+    for field, possible_names in column_mapping.items():
+        for name in possible_names:
+            name_lower = name.lower()
+            if name_lower in original_columns:
+                value = row.get(name_lower)
+                if pd.notna(value):
+                    pedido_data[field] = str(value).strip()
+                break
+    return pedido_data
+
+def should_skip_old_pedido(pedido_data, data_limite):
+    """Verifica se o pedido deve ser ignorado por ser muito antigo"""
+    if 'data_status' in pedido_data and pedido_data['data_status']:
+        try:
+            data_str = pedido_data['data_status'].split()[0]
+            data_pedido = datetime.strptime(data_str, '%d/%m/%Y')
+            data_pedido = data_pedido.replace(tzinfo=timezone.utc)
+            return data_pedido < data_limite
+        except (ValueError, IndexError):
+            pass
+    return False
+
+# Endpoint para verificar status de importação
+@api_router.get("/pedidos-erp/import-status/{import_id}")
+async def get_import_status(import_id: str, current_user: dict = Depends(get_current_user)):
+    job = await db.import_jobs.find_one({"import_id": import_id}, {"_id": 0})
+    if not job:
+        raise HTTPException(status_code=404, detail="Importação não encontrada")
+    return job
 
 @api_router.get("/pedidos-erp", response_model=List[dict])
 async def list_pedidos_erp(current_user: dict = Depends(get_current_user)):
