@@ -1722,9 +1722,14 @@ async def import_pedidos(file: UploadFile = File(...), current_user: dict = Depe
         df.columns = df.columns.str.strip().str.lower()
         original_columns = list(df.columns)
         
+        # Calcular data limite (6 meses atrás)
+        data_limite = datetime.now(timezone.utc) - timedelta(days=180)
+        logger.info(f"Filtrando pedidos dos últimos 6 meses (após {data_limite.strftime('%d/%m/%Y')})")
+        
         imported = 0
         updated = 0
         errors = 0
+        skipped_old = 0
         
         for idx, row in df.iterrows():
             try:
@@ -1742,6 +1747,20 @@ async def import_pedidos(file: UploadFile = File(...), current_user: dict = Depe
                 # Skip if no numero_pedido
                 if 'numero_pedido' not in pedido_data or not pedido_data['numero_pedido']:
                     continue
+                
+                # Filtrar por data - apenas últimos 6 meses
+                if 'data_status' in pedido_data and pedido_data['data_status']:
+                    try:
+                        # Tentar parsear a data (formato: dd/mm/yyyy hh:mm:ss ou dd/mm/yyyy)
+                        data_str = pedido_data['data_status'].split()[0]  # Pegar apenas a parte da data
+                        data_pedido = datetime.strptime(data_str, '%d/%m/%Y')
+                        data_pedido = data_pedido.replace(tzinfo=timezone.utc)
+                        
+                        if data_pedido < data_limite:
+                            skipped_old += 1
+                            continue  # Pular pedidos mais antigos que 6 meses
+                    except (ValueError, IndexError):
+                        pass  # Se não conseguir parsear a data, continua com a importação
                 
                 existing = await db.pedidos_erp.find_one({"numero_pedido": pedido_data['numero_pedido']})
                 
@@ -1764,9 +1783,10 @@ async def import_pedidos(file: UploadFile = File(...), current_user: dict = Depe
                 continue
         
         return {
-            "message": f"Importação concluída: {imported} novos, {updated} atualizados, {errors} erros",
+            "message": f"Importação concluída: {imported} novos, {updated} atualizados, {skipped_old} ignorados (>6 meses), {errors} erros",
             "imported": imported,
             "updated": updated,
+            "skipped_old": skipped_old,
             "errors": errors
         }
     
