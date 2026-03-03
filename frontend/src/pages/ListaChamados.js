@@ -34,6 +34,21 @@ const CATEGORIAS = [
   "Dúvida", "Reclamação", "Assistência Técnica"
 ];
 
+const MOTIVOS_PENDENCIA = [
+  "Ag. Compras",
+  "Ag. Logística", 
+  "Enviado",
+  "Ag. Bseller",
+  "Ag. Barrar",
+  "Aguardando",
+  "Em devolução",
+  "Ag. Confirmação de Entrega",
+  "Ag. Parceiro",
+  "Entregue",
+  "Estornado",
+  "Atendido"
+];
+
 const ATENDENTES = ["Letícia Martelo", "Adnéia Campos"];
 
 const ListaAtendimentos = () => {
@@ -46,7 +61,8 @@ const ListaAtendimentos = () => {
     categoria: '',
     atendente: '',
     retornar_chamado: '',
-    verificar_adneia: ''
+    verificar_adneia: '',
+    motivo_pendencia: ''
   });
   const [showFilters, setShowFilters] = useState(false);
 
@@ -77,6 +93,7 @@ const ListaAtendimentos = () => {
       if (filters.atendente) params.append('atendente', filters.atendente);
       if (filters.retornar_chamado !== '') params.append('retornar_chamado', filters.retornar_chamado);
       if (filters.verificar_adneia !== '') params.append('verificar_adneia', filters.verificar_adneia);
+      if (filters.motivo_pendencia) params.append('motivo_pendencia', filters.motivo_pendencia);
       if (globalFilter) {
         params.append('search', globalFilter);
         params.append('search_type', searchType);
@@ -100,7 +117,7 @@ const ListaAtendimentos = () => {
   };
 
   const clearFilters = () => {
-    setFilters({ pendente: '', categoria: '', atendente: '', retornar_chamado: '', verificar_adneia: '' });
+    setFilters({ pendente: '', categoria: '', atendente: '', retornar_chamado: '', verificar_adneia: '', motivo_pendencia: '' });
     setGlobalFilter('');
   };
 
@@ -346,7 +363,7 @@ const ListaAtendimentos = () => {
             </div>
 
             {showFilters && (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4 border-t">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-4 border-t">
                 <Select 
                   value={
                     filters.retornar_chamado === 'true' ? 'retornar' :
@@ -400,6 +417,18 @@ const ListaAtendimentos = () => {
                     <SelectItem value="all">Todos</SelectItem>
                     {ATENDENTES.map(a => (
                       <SelectItem key={a} value={a}>{a}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={filters.motivo_pendencia} onValueChange={(v) => setFilters(f => ({ ...f, motivo_pendencia: v === 'all' ? '' : v }))}>
+                  <SelectTrigger data-testid="filter-motivo-pendencia">
+                    <SelectValue placeholder="Motivo Pendência" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos Motivos</SelectItem>
+                    {MOTIVOS_PENDENCIA.map(m => (
+                      <SelectItem key={m} value={m}>{m}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

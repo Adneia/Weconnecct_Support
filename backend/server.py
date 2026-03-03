@@ -1123,6 +1123,7 @@ async def list_chamados(
     parceiro: Optional[str] = None,
     retornar_chamado: Optional[bool] = None,
     verificar_adneia: Optional[bool] = None,
+    motivo_pendencia: Optional[str] = None,
     search: Optional[str] = None,
     search_type: Optional[str] = None,  # 'todos', 'solicitacao', 'entrega', 'cpf', 'nome'
     current_user: dict = Depends(get_current_user)
@@ -1140,6 +1141,8 @@ async def list_chamados(
         query['retornar_chamado'] = retornar_chamado
     if verificar_adneia is not None:
         query['verificar_adneia'] = verificar_adneia
+    if motivo_pendencia:
+        query['motivo_pendencia'] = motivo_pendencia
     if search:
         search_regex = {"$regex": search, "$options": "i"}
         if search_type == 'solicitacao':
