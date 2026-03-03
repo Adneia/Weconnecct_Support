@@ -968,6 +968,7 @@ const NovoAtendimento = () => {
   const [pedidoNotFound, setPedidoNotFound] = useState(false);
   const [modoFalhaIntegracao, setModoFalhaIntegracao] = useState(false);
   const [pedidoErp, setPedidoErp] = useState(null);
+  const [anotacoesOriginais, setAnotacoesOriginais] = useState('');
   const [pedidosList, setPedidosList] = useState([]);
   const [showPedidosDialog, setShowPedidosDialog] = useState(false);
   const [showTextoDialog, setShowTextoDialog] = useState(false);
@@ -1079,6 +1080,9 @@ const NovoAtendimento = () => {
         atendente: atd.atendente || 'Letícia Martelo',
         pendente: atd.pendente !== undefined ? atd.pendente : true
       });
+      
+      // Salvar anotações originais para comparação
+      setAnotacoesOriginais(atd.anotacoes || '');
       
       // Preencher motivo da pendência
       if (atd.motivo_pendencia) {
@@ -1617,6 +1621,13 @@ const NovoAtendimento = () => {
     }
     if (!formData.anotacoes.trim()) {
       toast.error('Adicione uma anotação antes de salvar');
+      newErrors.anotacoes = true;
+      hasError = true;
+    }
+    
+    // Se for edição, verificar se uma NOVA anotação foi adicionada
+    if (isEditMode && formData.anotacoes.trim() === anotacoesOriginais.trim()) {
+      toast.error('Adicione uma nova observação para atualizar o atendimento');
       newErrors.anotacoes = true;
       hasError = true;
     }

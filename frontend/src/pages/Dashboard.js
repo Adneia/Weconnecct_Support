@@ -157,6 +157,66 @@ const Dashboard = () => {
           </CardContent>
         </Card>
       </div>
+      
+      {/* Tabela de Atendimentos por Canal */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Atendimentos por Canal
+          </CardTitle>
+          <CardDescription>
+            AR = Aguardando Resposta (Pendentes) | A = Abertos | F = Fechados
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="font-semibold">Canal</TableHead>
+                <TableHead className="text-center w-20 bg-amber-50 dark:bg-amber-950/30">
+                  <span className="text-amber-700 dark:text-amber-400">AR</span>
+                </TableHead>
+                <TableHead className="text-center w-20 bg-blue-50 dark:bg-blue-950/30">
+                  <span className="text-blue-700 dark:text-blue-400">A</span>
+                </TableHead>
+                <TableHead className="text-center w-20 bg-emerald-50 dark:bg-emerald-950/30">
+                  <span className="text-emerald-700 dark:text-emerald-400">F</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {visaoGeral?.por_canal?.map((item) => (
+                <TableRow key={item.canal} className="hover:bg-muted/50">
+                  <TableCell className="font-medium">{item.canal}</TableCell>
+                  <TableCell className="text-center bg-amber-50/50 dark:bg-amber-950/20">
+                    <span className="font-semibold text-amber-700 dark:text-amber-400">
+                      {item.ar || 0}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-center bg-blue-50/50 dark:bg-blue-950/20">
+                    <span className="font-semibold text-blue-700 dark:text-blue-400">
+                      {item.a || 0}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-center bg-emerald-50/50 dark:bg-emerald-950/20">
+                    <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                      {item.f || 0}
+                    </span>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {(!visaoGeral?.por_canal || visaoGeral.por_canal.length === 0) && (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                    Nenhum dado disponível
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 

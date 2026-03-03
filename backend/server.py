@@ -1921,11 +1921,36 @@ async def get_dashboard_visao_geral(
     # Base Emergent
     total_pedidos = await db.pedidos_erp.count_documents({})
     
+    # Atendimentos por Canal (AR=Pendente/Aguardando, A=Aberto, F=Fechado)
+    pipeline_por_canal = [
+        {"$group": {
+            "_id": {"$ifNull": ["$parceiro", "$canal_vendas"]},
+            "total": {"$sum": 1},
+            "pendentes": {"$sum": {"$cond": [{"$eq": ["$pendente", True]}, 1, 0]}},
+            "fechados": {"$sum": {"$cond": [{"$eq": ["$pendente", False]}, 1, 0]}}
+        }},
+        {"$match": {"_id": {"$ne": None}}},
+        {"$sort": {"total": -1}}
+    ]
+    por_canal_raw = await db.chamados.aggregate(pipeline_por_canal).to_list(50)
+    
+    # Formatar para o frontend
+    por_canal = []
+    for item in por_canal_raw:
+        canal_nome = item['_id'] or 'Sem Canal'
+        por_canal.append({
+            "canal": canal_nome,
+            "ar": item['pendentes'],  # AR = Aguardando Resposta (pendentes)
+            "a": item['total'] - item['pendentes'] - item['fechados'],  # A = Abertos (calculado)
+            "f": item['fechados']  # F = Fechados
+        })
+    
     return {
         "total": total, "pendentes": pendentes, "resolvidos": resolvidos,
         "tempo_medio": tempo_medio, "dias_mais_antigo": dias_mais_antigo,
         "data_mais_antigo": data_mais_antigo, "id_mais_antigo": id_mais_antigo,
-        "total_pedidos": total_pedidos, "por_mes": por_mes, "por_dia": por_dia
+        "total_pedidos": total_pedidos, "por_mes": por_mes, "por_dia": por_dia,
+        "por_canal": por_canal
     }
 
 @api_router.get("/dashboard/v2/volume-canal")
