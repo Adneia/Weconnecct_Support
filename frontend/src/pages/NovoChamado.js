@@ -2764,15 +2764,15 @@ const NovoAtendimento = () => {
                       <SelectValue placeholder="Selecione o motivo" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="" disabled className="text-muted-foreground">
-                        -- Motivos de Acompanhamento --
-                      </SelectItem>
+                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                        Motivos de Acompanhamento
+                      </div>
                       {MOTIVOS_PENDENCIA.filter(m => !MOTIVOS_FINALIZADORES.includes(m)).map(m => (
                         <SelectItem key={m} value={m}>{m}</SelectItem>
                       ))}
-                      <SelectItem value="" disabled className="text-muted-foreground border-t mt-2 pt-2">
-                        -- Motivos Finalizadores --
-                      </SelectItem>
+                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground border-t mt-2 pt-2">
+                        Motivos Finalizadores
+                      </div>
                       {MOTIVOS_FINALIZADORES.map(m => (
                         <SelectItem key={m} value={m} className="text-emerald-700 dark:text-emerald-400">
                           ✓ {m}
