@@ -2000,14 +2000,14 @@ const NovoAtendimento = () => {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label>Número do Pedido/Entrega</Label>
+                  <Label>CPF do Cliente <span className="text-red-500">*</span></Label>
                   <Input
                     value={formData.numero_pedido}
                     onChange={(e) => handleChange('numero_pedido', e.target.value)}
                     placeholder="Digite o CPF do cliente"
                     data-testid="input-numero-pedido-falha"
                   />
-                  <p className="text-xs text-amber-600 mt-1">* Registre o CPF do cliente neste campo</p>
+                  <p className="text-xs text-amber-600 mt-1">* Este campo será usado como identificador do atendimento</p>
                 </div>
                 <div>
                   <Label>Solicitação <span className="text-red-500">*</span></Label>
