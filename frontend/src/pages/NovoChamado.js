@@ -1581,6 +1581,11 @@ const NovoAtendimento = () => {
       newErrors.motivo = true;
       hasError = true;
     }
+    if (!formData.anotacoes.trim()) {
+      toast.error('Adicione uma anotação antes de salvar');
+      newErrors.anotacoes = true;
+      hasError = true;
+    }
     
     if (hasError) {
       setFieldErrors(newErrors);
@@ -2716,10 +2721,17 @@ const NovoAtendimento = () => {
             </Card>
 
             {/* Anotações */}
-            <Card>
+            <Card className={fieldErrors.anotacoes ? 'border-red-500' : ''}>
               <CardHeader className="pb-3">
-                <CardTitle className="text-lg">3. Anotações</CardTitle>
-                <CardDescription>Registre o histórico e observações do atendimento</CardDescription>
+                <CardTitle className="text-lg">
+                  3. Anotações <span className="text-red-500">*</span>
+                </CardTitle>
+                <CardDescription>
+                  {fieldErrors.anotacoes 
+                    ? <span className="text-red-500">⚠️ É obrigatório adicionar uma anotação para salvar o atendimento</span>
+                    : 'Registre o histórico e observações do atendimento'
+                  }
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 {/* Dados da Reversa */}
