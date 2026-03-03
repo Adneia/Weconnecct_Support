@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -163,82 +163,103 @@ const Dashboard = () => {
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <Users className="h-5 w-5" />
-            Atendimentos por Canal - Última Semana
+            Atendimentos por Canal - Últimos 10 Dias Úteis
           </CardTitle>
           <CardDescription>
-            Atendimentos abertos por dia (Segunda a Sexta)
+            AR = Abertos | A = Em Andamento | F = Fechados
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {/* Somatória por dia */}
-          <div className="flex gap-2 mb-4 p-3 bg-muted/50 rounded-lg overflow-x-auto">
-            <span className="text-sm text-muted-foreground whitespace-nowrap">Total por dia:</span>
-            {visaoGeral?.dias_headers?.map((dia) => (
-              <Badge key={dia.data} variant="outline" className="bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300 whitespace-nowrap">
-                {dia.dia_semana}: {visaoGeral?.totais_por_dia?.[dia.data] || 0}
-              </Badge>
-            ))}
-          </div>
-          
           <div className="overflow-x-auto">
-            <Table>
+            <Table className="min-w-[1400px]">
               <TableHeader>
+                {/* Linha com os dias */}
                 <TableRow>
-                  <TableHead className="font-semibold min-w-[150px]">Canal</TableHead>
-                  {visaoGeral?.dias_headers?.map((dia) => (
-                    <TableHead key={dia.data} className="text-center w-16 bg-amber-50 dark:bg-amber-950/30">
-                      <div className="flex flex-col items-center">
-                        <span className="text-amber-700 dark:text-amber-400 font-semibold">{dia.dia_semana}</span>
-                        <span className="text-xs text-muted-foreground">{dia.data}</span>
+                  <TableHead rowSpan={2} className="font-semibold min-w-[120px] align-bottom border-r">Canal</TableHead>
+                  {visaoGeral?.dias_headers?.map((dia, idx) => (
+                    <TableHead 
+                      key={dia.data} 
+                      colSpan={3} 
+                      className={`text-center border-r ${idx % 2 === 0 ? 'bg-slate-50 dark:bg-slate-900/30' : 'bg-slate-100 dark:bg-slate-800/30'}`}
+                    >
+                      <div className="flex flex-col items-center py-1">
+                        <span className="font-semibold text-sm">{dia.dia_num} ({dia.dia_semana})</span>
                       </div>
                     </TableHead>
                   ))}
-                  <TableHead className="text-center w-16 bg-blue-50 dark:bg-blue-950/30">
-                    <span className="text-blue-700 dark:text-blue-400 font-semibold">Total</span>
-                  </TableHead>
+                </TableRow>
+                {/* Linha com AR/A/F */}
+                <TableRow>
+                  {visaoGeral?.dias_headers?.map((dia, idx) => (
+                    <React.Fragment key={`header-${dia.data}`}>
+                      <TableHead className={`text-center w-10 text-xs px-1 ${idx % 2 === 0 ? 'bg-yellow-50 dark:bg-yellow-950/30' : 'bg-yellow-100 dark:bg-yellow-900/30'}`}>
+                        <span className="text-yellow-700 dark:text-yellow-400 font-semibold">AR</span>
+                      </TableHead>
+                      <TableHead className={`text-center w-10 text-xs px-1 ${idx % 2 === 0 ? 'bg-orange-50 dark:bg-orange-950/30' : 'bg-orange-100 dark:bg-orange-900/30'}`}>
+                        <span className="text-orange-700 dark:text-orange-400 font-semibold">A</span>
+                      </TableHead>
+                      <TableHead className={`text-center w-10 text-xs px-1 border-r ${idx % 2 === 0 ? 'bg-emerald-50 dark:bg-emerald-950/30' : 'bg-emerald-100 dark:bg-emerald-900/30'}`}>
+                        <span className="text-emerald-700 dark:text-emerald-400 font-semibold">F</span>
+                      </TableHead>
+                    </React.Fragment>
+                  ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {visaoGeral?.por_canal_dia?.map((item) => (
                   <TableRow key={item.canal} className="hover:bg-muted/50">
-                    <TableCell className="font-medium">{item.canal}</TableCell>
-                    {visaoGeral?.dias_headers?.map((dia) => (
-                      <TableCell key={dia.data} className="text-center bg-amber-50/30 dark:bg-amber-950/10">
-                        <span className={`font-semibold ${item.dias[dia.data] > 0 ? 'text-amber-700 dark:text-amber-400' : 'text-muted-foreground'}`}>
-                          {item.dias[dia.data] || 0}
-                        </span>
-                      </TableCell>
+                    <TableCell className="font-medium border-r text-sm">{item.canal}</TableCell>
+                    {visaoGeral?.dias_headers?.map((dia, idx) => (
+                      <React.Fragment key={`${item.canal}-${dia.data}`}>
+                        <TableCell className={`text-center px-1 ${idx % 2 === 0 ? 'bg-yellow-50/30' : 'bg-yellow-50/50'}`}>
+                          <span className={`text-sm ${item.dias[dia.data]?.ar > 0 ? 'font-semibold text-yellow-700' : 'text-muted-foreground'}`}>
+                            {item.dias[dia.data]?.ar || 0}
+                          </span>
+                        </TableCell>
+                        <TableCell className={`text-center px-1 ${idx % 2 === 0 ? 'bg-orange-50/30' : 'bg-orange-50/50'}`}>
+                          <span className={`text-sm ${item.dias[dia.data]?.a > 0 ? 'font-semibold text-orange-700' : 'text-muted-foreground'}`}>
+                            {item.dias[dia.data]?.a || 0}
+                          </span>
+                        </TableCell>
+                        <TableCell className={`text-center px-1 border-r ${idx % 2 === 0 ? 'bg-emerald-50/30' : 'bg-emerald-50/50'}`}>
+                          <span className={`text-sm ${item.dias[dia.data]?.f > 0 ? 'font-semibold text-emerald-700' : 'text-muted-foreground'}`}>
+                            {item.dias[dia.data]?.f || 0}
+                          </span>
+                        </TableCell>
+                      </React.Fragment>
                     ))}
-                    <TableCell className="text-center bg-blue-50/50 dark:bg-blue-950/20">
-                      <span className="font-bold text-blue-700 dark:text-blue-400">
-                        {item.total || 0}
-                      </span>
-                    </TableCell>
                   </TableRow>
                 ))}
                 {(!visaoGeral?.por_canal_dia || visaoGeral.por_canal_dia.length === 0) && (
                   <TableRow>
-                    <TableCell colSpan={(visaoGeral?.dias_headers?.length || 5) + 2} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={(visaoGeral?.dias_headers?.length || 5) * 3 + 1} className="text-center text-muted-foreground py-8">
                       Nenhum dado disponível
                     </TableCell>
                   </TableRow>
                 )}
                 {/* Linha de totais */}
                 {visaoGeral?.por_canal_dia?.length > 0 && (
-                  <TableRow className="bg-muted/50 font-bold">
-                    <TableCell className="font-bold">Total</TableCell>
-                    {visaoGeral?.dias_headers?.map((dia) => (
-                      <TableCell key={dia.data} className="text-center">
-                        <span className="font-bold text-amber-700 dark:text-amber-400">
-                          {visaoGeral?.totais_por_dia?.[dia.data] || 0}
-                        </span>
-                      </TableCell>
+                  <TableRow className="bg-muted/70 font-bold border-t-2">
+                    <TableCell className="font-bold border-r">Total</TableCell>
+                    {visaoGeral?.dias_headers?.map((dia, idx) => (
+                      <React.Fragment key={`total-${dia.data}`}>
+                        <TableCell className={`text-center px-1 ${idx % 2 === 0 ? 'bg-yellow-100/50' : 'bg-yellow-100/70'}`}>
+                          <span className="font-bold text-yellow-700">
+                            {visaoGeral?.totais_por_dia?.[dia.data]?.ar || 0}
+                          </span>
+                        </TableCell>
+                        <TableCell className={`text-center px-1 ${idx % 2 === 0 ? 'bg-orange-100/50' : 'bg-orange-100/70'}`}>
+                          <span className="font-bold text-orange-700">
+                            {visaoGeral?.totais_por_dia?.[dia.data]?.a || 0}
+                          </span>
+                        </TableCell>
+                        <TableCell className={`text-center px-1 border-r ${idx % 2 === 0 ? 'bg-emerald-100/50' : 'bg-emerald-100/70'}`}>
+                          <span className="font-bold text-emerald-700">
+                            {visaoGeral?.totais_por_dia?.[dia.data]?.f || 0}
+                          </span>
+                        </TableCell>
+                      </React.Fragment>
                     ))}
-                    <TableCell className="text-center bg-blue-100 dark:bg-blue-900/30">
-                      <span className="font-bold text-blue-700 dark:text-blue-400">
-                        {visaoGeral?.por_canal_dia?.reduce((acc, c) => acc + c.total, 0) || 0}
-                      </span>
-                    </TableCell>
                   </TableRow>
                 )}
               </TableBody>

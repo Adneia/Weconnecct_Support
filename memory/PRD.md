@@ -1,9 +1,10 @@
 # Emergent - Sistema de Atendimentos WeConnect
 
 ## Status: MVP Funcional + Dashboard Multi-Abas ✅
-**Última atualização:** 02/03/2026
+**Última atualização:** 03/03/2026
 
 ## Changelog Recente
+- ✅ **03/03/2026:** Tabela "Atendimentos por Canal" expandida de 5 para 10 dias úteis
 - ✅ Corrigido bug do SelectItem com value="" no Dashboard (erro de runtime)
 - ✅ Dashboard multi-abas completamente funcional com 7 abas
 - ✅ Backend com endpoints /api/dashboard/v2/* implementados

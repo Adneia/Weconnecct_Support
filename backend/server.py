@@ -1921,10 +1921,10 @@ async def get_dashboard_visao_geral(
     # Base Emergent
     total_pedidos = await db.pedidos_erp.count_documents({})
     
-    # Últimos 5 dias úteis (Segunda a Sexta)
+    # Últimos 10 dias úteis (Segunda a Sexta)
     dias_uteis = []
     dia_atual = now
-    while len(dias_uteis) < 5:
+    while len(dias_uteis) < 10:
         # Pegar apenas dias úteis (0=Seg, 4=Sex)
         if dia_atual.weekday() < 5:  # Segunda a Sexta
             dias_uteis.insert(0, dia_atual)  # Inserir no início para ordem crescente
@@ -1934,41 +1934,70 @@ async def get_dashboard_visao_geral(
     canais_unicos = await db.chamados.distinct("parceiro")
     canais_unicos = [c for c in canais_unicos if c]  # Remover None/vazio
     
-    # Para cada canal, contar atendimentos por dia
+    # Para cada canal, contar AR/A/F por dia
     por_canal_dia = []
-    totais_por_dia = {d.strftime("%d/%m"): 0 for d in dias_uteis}
+    totais_por_dia = {}
+    
+    for dia in dias_uteis:
+        dia_key = dia.strftime("%d/%m")
+        totais_por_dia[dia_key] = {"ar": 0, "a": 0, "f": 0}
     
     for canal in canais_unicos:
         canal_data = {"canal": canal, "dias": {}}
+        total_canal = {"ar": 0, "a": 0, "f": 0}
+        
         for dia in dias_uteis:
             dia_inicio = dia.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
             dia_fim = dia.replace(hour=23, minute=59, second=59, microsecond=999999).isoformat()
             
-            count = await db.chamados.count_documents({
+            # AR = Abertos naquele dia
+            ar = await db.chamados.count_documents({
                 "$or": [{"parceiro": canal}, {"canal_vendas": canal}],
                 "data_abertura": {"$gte": dia_inicio, "$lte": dia_fim}
             })
             
+            # A = Em andamento (pendentes) - contagem acumulada até aquele dia
+            a = await db.chamados.count_documents({
+                "$or": [{"parceiro": canal}, {"canal_vendas": canal}],
+                "pendente": True,
+                "data_abertura": {"$lte": dia_fim}
+            })
+            
+            # F = Fechados naquele dia
+            f = await db.chamados.count_documents({
+                "$or": [{"parceiro": canal}, {"canal_vendas": canal}],
+                "data_fechamento": {"$gte": dia_inicio, "$lte": dia_fim}
+            })
+            
             dia_key = dia.strftime("%d/%m")
-            canal_data["dias"][dia_key] = count
-            totais_por_dia[dia_key] += count
+            canal_data["dias"][dia_key] = {"ar": ar, "a": a, "f": f}
+            
+            total_canal["ar"] += ar
+            total_canal["f"] += f
+            totais_por_dia[dia_key]["ar"] += ar
+            totais_por_dia[dia_key]["a"] += a
+            totais_por_dia[dia_key]["f"] += f
+        
+        # Pegar o "A" do último dia como total em andamento
+        ultimo_dia_key = dias_uteis[-1].strftime("%d/%m")
+        total_canal["a"] = canal_data["dias"][ultimo_dia_key]["a"]
         
         # Só adicionar se tiver algum atendimento
-        total_canal = sum(canal_data["dias"].values())
-        if total_canal > 0:
+        if total_canal["ar"] > 0 or total_canal["a"] > 0 or total_canal["f"] > 0:
             canal_data["total"] = total_canal
             por_canal_dia.append(canal_data)
     
-    # Ordenar por total (decrescente)
-    por_canal_dia.sort(key=lambda x: x["total"], reverse=True)
+    # Ordenar por total de abertos (decrescente)
+    por_canal_dia.sort(key=lambda x: x["total"]["ar"] + x["total"]["a"], reverse=True)
     
     # Formatar cabeçalhos dos dias (com dia da semana)
     dias_headers = []
-    dias_semana_pt = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
+    dias_semana_pt = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"]
     for dia in dias_uteis:
         dias_headers.append({
             "data": dia.strftime("%d/%m"),
-            "dia_semana": dias_semana_pt[dia.weekday()]
+            "dia_semana": dias_semana_pt[dia.weekday()],
+            "dia_num": dia.strftime("%d")
         })
     
     # Atendimentos por Canal (totais - manter para compatibilidade)
