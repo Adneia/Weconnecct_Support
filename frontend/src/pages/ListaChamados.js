@@ -204,7 +204,7 @@ const ListaAtendimentos = () => {
       const dataToExport = data.map(item => ({
         'Fornecedor': item.fornecedor || '',
         'Produto': item.produto || '',
-        'ID': item.id_atendimento || '',
+        'ID': item.id_produto || '',
         'Qtd. Pedido': item.quantidade || '',
         'Cód. Fornecedor': item.codigo_fornecedor || '',
         'Entrega': item.entrega || '',

@@ -1238,7 +1238,7 @@ async def get_relatorio_ag_compras(current_user: dict = Depends(get_current_user
         item = {
             "fornecedor": pedido.get('departamento', '') if pedido else '',
             "produto": pedido.get('produto', '') if pedido else chamado.get('produto', ''),
-            "id_atendimento": chamado.get('id_atendimento', ''),
+            "id_produto": pedido.get('codigo_item_bseller', '') if pedido else '',
             "quantidade": pedido.get('quantidade', '') if pedido else '',
             "codigo_fornecedor": pedido.get('codigo_fornecedor', '') if pedido else '',
             "entrega": chamado.get('numero_pedido', ''),
