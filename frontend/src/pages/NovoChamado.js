@@ -1893,10 +1893,17 @@ const NovoAtendimento = () => {
                   Pedido #{pedidoErp.numero_pedido}
                 </CardTitle>
                 <div className="flex items-center gap-2">
-                  <Badge className={getStatusBadgeColor(pedidoErp.status_pedido)}>
-                    {pedidoErp.status_pedido || 'Sem status'}
-                  </Badge>
-                  <Button 
+                  <div className="flex flex-col items-end gap-1">
+                    <Badge className={getStatusBadgeColor(pedidoErp.status_pedido)}>
+                      {pedidoErp.status_pedido || 'Sem status'}
+                    </Badge>
+                    {pedidoErp.data_status && (
+                      <span className="text-xs text-muted-foreground">
+                        Últ. Ponto: {pedidoErp.data_status}
+                      </span>
+                    )}
+                  </div>
+                  <Button type="button"
                     variant="ghost" 
                     size="sm"
                     onClick={() => setPedidoExpanded(!pedidoExpanded)}
@@ -3085,7 +3092,7 @@ const NovoAtendimento = () => {
             </Button>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowTextoDialog(false)}>Fechar</Button>
+            <Button type="button" variant="outline" onClick={() => setShowTextoDialog(false)}>Fechar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
