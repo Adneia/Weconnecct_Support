@@ -197,7 +197,7 @@ class GoogleSheetsClient:
                 atendimento.get('status_cliente', ''),           # L - Status_Cliente
                 '',                                               # M - DT_Encerramento (empty on creation)
                 atendimento.get('reversa_codigo', ''),           # N - Reversa
-                atendimento.get('anotacoes', ''),                # O - Anotações
+                str(atendimento.get('anotacoes', '') or ''),     # O - Anotações (ensure string)
                 '',                                               # P - Status_Pedido
                 '',                                               # Q - Nota
                 '',                                               # R - Chave_Acesso
