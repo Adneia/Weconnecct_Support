@@ -1921,43 +1921,57 @@ async def get_dashboard_visao_geral(
     # Base Emergent
     total_pedidos = await db.pedidos_erp.count_documents({})
     
-    # Atendimentos por Canal na última semana (7 dias)
-    # Para cada dia, contamos: AR=Abertos, A=Em Andamento, F=Fechados naquele dia
-    dias_semana = []
-    totais = {"ar": 0, "a": 0, "f": 0}
+    # Últimos 5 dias úteis (Segunda a Sexta)
+    dias_uteis = []
+    dia_atual = now
+    while len(dias_uteis) < 5:
+        # Pegar apenas dias úteis (0=Seg, 4=Sex)
+        if dia_atual.weekday() < 5:  # Segunda a Sexta
+            dias_uteis.insert(0, dia_atual)  # Inserir no início para ordem crescente
+        dia_atual -= timedelta(days=1)
     
-    for i in range(6, -1, -1):  # Últimos 7 dias
-        dia = now - timedelta(days=i)
-        dia_inicio = dia.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
-        dia_fim = dia.replace(hour=23, minute=59, second=59, microsecond=999999).isoformat()
+    # Buscar todos os canais
+    canais_unicos = await db.chamados.distinct("parceiro")
+    canais_unicos = [c for c in canais_unicos if c]  # Remover None/vazio
+    
+    # Para cada canal, contar atendimentos por dia
+    por_canal_dia = []
+    totais_por_dia = {d.strftime("%d/%m"): 0 for d in dias_uteis}
+    
+    for canal in canais_unicos:
+        canal_data = {"canal": canal, "dias": {}}
+        for dia in dias_uteis:
+            dia_inicio = dia.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+            dia_fim = dia.replace(hour=23, minute=59, second=59, microsecond=999999).isoformat()
+            
+            count = await db.chamados.count_documents({
+                "$or": [{"parceiro": canal}, {"canal_vendas": canal}],
+                "data_abertura": {"$gte": dia_inicio, "$lte": dia_fim}
+            })
+            
+            dia_key = dia.strftime("%d/%m")
+            canal_data["dias"][dia_key] = count
+            totais_por_dia[dia_key] += count
         
-        # AR = Abertos (criados naquele dia)
-        ar = await db.chamados.count_documents({
-            "data_abertura": {"$gte": dia_inicio, "$lte": dia_fim}
-        })
-        
-        # F = Fechados naquele dia
-        f = await db.chamados.count_documents({
-            "data_fechamento": {"$gte": dia_inicio, "$lte": dia_fim}
-        })
-        
-        # A = Em andamento até aquele dia (pendentes naquela data)
-        # Simplificado: pendentes atuais - calculado depois
-        
-        totais["ar"] += ar
-        totais["f"] += f
-        
-        dias_semana.append({
+        # Só adicionar se tiver algum atendimento
+        total_canal = sum(canal_data["dias"].values())
+        if total_canal > 0:
+            canal_data["total"] = total_canal
+            por_canal_dia.append(canal_data)
+    
+    # Ordenar por total (decrescente)
+    por_canal_dia.sort(key=lambda x: x["total"], reverse=True)
+    
+    # Formatar cabeçalhos dos dias (com dia da semana)
+    dias_headers = []
+    dias_semana_pt = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
+    for dia in dias_uteis:
+        dias_headers.append({
             "data": dia.strftime("%d/%m"),
-            "dia_semana": dia.strftime("%a"),  # Seg, Ter, etc
-            "ar": ar,
-            "f": f
+            "dia_semana": dias_semana_pt[dia.weekday()]
         })
     
-    # Total em andamento atualmente
-    totais["a"] = pendentes
-    
-    # Atendimentos por Canal (separado)
+    # Atendimentos por Canal (totais - manter para compatibilidade)
     pipeline_por_canal = [
         {"$group": {
             "_id": {"$ifNull": ["$parceiro", "$canal_vendas"]},
@@ -1970,15 +1984,14 @@ async def get_dashboard_visao_geral(
     ]
     por_canal_raw = await db.chamados.aggregate(pipeline_por_canal).to_list(50)
     
-    # Formatar para o frontend - agora mostra por canal com os totais corretos
     por_canal = []
     for item in por_canal_raw:
         canal_nome = item['_id'] or 'Sem Canal'
         por_canal.append({
             "canal": canal_nome,
-            "ar": item['total'],  # AR = Total abertos (histórico)
-            "a": item['pendentes'],  # A = Em andamento
-            "f": item['fechados']  # F = Fechados
+            "ar": item['total'],
+            "a": item['pendentes'],
+            "f": item['fechados']
         })
     
     return {
@@ -1986,7 +1999,10 @@ async def get_dashboard_visao_geral(
         "tempo_medio": tempo_medio, "dias_mais_antigo": dias_mais_antigo,
         "data_mais_antigo": data_mais_antigo, "id_mais_antigo": id_mais_antigo,
         "total_pedidos": total_pedidos, "por_mes": por_mes, "por_dia": por_dia,
-        "por_canal": por_canal, "dias_semana": dias_semana, "totais_semana": totais
+        "por_canal": por_canal, 
+        "por_canal_dia": por_canal_dia,
+        "dias_headers": dias_headers,
+        "totais_por_dia": totais_por_dia
     }
 
 @api_router.get("/dashboard/v2/volume-canal")
