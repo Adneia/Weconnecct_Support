@@ -131,18 +131,25 @@ const ImportarPedidos = () => {
           headers: {
             ...getAuthHeader(),
             'Content-Type': 'multipart/form-data'
-          }
+          },
+          timeout: 300000, // 5 minutos de timeout para arquivos grandes
+          maxContentLength: Infinity,
+          maxBodyLength: Infinity
         }
       );
 
       setResult({ success: true, message: response.data.message });
       toast.success('Importação concluída!');
     } catch (error) {
+      console.error('Erro de importação:', error);
+      const errorMessage = error.response?.data?.detail 
+        || error.message 
+        || 'Erro ao importar arquivo';
       setResult({ 
         success: false, 
-        message: error.response?.data?.detail || 'Erro ao importar arquivo' 
+        message: errorMessage
       });
-      toast.error('Erro na importação');
+      toast.error(errorMessage);
     } finally {
       setUploading(false);
     }

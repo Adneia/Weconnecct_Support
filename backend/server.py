@@ -1666,7 +1666,13 @@ async def import_pedidos(file: UploadFile = File(...), current_user: dict = Depe
         raise HTTPException(status_code=400, detail="Arquivo não fornecido")
     
     filename = file.filename.lower()
-    content = await file.read()
+    
+    try:
+        content = await file.read()
+        logger.info(f"Arquivo recebido: {filename}, tamanho: {len(content)} bytes")
+    except Exception as e:
+        logger.error(f"Erro ao ler arquivo: {e}")
+        raise HTTPException(status_code=400, detail=f"Erro ao ler arquivo: {str(e)}")
     
     try:
         if filename.endswith('.csv'):
@@ -1675,6 +1681,8 @@ async def import_pedidos(file: UploadFile = File(...), current_user: dict = Depe
             df = pd.read_excel(io.BytesIO(content))
         else:
             raise HTTPException(status_code=400, detail="Formato de arquivo não suportado. Use CSV ou Excel.")
+        
+        logger.info(f"Arquivo parseado com sucesso: {len(df)} linhas")
         
         # Mapping for Base_Emergent format (Power Query export)
         # A=Entrega, B=Canal, C=Ped.Cliente, D=Ped.Externo, E=CPF, F=Nome, G=CEP, H=Cidade, I=UF
@@ -1692,7 +1700,7 @@ async def import_pedidos(file: UploadFile = File(...), current_user: dict = Depe
             'uf': ['uf'],  # Coluna I
             'fone_cliente': ['fone'],  # Coluna J
             'email_cliente': ['e-mail'],  # Coluna K
-            'status_pedido': ['status da entrega'],  # Coluna L - Status do pedido
+            'status_pedido': ['status da entrega', 'status'],  # Coluna L - Status do pedido
             'data_status': ['dt.ult.ponto de controle'],  # Coluna M
             'transportadora': ['transportadora'],  # Coluna N
             'departamento': ['nome_5'],  # Coluna O - Fornecedor/Marca
@@ -1745,12 +1753,13 @@ async def import_pedidos(file: UploadFile = File(...), current_user: dict = Depe
                     )
                     updated += 1
                 else:
-                    pedido = PedidoERP(**pedido_data)
+                    pedido = PedidoERPBase(**pedido_data)
                     pedido_dict = pedido.model_dump()
                     pedido_dict['ultima_atualizacao'] = pedido_dict['ultima_atualizacao'].isoformat()
                     await db.pedidos_erp.insert_one(pedido_dict)
                     imported += 1
             except Exception as e:
+                logger.error(f"Erro na linha {idx}: {str(e)} - dados: {pedido_data.get('numero_pedido', 'N/A')}")
                 errors += 1
                 continue
         
