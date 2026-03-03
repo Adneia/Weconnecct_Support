@@ -38,6 +38,42 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# ============== UTILITY FUNCTIONS ==============
+
+def calcular_dias_uteis(data_inicio, data_fim=None):
+    """Calcula a quantidade de dias úteis entre duas datas"""
+    if data_fim is None:
+        data_fim = datetime.now(timezone.utc)
+    
+    if isinstance(data_inicio, str):
+        try:
+            data_str = data_inicio.split()[0]
+            data_inicio = datetime.strptime(data_str, '%d/%m/%Y')
+            data_inicio = data_inicio.replace(tzinfo=timezone.utc)
+        except:
+            return 0
+    
+    if data_inicio.tzinfo is None:
+        data_inicio = data_inicio.replace(tzinfo=timezone.utc)
+    if data_fim.tzinfo is None:
+        data_fim = data_fim.replace(tzinfo=timezone.utc)
+    
+    dias_uteis = 0
+    data_atual = data_inicio
+    while data_atual < data_fim:
+        if data_atual.weekday() < 5:  # Segunda a Sexta
+            dias_uteis += 1
+        data_atual += timedelta(days=1)
+    
+    return dias_uteis
+
+def is_status_maiusculo(status):
+    """Verifica se o status está todo em maiúsculas (indicando tracking)"""
+    if not status:
+        return False
+    clean_status = status.strip()
+    return len(clean_status) >= 4 and clean_status.isupper()
+
 # Create the main app
 app = FastAPI(title="WeConnect Support API")
 api_router = APIRouter(prefix="/api")
@@ -1211,14 +1247,22 @@ async def list_pendentes(
 @api_router.get("/relatorios/ag-compras")
 async def get_relatorio_ag_compras(current_user: dict = Depends(get_current_user)):
     """
-    Relatório de chamados com motivo_pendencia = 'Ag. Compras'
-    Retorna dados do chamado + dados do pedido ERP
+    Relatório de chamados para Ag. Compras
+    Filtros:
+    - Status "Aguardando Estoque" há mais de X dias úteis (baseado no fornecedor)
+    - OU status "Pedido Aprovado" (sempre entra)
     """
     # Buscar chamados com Ag. Compras
     chamados = await db.chamados.find(
         {"motivo_pendencia": "Ag. Compras", "pendente": True},
         {"_id": 0}
     ).to_list(5000)
+    
+    # Carregar tabela de fornecedores com dias extras
+    fornecedores_dict = {}
+    fornecedores = await db.fornecedores.find({}, {"_id": 0}).to_list(100)
+    for f in fornecedores:
+        fornecedores_dict[f.get('nome', '').lower()] = f.get('dias_extras_padrao', 5)
     
     resultado = []
     for chamado in chamados:
@@ -1228,6 +1272,34 @@ async def get_relatorio_ag_compras(current_user: dict = Depends(get_current_user
             {"_id": 0}
         )
         
+        if not pedido:
+            continue
+        
+        status_pedido = pedido.get('status_pedido', '').lower()
+        data_status = pedido.get('data_status', '')
+        fornecedor = pedido.get('departamento', '')
+        
+        # Verificar se deve entrar no relatório
+        incluir = False
+        
+        # Regra 1: Pedido Aprovado sempre entra
+        if 'pedido aprovado' in status_pedido:
+            incluir = True
+        
+        # Regra 2: Aguardando Estoque com dias extras do fornecedor
+        elif 'aguardando estoque' in status_pedido:
+            # Buscar dias extras do fornecedor
+            dias_extras = fornecedores_dict.get(fornecedor.lower(), 5)
+            
+            # Calcular dias úteis desde o último status
+            dias_em_estoque = calcular_dias_uteis(data_status)
+            
+            if dias_em_estoque >= dias_extras:
+                incluir = True
+        
+        if not incluir:
+            continue
+        
         # Determinar status do atendimento
         status_atendimento = ""
         if chamado.get('retornar_chamado'):
@@ -1236,15 +1308,15 @@ async def get_relatorio_ag_compras(current_user: dict = Depends(get_current_user
             status_atendimento = "Verificar"
         
         item = {
-            "fornecedor": pedido.get('departamento', '') if pedido else '',
-            "produto": pedido.get('produto', '') if pedido else chamado.get('produto', ''),
-            "id_produto": pedido.get('codigo_item_bseller', '') if pedido else '',
-            "quantidade": pedido.get('quantidade', '') if pedido else '',
-            "codigo_fornecedor": pedido.get('codigo_fornecedor', '') if pedido else '',
+            "fornecedor": fornecedor,
+            "produto": pedido.get('produto', '') or chamado.get('produto', ''),
+            "id_produto": pedido.get('codigo_item_bseller', ''),
+            "quantidade": pedido.get('quantidade', ''),
+            "codigo_fornecedor": pedido.get('codigo_fornecedor', ''),
             "entrega": chamado.get('numero_pedido', ''),
             "status_atendimento": status_atendimento,
-            "status_entrega": pedido.get('status_pedido', '') if pedido else '',
-            "data_ultimo_ponto": pedido.get('data_status', '') if pedido else ''
+            "status_entrega": pedido.get('status_pedido', ''),
+            "data_ultimo_ponto": data_status
         }
         resultado.append(item)
     
@@ -1253,9 +1325,20 @@ async def get_relatorio_ag_compras(current_user: dict = Depends(get_current_user
 @api_router.get("/relatorios/ag-logistica")
 async def get_relatorio_ag_logistica(current_user: dict = Depends(get_current_user)):
     """
-    Relatório de chamados com motivo_pendencia = 'Ag. Logística'
-    Retorna dados do chamado + dados do pedido ERP
+    Relatório de chamados para Ag. Logística
+    Filtros:
+    - Status: "Entregue a transportadora", "Nota fiscal emitida", "Nota fiscal aprovada", 
+      ou "Separado" há mais de 2 dias úteis
+    - OU status "Pedido Aprovado" (sempre entra)
     """
+    # Status válidos para o relatório de logística
+    STATUS_LOGISTICA = [
+        'entregue a transportadora',
+        'nota fiscal emitida', 
+        'nota fiscal aprovada',
+        'separado'
+    ]
+    
     # Buscar chamados com Ag. Logística
     chamados = await db.chamados.find(
         {"motivo_pendencia": "Ag. Logística", "pendente": True},
@@ -1270,6 +1353,31 @@ async def get_relatorio_ag_logistica(current_user: dict = Depends(get_current_us
             {"_id": 0}
         )
         
+        if not pedido:
+            continue
+        
+        status_pedido = pedido.get('status_pedido', '').lower()
+        data_status = pedido.get('data_status', '')
+        
+        # Verificar se deve entrar no relatório
+        incluir = False
+        
+        # Regra 1: Pedido Aprovado sempre entra
+        if 'pedido aprovado' in status_pedido:
+            incluir = True
+        
+        # Regra 2: Status específicos há mais de 2 dias úteis
+        else:
+            for status_valido in STATUS_LOGISTICA:
+                if status_valido in status_pedido:
+                    dias_no_status = calcular_dias_uteis(data_status)
+                    if dias_no_status >= 2:
+                        incluir = True
+                        break
+        
+        if not incluir:
+            continue
+        
         # Determinar status do atendimento
         status_atendimento = ""
         if chamado.get('retornar_chamado'):
@@ -1279,10 +1387,10 @@ async def get_relatorio_ag_logistica(current_user: dict = Depends(get_current_us
         
         item = {
             "entrega": chamado.get('numero_pedido', ''),
-            "nota": pedido.get('nota_fiscal', '') if pedido else '',
-            "galpao": pedido.get('filial', '') if pedido else '',
-            "status_entrega": pedido.get('status_pedido', '') if pedido else '',
-            "data_ultimo_ponto": pedido.get('data_status', '') if pedido else '',
+            "nota": pedido.get('nota_fiscal', ''),
+            "galpao": pedido.get('filial', ''),
+            "status_entrega": pedido.get('status_pedido', ''),
+            "data_ultimo_ponto": data_status,
             "status_atendimento": status_atendimento
         }
         resultado.append(item)
@@ -1682,8 +1790,26 @@ async def import_pedidos(
     try:
         if filename.endswith('.csv'):
             df = pd.read_csv(io.BytesIO(content))
+            df_fornecedores = None
         elif filename.endswith(('.xlsx', '.xls')):
-            df = pd.read_excel(io.BytesIO(content))
+            # Tentar ler a aba principal (Tabelão ou primeira aba)
+            excel_file = pd.ExcelFile(io.BytesIO(content))
+            sheet_names = excel_file.sheet_names
+            logger.info(f"Abas encontradas: {sheet_names}")
+            
+            # Ler aba principal (Tabelão ou primeira)
+            if 'Tabelão' in sheet_names:
+                df = pd.read_excel(excel_file, sheet_name='Tabelão')
+            else:
+                df = pd.read_excel(excel_file, sheet_name=0)
+            
+            # Tentar ler aba Fornecedores se existir
+            df_fornecedores = None
+            if 'Fornecedores' in sheet_names:
+                df_fornecedores = pd.read_excel(excel_file, sheet_name='Fornecedores')
+                logger.info(f"Aba Fornecedores encontrada: {len(df_fornecedores)} registros")
+                # Importar fornecedores para o banco
+                await import_fornecedores(df_fornecedores)
         else:
             raise HTTPException(status_code=400, detail="Formato de arquivo não suportado. Use CSV ou Excel.")
         
@@ -1724,6 +1850,51 @@ async def import_pedidos(
     
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Erro ao processar arquivo: {str(e)}")
+
+# Função para importar tabela de fornecedores com dias extras
+async def import_fornecedores(df):
+    """Importa tabela de fornecedores com dias extras padrão"""
+    try:
+        df.columns = df.columns.str.strip().str.lower()
+        
+        for idx, row in df.iterrows():
+            fornecedor = None
+            dias_extras = 5  # Default
+            
+            # Tentar encontrar coluna de fornecedor
+            for col in ['fornecedor', 'nome', 'nome_fornecedor']:
+                if col in df.columns:
+                    fornecedor = str(row.get(col, '')).strip()
+                    break
+            
+            # Tentar encontrar coluna de dias extras
+            for col in ['dias extras padrão (dias úteis)', 'dias extras padrão', 'dias extras', 'dias_extras']:
+                if col in df.columns:
+                    val = row.get(col)
+                    if pd.notna(val):
+                        dias_extras = int(val)
+                    break
+            
+            if fornecedor and fornecedor.lower() != 'nan':
+                await db.fornecedores.update_one(
+                    {"nome": fornecedor},
+                    {"$set": {
+                        "nome": fornecedor,
+                        "dias_extras_padrao": dias_extras,
+                        "ultima_atualizacao": datetime.now(timezone.utc).isoformat()
+                    }},
+                    upsert=True
+                )
+        
+        logger.info("Fornecedores importados com sucesso")
+    except Exception as e:
+        logger.error(f"Erro ao importar fornecedores: {e}")
+
+@api_router.get("/fornecedores")
+async def list_fornecedores(current_user: dict = Depends(get_current_user)):
+    """Lista todos os fornecedores com seus dias extras padrão"""
+    fornecedores = await db.fornecedores.find({}, {"_id": 0}).sort("nome", 1).to_list(100)
+    return fornecedores
 
 # Função auxiliar para processamento síncrono
 async def process_import_sync(df):
@@ -1773,6 +1944,9 @@ async def process_import_sync(df):
             logger.error(f"Erro na linha {idx}: {str(e)}")
             errors += 1
             continue
+    
+    # Executar atualização automática de motivos de pendência
+    await atualizar_motivos_pendencia_automatico()
     
     return {
         "message": f"Importação concluída: {imported} novos, {updated} atualizados, {skipped_old} ignorados (>6 meses), {errors} erros",
@@ -1859,6 +2033,75 @@ async def process_import_background(import_id: str, df):
         }}
     )
     logger.info(f"[{import_id}] Importação concluída: {imported} novos, {updated} atualizados, {skipped_old} ignorados, {errors} erros")
+    
+    # Executar atualização automática de motivos de pendência
+    await atualizar_motivos_pendencia_automatico()
+
+async def atualizar_motivos_pendencia_automatico():
+    """
+    Atualiza automaticamente os motivos de pendência dos chamados
+    baseado nas mudanças de status dos pedidos ERP
+    """
+    logger.info("Iniciando atualização automática de motivos de pendência...")
+    atualizacoes = {"compras_para_logistica": 0, "logistica_para_enviado": 0, 
+                   "enviado_para_entregue": 0, "enviado_para_ag_transportadora": 0}
+    
+    # Buscar todos os chamados pendentes
+    chamados = await db.chamados.find({"pendente": True}, {"_id": 0}).to_list(5000)
+    
+    for chamado in chamados:
+        numero_pedido = chamado.get('numero_pedido')
+        motivo_atual = chamado.get('motivo_pendencia', '')
+        
+        if not numero_pedido:
+            continue
+        
+        # Buscar pedido ERP atualizado
+        pedido = await db.pedidos_erp.find_one({"numero_pedido": numero_pedido}, {"_id": 0})
+        if not pedido:
+            continue
+        
+        status_pedido = pedido.get('status_pedido', '')
+        data_status = pedido.get('data_status', '')
+        novo_motivo = None
+        
+        # Regra 1: Ag. Compras → Ag. Logística
+        # Quando sair de "Aguardando estoque" para qualquer outro status
+        if motivo_atual == 'Ag. Compras':
+            if status_pedido and status_pedido.lower() != 'aguardando estoque':
+                novo_motivo = 'Ag. Logística'
+                atualizacoes['compras_para_logistica'] += 1
+        
+        # Regra 2: Ag. Logística → Enviado
+        # Quando status mudar para MAIÚSCULAS (ex: SAIDA DA FILIAL)
+        elif motivo_atual == 'Ag. Logística':
+            if is_status_maiusculo(status_pedido):
+                novo_motivo = 'Enviado'
+                atualizacoes['logistica_para_enviado'] += 1
+        
+        # Regra 3 e 4: Para status "Enviado"
+        elif motivo_atual == 'Enviado':
+            # Regra 3: Enviado → Entregue (quando status = "Entregue ao cliente")
+            if status_pedido and 'entregue' in status_pedido.lower():
+                novo_motivo = 'Entregue'
+                atualizacoes['enviado_para_entregue'] += 1
+            
+            # Regra 4: Enviado → Ag. Transportadora (status maiúsculo sem mudança por 3+ dias úteis)
+            elif is_status_maiusculo(status_pedido) and data_status:
+                dias_sem_mudanca = calcular_dias_uteis(data_status)
+                if dias_sem_mudanca >= 3:
+                    novo_motivo = 'Ag. Transportadora'
+                    atualizacoes['enviado_para_ag_transportadora'] += 1
+        
+        # Aplicar atualização se necessário
+        if novo_motivo:
+            await db.chamados.update_one(
+                {"id_atendimento": chamado.get('id_atendimento')},
+                {"$set": {"motivo_pendencia": novo_motivo}}
+            )
+            logger.info(f"Chamado {chamado.get('id_atendimento')}: {motivo_atual} → {novo_motivo}")
+    
+    logger.info(f"Atualização automática concluída: {atualizacoes}")
 
 def get_column_mapping():
     """Retorna o mapeamento de colunas para importação"""
