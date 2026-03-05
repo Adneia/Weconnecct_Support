@@ -137,6 +137,7 @@ class ChamadoBase(BaseModel):
     solicitacao: Optional[str] = None  # Número da solicitação do parceiro
     parceiro: Optional[str] = None  # Canal (CSU, Livelo, LL Loyalty, etc)
     categoria: str  # Uma das 9 categorias
+    categoria_inicial: Optional[str] = None  # Categoria original (não altera)
     motivo: Optional[str] = None  # Motivo específico
     anotacoes: Optional[str] = None  # Histórico completo
     pendente: bool = True  # SIM/NÃO
@@ -461,6 +462,7 @@ Infelizmente, durante a preparação do item "[PRODUTO]" ([ENTREGA]), identifica
 Poderia, por gentileza, seguir com o cancelamento e o estorno ao cliente?
 
 Atenciosamente,
+
 Letícia Martelo""",
 
     "Falha de Compras - Cancelamento sem Estoque": """Olá,
@@ -1063,7 +1065,32 @@ Por favor verificar o ocorrido entre Vtex e [PARCEIRO].
 
 Seguimos a disposição.
 Atenciosamente,
-[ASSINATURA]"""
+[ASSINATURA]""",
+
+    "Devolvido - Problema Transportadora": """Olá,
+
+Lamentavelmente, o pedido está sendo devolvido ao nosso estoque devido a PROBLEMA OPERACIONAL da transportadora. Por gentileza, poderiam confirmar o endereço completo com ponto de referência para realização de um novo envio?
+
+Nossas sinceras desculpas.
+Seguimos a disposição.
+Atenciosamente,
+Letícia Martelo""",
+
+    "Devolvido - Cancelamento e Estorno": """Olá,
+
+O pedido foi recebido em nosso galpão. Favor seguir com o cancelamento e estorno ao cliente.
+
+Estamos à disposição para qualquer dúvida.
+Atenciosamente,
+Letícia Martelo""",
+
+    "Devolvido - Reenvio": """Olá,
+
+Recebemos o pedido em nosso galpão e estamos providenciando o envio de um novo item ao cliente. Assim que possível, enviaremos o link de rastreamento.
+
+Estamos à disposição para qualquer dúvida.
+Atenciosamente,
+Letícia Martelo"""
 }
 
 @api_router.get("/textos-padroes/{categoria}")
@@ -1227,6 +1254,10 @@ async def create_chamado(
     chamado.id_atendimento = id_atendimento
     chamado.criado_por_id = current_user['id']
     chamado.criado_por_nome = current_user['name']
+    
+    # Salvar categoria inicial (primeira categoria atribuída)
+    if not chamado.categoria_inicial:
+        chamado.categoria_inicial = chamado.categoria
     
     # Buscar dados do pedido na Base_Emergent
     pedido = await db.pedidos_erp.find_one({"numero_pedido": chamado_data.numero_pedido}, {"_id": 0})

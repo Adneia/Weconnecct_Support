@@ -31,7 +31,7 @@ const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/chamados/novo', label: 'Novo Atendimento', icon: Plus },
   { path: '/chamados', label: 'Atendimentos', icon: List },
-  { path: '/textos-padroes', label: 'Textos Padrões', icon: FileText },
+  { path: '/textos-padroes', label: 'Textos Padrões', icon: FileText, adminOnly: true },
   { path: '/importar', label: 'Base ELO', icon: Upload },
 ];
 
@@ -42,6 +42,14 @@ export const Layout = ({ children }) => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  
+  // Filtrar itens de navegação baseado no usuário
+  const filteredNavItems = navItems.filter(item => {
+    if (item.adminOnly) {
+      return user?.email === 'adneia@weconnect360.com.br';
+    }
+    return true;
+  });
 
   const handleLogout = () => {
     logout();
@@ -81,7 +89,7 @@ export const Layout = ({ children }) => {
 
         {/* Navigation */}
         <nav className="flex-1 p-3 space-y-1">
-          {navItems.map((item) => {
+          {filteredNavItems.map((item) => {
             const isActive = location.pathname === item.path || 
               (item.path === '/chamados' && location.pathname.startsWith('/chamados/') && item.path !== '/chamados/novo');
             const Icon = item.icon;
@@ -157,7 +165,7 @@ export const Layout = ({ children }) => {
         </div>
 
         <nav className="flex-1 p-3 space-y-1">
-          {navItems.map((item) => {
+          {filteredNavItems.map((item) => {
             const isActive = location.pathname === item.path;
             const Icon = item.icon;
             

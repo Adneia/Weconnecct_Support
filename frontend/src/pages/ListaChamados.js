@@ -59,7 +59,6 @@ const ListaAtendimentos = () => {
   const [filters, setFilters] = useState({
     pendente: '',
     categoria: '',
-    atendente: '',
     retornar_chamado: '',
     verificar_adneia: '',
     motivo_pendencia: '',
@@ -92,7 +91,6 @@ const ListaAtendimentos = () => {
       const params = new URLSearchParams();
       if (filters.pendente !== '') params.append('pendente', filters.pendente);
       if (filters.categoria) params.append('categoria', filters.categoria);
-      if (filters.atendente) params.append('atendente', filters.atendente);
       if (filters.retornar_chamado !== '') params.append('retornar_chamado', filters.retornar_chamado);
       if (filters.verificar_adneia !== '') params.append('verificar_adneia', filters.verificar_adneia);
       if (filters.motivo_pendencia) params.append('motivo_pendencia', filters.motivo_pendencia);
@@ -124,7 +122,7 @@ const ListaAtendimentos = () => {
   };
 
   const clearFilters = () => {
-    setFilters({ pendente: '', categoria: '', atendente: '', retornar_chamado: '', verificar_adneia: '', motivo_pendencia: '', parceiro: '' });
+    setFilters({ pendente: '', categoria: '', retornar_chamado: '', verificar_adneia: '', motivo_pendencia: '', parceiro: '' });
     setGlobalFilter('');
   };
 
@@ -526,18 +524,6 @@ const ListaAtendimentos = () => {
                     <SelectItem value="all">Todas</SelectItem>
                     {CATEGORIAS.map(c => (
                       <SelectItem key={c} value={c}>{c}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={filters.atendente} onValueChange={(v) => setFilters(f => ({ ...f, atendente: v === 'all' ? '' : v }))}>
-                  <SelectTrigger data-testid="filter-atendente">
-                    <SelectValue placeholder="Atendente" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos</SelectItem>
-                    {ATENDENTES.map(a => (
-                      <SelectItem key={a} value={a}>{a}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

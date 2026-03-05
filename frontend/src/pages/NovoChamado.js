@@ -59,14 +59,16 @@ const MOTIVOS_PENDENCIA = [
   "Em devolução",
   "Ag. Confirmação de Entrega",
   "Ag. Parceiro",
+  "Ag. Transportadora",
   // --- Motivos que finalizam o atendimento ---
   "Entregue",
   "Estornado",
-  "Atendido"
+  "Atendido",
+  "Devolvido"
 ];
 
 // Motivos que permitem encerrar o atendimento
-const MOTIVOS_FINALIZADORES = ["Entregue", "Estornado", "Atendido", "Em devolução"];
+const MOTIVOS_FINALIZADORES = ["Entregue", "Estornado", "Atendido", "Em devolução", "Devolvido"];
 
 // Textos para Motivo da Pendência
 const TEXTOS_MOTIVO_PENDENCIA = {
@@ -1017,6 +1019,7 @@ const NovoAtendimento = () => {
     solicitacao: '',
     parceiro: '',
     categoria: '',
+    categoria_inicial: '',
     motivo: '',
     anotacoes: '',
     atendente: '' // Será preenchido automaticamente pelo useEffect
@@ -1078,6 +1081,7 @@ const NovoAtendimento = () => {
         solicitacao: atd.solicitacao || '',
         parceiro: atd.parceiro || atd.canal_vendas || '',
         categoria: atd.categoria || '',
+        categoria_inicial: atd.categoria_inicial || atd.categoria || '',
         motivo: atd.motivo || '',
         anotacoes: atd.anotacoes || '',
         atendente: atd.atendente || 'Letícia Martelo',
@@ -2252,6 +2256,9 @@ const NovoAtendimento = () => {
                   <div className="sm:col-span-2 lg:col-span-3">
                     <Label className={fieldErrors.categoria ? 'text-red-600' : ''}>
                       Categoria <span className="text-red-500">*</span>
+                      {isEditMode && formData.categoria_inicial && formData.categoria !== formData.categoria_inicial && (
+                        <span className="text-xs text-muted-foreground ml-2">(Inicial: {formData.categoria_inicial})</span>
+                      )}
                     </Label>
                     <Select 
                       value={formData.categoria} 
@@ -3272,7 +3279,7 @@ const NovoAtendimento = () => {
           </DialogHeader>
           {existingAtendimento && (
             <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
-              <p className="font-medium">ID: {existingAtendimento.id_atendimento}</p>
+              <p className="font-medium">Solicitação: {existingAtendimento.solicitacao || 'N/A'}</p>
               <p className="text-sm text-muted-foreground">Entrega: {existingAtendimento.numero_pedido}</p>
               <p className="text-sm text-muted-foreground">Categoria: {existingAtendimento.categoria}</p>
               <p className="text-sm text-muted-foreground">Status: {existingAtendimento.pendente ? 'Pendente' : 'Resolvido'}</p>
