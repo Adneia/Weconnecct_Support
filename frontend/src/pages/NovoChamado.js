@@ -161,7 +161,39 @@ Lamentamos muito o ocorrido e os transtornos causados. Gostaríamos de saber se 
 
 Seguimos à disposição.
 Atenciosamente,
-[ASSINATURA]`
+[ASSINATURA]`,
+
+  "Devolvido - Problema Transportadora": `Olá,
+
+Lamentavelmente, o pedido está sendo devolvido ao nosso estoque devido a PROBLEMA OPERACIONAL da transportadora. Por gentileza, poderiam confirmar o endereço completo com ponto de referência para realização de um novo envio?
+
+Nossas sinceras desculpas.
+
+Seguimos a disposição.
+
+Atenciosamente,
+
+Letícia Martelo`,
+
+  "Devolvido - Cancelamento e Estorno": `Olá,
+
+O pedido foi recebido em nosso galpão. Favor seguir com o cancelamento e estorno ao cliente.
+
+Estamos à disposição para qualquer dúvida.
+
+Atenciosamente,
+
+Letícia Martelo`,
+
+  "Devolvido - Reenvio": `Olá,
+
+Recebemos o pedido em nosso galpão e estamos providenciando o envio de um novo item ao cliente. Assim que possível, enviaremos o link de rastreamento.
+
+Estamos à disposição para qualquer dúvida.
+
+Atenciosamente,
+
+Letícia Martelo`
 };
 
 // Função para detectar categoria e motivo baseado no status do pedido
@@ -2256,10 +2288,13 @@ const NovoAtendimento = () => {
                   <div className="sm:col-span-2 lg:col-span-3">
                     <Label className={fieldErrors.categoria ? 'text-red-600' : ''}>
                       Categoria <span className="text-red-500">*</span>
-                      {isEditMode && formData.categoria_inicial && formData.categoria !== formData.categoria_inicial && (
-                        <span className="text-xs text-muted-foreground ml-2">(Inicial: {formData.categoria_inicial})</span>
-                      )}
                     </Label>
+                    {isEditMode && formData.categoria_inicial && (
+                      <p className="text-xs text-amber-600 mb-1">
+                        Categoria inicial: <strong>{formData.categoria_inicial}</strong>
+                        {formData.categoria !== formData.categoria_inicial && ' (alterada)'}
+                      </p>
+                    )}
                     <Select 
                       value={formData.categoria} 
                       onValueChange={(v) => {
@@ -2392,7 +2427,7 @@ const NovoAtendimento = () => {
                           type="button" 
                           variant="outline" 
                           size="sm"
-                          onClick={() => loadTextoFalhaProducao('Sem Rastreio')}
+                          onClick={() => loadTextoPadrao('Falha de Compras')}
                           data-testid="btn-texto-padrao"
                         >
                           <MessageSquare className="h-4 w-4 mr-2" />
@@ -3083,6 +3118,38 @@ const NovoAtendimento = () => {
                           onClick={() => loadTextoMotivoPendencia('Em devolução - Confirmar Reenvio')}
                         >
                           Confirmar Reenvio
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {motivoPendencia === 'Devolvido' && (
+                    <div className="mt-3 p-3 rounded-lg bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 space-y-2">
+                      <Label className="text-sm font-medium text-purple-800 dark:text-purple-200">Textos Padrão - Devolvido</Label>
+                      <div className="flex flex-wrap gap-2">
+                        <Button 
+                          type="button" 
+                          variant={selectedMotivoPendencia === 'Devolvido - Problema Transportadora' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => loadTextoMotivoPendencia('Devolvido - Problema Transportadora')}
+                        >
+                          Problema Transportadora
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant={selectedMotivoPendencia === 'Devolvido - Cancelamento e Estorno' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => loadTextoMotivoPendencia('Devolvido - Cancelamento e Estorno')}
+                        >
+                          Cancelamento e Estorno
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant={selectedMotivoPendencia === 'Devolvido - Reenvio' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => loadTextoMotivoPendencia('Devolvido - Reenvio')}
+                        >
+                          Reenvio
                         </Button>
                       </div>
                     </div>

@@ -1072,8 +1072,11 @@ Atenciosamente,
 Lamentavelmente, o pedido está sendo devolvido ao nosso estoque devido a PROBLEMA OPERACIONAL da transportadora. Por gentileza, poderiam confirmar o endereço completo com ponto de referência para realização de um novo envio?
 
 Nossas sinceras desculpas.
+
 Seguimos a disposição.
+
 Atenciosamente,
+
 Letícia Martelo""",
 
     "Devolvido - Cancelamento e Estorno": """Olá,
@@ -1081,7 +1084,9 @@ Letícia Martelo""",
 O pedido foi recebido em nosso galpão. Favor seguir com o cancelamento e estorno ao cliente.
 
 Estamos à disposição para qualquer dúvida.
+
 Atenciosamente,
+
 Letícia Martelo""",
 
     "Devolvido - Reenvio": """Olá,
@@ -1089,7 +1094,9 @@ Letícia Martelo""",
 Recebemos o pedido em nosso galpão e estamos providenciando o envio de um novo item ao cliente. Assim que possível, enviaremos o link de rastreamento.
 
 Estamos à disposição para qualquer dúvida.
+
 Atenciosamente,
+
 Letícia Martelo"""
 }
 
