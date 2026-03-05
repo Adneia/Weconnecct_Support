@@ -76,13 +76,13 @@ const Login = () => {
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="text-center pb-2">
           <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-lg">W</span>
+            <span className="text-primary-foreground font-bold text-lg">E</span>
           </div>
           <CardTitle className="text-2xl font-bold tracking-tight font-['Plus_Jakarta_Sans']">
-            WeConnect Support
+            WeConnect Support - ELO
           </CardTitle>
           <CardDescription>
-            Sistema de Controle de Chamados
+            Gestão de Atendimento ao Cliente
           </CardDescription>
         </CardHeader>
         <CardContent>

@@ -248,7 +248,7 @@ const ImportarPedidos = () => {
       {/* Instructions */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Instruções - Tabelão WeConnect</CardTitle>
+          <CardTitle className="text-lg">Instruções - Tabelão ELO</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4 text-sm">

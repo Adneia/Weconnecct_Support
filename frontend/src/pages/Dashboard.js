@@ -115,7 +115,7 @@ const Dashboard = () => {
             <p className="text-xs text-muted-foreground mt-1">em aberto</p>
           </CardContent>
         </Card>
-        <StatCard title="Base Emergent" value={visaoGeral?.total_pedidos?.toLocaleString() || 0} subtitle="pedidos" icon={Database} color="purple" />
+        <StatCard title="Base ELO" value={visaoGeral?.total_pedidos?.toLocaleString() || 0} subtitle="pedidos" icon={Database} color="purple" />
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -654,7 +654,7 @@ const Dashboard = () => {
       {/* Header com Filtros Globais */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight font-['Plus_Jakarta_Sans']">Dashboard Emergent</h1>
+          <h1 className="text-2xl font-bold tracking-tight font-['Plus_Jakarta_Sans']">Dashboard ELO</h1>
           <p className="text-sm text-muted-foreground">
             {lastUpdated && `Atualizado: ${lastUpdated.toLocaleTimeString('pt-BR')}`}
           </p>

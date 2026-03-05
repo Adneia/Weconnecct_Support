@@ -23,14 +23,16 @@ import {
   Moon,
   LogOut,
   User,
-  ChevronLeft
+  ChevronLeft,
+  FileText
 } from 'lucide-react';
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/chamados/novo', label: 'Novo Atendimento', icon: Plus },
   { path: '/chamados', label: 'Atendimentos', icon: List },
-  { path: '/importar', label: 'Base Emergent', icon: Upload },
+  { path: '/textos-padroes', label: 'Textos Padrões', icon: FileText },
+  { path: '/importar', label: 'Base ELO', icon: Upload },
 ];
 
 export const Layout = ({ children }) => {
@@ -63,7 +65,7 @@ export const Layout = ({ children }) => {
         <div className="h-16 flex items-center justify-between px-4 border-b border-border">
           {sidebarOpen && (
             <span className="font-bold text-lg tracking-tight font-['Plus_Jakarta_Sans']">
-              WeConnect
+              ELO
             </span>
           )}
           <Button
@@ -193,7 +195,7 @@ export const Layout = ({ children }) => {
               <Menu className="h-5 w-5" />
             </Button>
             <h1 className="text-lg font-semibold tracking-tight font-['Plus_Jakarta_Sans'] hidden sm:block">
-              Emergent - Sistema de Atendimentos
+              ELO - Sistema de Atendimentos
             </h1>
           </div>
 

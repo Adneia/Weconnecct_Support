@@ -62,9 +62,11 @@ const ListaAtendimentos = () => {
     atendente: '',
     retornar_chamado: '',
     verificar_adneia: '',
-    motivo_pendencia: ''
+    motivo_pendencia: '',
+    parceiro: ''
   });
   const [showFilters, setShowFilters] = useState(false);
+  const [parceiros, setParceiros] = useState([]);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -94,6 +96,7 @@ const ListaAtendimentos = () => {
       if (filters.retornar_chamado !== '') params.append('retornar_chamado', filters.retornar_chamado);
       if (filters.verificar_adneia !== '') params.append('verificar_adneia', filters.verificar_adneia);
       if (filters.motivo_pendencia) params.append('motivo_pendencia', filters.motivo_pendencia);
+      if (filters.parceiro) params.append('parceiro', filters.parceiro);
       if (globalFilter) {
         params.append('search', globalFilter);
         params.append('search_type', searchType);
@@ -104,6 +107,10 @@ const ListaAtendimentos = () => {
         { headers: getAuthHeader() }
       );
       setAtendimentos(response.data);
+      
+      // Extrair lista de parceiros únicos
+      const parceirosUnicos = [...new Set(response.data.map(a => a.parceiro).filter(p => p))].sort();
+      setParceiros(parceirosUnicos);
     } catch (error) {
       toast.error('Erro ao carregar atendimentos');
     } finally {
@@ -117,7 +124,7 @@ const ListaAtendimentos = () => {
   };
 
   const clearFilters = () => {
-    setFilters({ pendente: '', categoria: '', atendente: '', retornar_chamado: '', verificar_adneia: '', motivo_pendencia: '' });
+    setFilters({ pendente: '', categoria: '', atendente: '', retornar_chamado: '', verificar_adneia: '', motivo_pendencia: '', parceiro: '' });
     setGlobalFilter('');
   };
 
@@ -546,6 +553,18 @@ const ListaAtendimentos = () => {
                     ))}
                   </SelectContent>
                 </Select>
+
+                <Select value={filters.parceiro} onValueChange={(v) => setFilters(f => ({ ...f, parceiro: v === 'all' ? '' : v }))}>
+                  <SelectTrigger data-testid="filter-parceiro">
+                    <SelectValue placeholder="Parceiro/Canal" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos Parceiros</SelectItem>
+                    {parceiros.map(p => (
+                      <SelectItem key={p} value={p}>{p}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
           </div>
@@ -561,11 +580,12 @@ const ListaAtendimentos = () => {
                 <TableRow>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Entrega</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Cliente</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Parceiro</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Parceiro / Solicitação</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Categoria</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Motivo Pend.</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Reversa</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Atendente</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Status Pedido</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Últ. Status</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Status</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Dias</TableHead>
                 </TableRow>
@@ -588,7 +608,7 @@ const ListaAtendimentos = () => {
                       data-testid={`row-${atd.id}`}
                     >
                       <TableCell className="font-medium">
-                        #{atd.numero_pedido}
+                        {atd.numero_pedido}
                       </TableCell>
                       <TableCell className="text-sm">
                         <div>
@@ -599,7 +619,12 @@ const ListaAtendimentos = () => {
                         </div>
                       </TableCell>
                       <TableCell className="text-sm">
-                        {atd.parceiro || atd.canal_vendas || '-'}
+                        <div>
+                          <p>{atd.parceiro || atd.canal_vendas || '-'}</p>
+                          {atd.solicitacao && (
+                            <p className="text-xs text-muted-foreground">{atd.solicitacao}</p>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Badge className={getCategoryBadgeColor(atd.categoria)}>
@@ -613,7 +638,10 @@ const ListaAtendimentos = () => {
                         {atd.codigo_reversa || '-'}
                       </TableCell>
                       <TableCell className="text-sm">
-                        {atd.atendente || '-'}
+                        {atd.status_pedido || '-'}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {atd.data_ultimo_status ? atd.data_ultimo_status.split(' ')[0] : '-'}
                       </TableCell>
                       <TableCell>
                         {atd.retornar_chamado && (
@@ -645,7 +673,7 @@ const ListaAtendimentos = () => {
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
+                    <TableCell colSpan={10} className="h-32 text-center text-muted-foreground">
                       Nenhum atendimento encontrado
                     </TableCell>
                   </TableRow>

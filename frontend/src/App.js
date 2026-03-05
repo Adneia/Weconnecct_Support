@@ -13,6 +13,7 @@ import ListaChamados from "./pages/ListaChamados";
 import DetalhesChamado from "./pages/DetalhesChamado";
 import ImportarPedidos from "./pages/ImportarPedidos";
 import Perfil from "./pages/Perfil";
+import TextosPadroes from "./pages/TextosPadroes";
 
 // Protected Route wrapper
 const ProtectedRoute = ({ children }) => {
@@ -119,6 +120,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Perfil />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/textos-padroes"
+        element={
+          <ProtectedRoute>
+            <TextosPadroes />
           </ProtectedRoute>
         }
       />

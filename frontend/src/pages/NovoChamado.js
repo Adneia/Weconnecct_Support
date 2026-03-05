@@ -1008,6 +1008,9 @@ const NovoAtendimento = () => {
   });
   const [showDevolucaoDialog, setShowDevolucaoDialog] = useState(false);
   const [devolucaoRegistrada, setDevolucaoRegistrada] = useState(false);
+  const [existingAtendimento, setExistingAtendimento] = useState(null);
+  const [showExistingDialog, setShowExistingDialog] = useState(false);
+  const [categoriaInicial, setCategoriaInicial] = useState('');
   
   const [formData, setFormData] = useState({
     numero_pedido: '',
@@ -1136,7 +1139,24 @@ const NovoAtendimento = () => {
   };
 
   // Função para processar pedido e auto-preencher campos
-  const processarPedido = (pedido) => {
+  const processarPedido = async (pedido) => {
+    // Verificar se já existe atendimento para esta entrega (somente em modo novo)
+    if (!isEditMode) {
+      try {
+        const response = await axios.get(
+          `${API_URL}/api/chamados?search=${pedido.numero_pedido}&search_type=entrega`,
+          { headers: getAuthHeader() }
+        );
+        if (response.data && response.data.length > 0) {
+          // Encontrou atendimentos existentes
+          setExistingAtendimento(response.data[0]);
+          setShowExistingDialog(true);
+        }
+      } catch (error) {
+        console.error('Erro ao verificar atendimentos existentes:', error);
+      }
+    }
+    
     setPedidoErp(pedido);
     
     // Auto-detectar categoria e motivo baseado no status
@@ -1153,6 +1173,11 @@ const NovoAtendimento = () => {
       parceiro: pedido.canal_vendas || '',
       categoria: categoria || prev.categoria
     }));
+    
+    // Salvar a categoria inicial detectada (para referência)
+    if (categoria && !categoriaInicial) {
+      setCategoriaInicial(categoria);
+    }
     
     // Atualizar motivo de pendência
     if (motivo) {
@@ -1892,7 +1917,7 @@ const NovoAtendimento = () => {
         <p className="text-muted-foreground text-sm">
           {isEditMode 
             ? `Atualize o atendimento ${atendimentoOriginal?.id_atendimento || ''}` 
-            : 'Registre um novo atendimento no sistema Emergent'
+            : 'Registre um novo atendimento no sistema ELO'
           }
         </p>
       </div>
@@ -2158,7 +2183,7 @@ const NovoAtendimento = () => {
                     </h4>
                     <div className="pl-6 space-y-1 text-sm">
                       <div className="flex flex-wrap gap-x-6 gap-y-1">
-                        <p><span className="text-muted-foreground">NF:</span> {pedidoErp.nota_fiscal}</p>
+                        <p><span className="text-muted-foreground">NF:</span> {String(pedidoErp.nota_fiscal).split('.')[0]}</p>
                         {pedidoErp.uf_galpao && pedidoErp.uf_galpao !== '-' && (
                           <p><span className="text-muted-foreground">Galpão:</span> <span className="font-medium">{pedidoErp.uf_galpao}</span></p>
                         )}
@@ -3235,6 +3260,44 @@ const NovoAtendimento = () => {
         )}
       </form>
       )}
+
+      {/* Dialog: Atendimento Existente */}
+      <Dialog open={showExistingDialog} onOpenChange={setShowExistingDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-amber-600">Atendimento Existente</DialogTitle>
+            <DialogDescription>
+              Já existe um atendimento para esta entrega
+            </DialogDescription>
+          </DialogHeader>
+          {existingAtendimento && (
+            <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
+              <p className="font-medium">ID: {existingAtendimento.id_atendimento}</p>
+              <p className="text-sm text-muted-foreground">Entrega: {existingAtendimento.numero_pedido}</p>
+              <p className="text-sm text-muted-foreground">Categoria: {existingAtendimento.categoria}</p>
+              <p className="text-sm text-muted-foreground">Status: {existingAtendimento.pendente ? 'Pendente' : 'Resolvido'}</p>
+            </div>
+          )}
+          <div className="flex gap-2 justify-end mt-4">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowExistingDialog(false);
+                if (existingAtendimento) {
+                  navigate(`/chamados/editar/${existingAtendimento.id}`);
+                }
+              }}
+            >
+              Abrir Atendimento Existente
+            </Button>
+            <Button 
+              onClick={() => setShowExistingDialog(false)}
+            >
+              Abrir Novo Atendimento
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog: Lista de Pedidos (quando CPF retorna múltiplos) */}
       <Dialog open={showPedidosDialog} onOpenChange={setShowPedidosDialog}>

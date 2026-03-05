@@ -75,7 +75,7 @@ def is_status_maiusculo(status):
     return len(clean_status) >= 4 and clean_status.isupper()
 
 # Create the main app
-app = FastAPI(title="WeConnect Support API")
+app = FastAPI(title="ELO - Sistema de Atendimentos")
 api_router = APIRouter(prefix="/api")
 
 # ============== MODELS ==============
@@ -454,13 +454,14 @@ Seguimos a disposição.
 Atenciosamente,
 [ASSINATURA]""",
     
-    "Falha de Compras": """Olá, Boa tarde.
+    "Falha de Compras": """Olá,
 
-Identificamos uma falha operacional, a qual, está sendo resolvida. O pedido encontra-se em separação para transportadora. Assim que possível, disponibilizaremos o link para rastreio e previsão de entrega.
+Infelizmente, durante a preparação do item "[PRODUTO]" ([ENTREGA]), identificamos uma avaria, o que nos levou a optar pelo cancelamento devido à indisponibilidade para reposição.
 
-Seguimos a disposição.
-Atenciosamente!
-[ASSINATURA]""",
+Poderia, por gentileza, seguir com o cancelamento e o estorno ao cliente?
+
+Atenciosamente,
+Letícia Martelo""",
 
     "Falha de Compras - Cancelamento sem Estoque": """Olá,
 
@@ -1067,11 +1068,18 @@ Atenciosamente,
 
 @api_router.get("/textos-padroes/{categoria}")
 async def get_texto_padrao(categoria: str, current_user: dict = Depends(get_current_user)):
-    """Retorna texto padrão para a categoria"""
+    """Retorna texto padrão para a categoria (fixo ou customizado)"""
+    # Primeiro busca nos textos fixos
     texto = TEXTOS_PADROES.get(categoria)
-    if not texto:
-        raise HTTPException(status_code=404, detail="Categoria não encontrada")
-    return {"categoria": categoria, "texto": texto}
+    if texto:
+        return {"categoria": categoria, "texto": texto}
+    
+    # Se não encontrou, busca nos customizados
+    custom = await db.textos_padroes.find_one({"categoria": categoria}, {"_id": 0})
+    if custom:
+        return {"categoria": categoria, "texto": custom['texto']}
+    
+    raise HTTPException(status_code=404, detail="Categoria não encontrada")
 
 @api_router.get("/textos-padroes")
 async def list_textos_padroes(current_user: dict = Depends(get_current_user)):
@@ -1099,6 +1107,96 @@ async def get_texto_situacional(situacao: str, current_user: dict = Depends(get_
     if not texto:
         raise HTTPException(status_code=404, detail=f"Texto para situação '{situacao}' não encontrado")
     return {"situacao": situacao, "texto": texto}
+
+# CRUD para textos padrões customizados
+@api_router.get("/textos-padroes-lista")
+async def list_all_textos(current_user: dict = Depends(get_current_user)):
+    """Lista todos os textos padrões (fixos + customizados) para a página de gerenciamento"""
+    # Textos fixos do sistema
+    textos_fixos = [{"categoria": k, "texto": v, "tipo": "sistema"} for k, v in TEXTOS_PADROES.items()]
+    
+    # Textos customizados do banco
+    textos_custom = await db.textos_padroes.find({}, {"_id": 0}).sort("categoria", 1).to_list(200)
+    for t in textos_custom:
+        t["tipo"] = "customizado"
+    
+    return textos_fixos + textos_custom
+
+@api_router.post("/textos-padroes")
+async def create_texto_padrao(
+    data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """Cria novo texto padrão customizado"""
+    categoria = data.get('categoria', '').strip()
+    texto = data.get('texto', '').strip()
+    
+    if not categoria or not texto:
+        raise HTTPException(status_code=400, detail="Categoria e texto são obrigatórios")
+    
+    # Verificar se já existe (fixo ou customizado)
+    if categoria in TEXTOS_PADROES:
+        raise HTTPException(status_code=400, detail="Esta categoria é um texto padrão do sistema e não pode ser sobrescrita")
+    
+    existing = await db.textos_padroes.find_one({"categoria": categoria})
+    if existing:
+        raise HTTPException(status_code=400, detail="Já existe um texto padrão com esta categoria")
+    
+    await db.textos_padroes.insert_one({
+        "categoria": categoria,
+        "texto": texto,
+        "criado_por": current_user['name'],
+        "criado_em": datetime.now(timezone.utc).isoformat()
+    })
+    
+    return {"message": "Texto padrão criado com sucesso"}
+
+@api_router.put("/textos-padroes/{categoria}")
+async def update_texto_padrao(
+    categoria: str,
+    data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """Atualiza texto padrão customizado"""
+    texto = data.get('texto', '').strip()
+    
+    if not texto:
+        raise HTTPException(status_code=400, detail="Texto é obrigatório")
+    
+    # Não permite atualizar textos do sistema
+    if categoria in TEXTOS_PADROES:
+        raise HTTPException(status_code=400, detail="Textos do sistema não podem ser alterados")
+    
+    result = await db.textos_padroes.update_one(
+        {"categoria": categoria},
+        {"$set": {
+            "texto": texto,
+            "atualizado_por": current_user['name'],
+            "atualizado_em": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Texto padrão não encontrado")
+    
+    return {"message": "Texto padrão atualizado com sucesso"}
+
+@api_router.delete("/textos-padroes/{categoria}")
+async def delete_texto_padrao(
+    categoria: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Exclui texto padrão customizado"""
+    # Não permite excluir textos do sistema
+    if categoria in TEXTOS_PADROES:
+        raise HTTPException(status_code=400, detail="Textos do sistema não podem ser excluídos")
+    
+    result = await db.textos_padroes.delete_one({"categoria": categoria})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Texto padrão não encontrado")
+    
+    return {"message": "Texto padrão excluído com sucesso"}
 
 @api_router.post("/gerar-reversa/{numero_pedido}")
 async def gerar_codigo_reversa(numero_pedido: str, current_user: dict = Depends(get_current_user)):
@@ -1221,7 +1319,7 @@ async def list_chamados(
     
     chamados = await db.chamados.find(query, {"_id": 0}).sort("data_abertura", -1).to_list(1000)
     
-    # Calculate days open
+    # Calculate days open and fetch pedido status
     now = datetime.now(timezone.utc)
     for c in chamados:
         data_abertura = datetime.fromisoformat(c['data_abertura'].replace('Z', '+00:00')) if isinstance(c['data_abertura'], str) else c['data_abertura']
@@ -1229,6 +1327,13 @@ async def list_chamados(
             c['dias_aberto'] = (now - data_abertura).days
         else:
             c['dias_aberto'] = 0
+        
+        # Buscar status do pedido ERP
+        if c.get('numero_pedido'):
+            pedido = await db.pedidos_erp.find_one({"numero_pedido": c['numero_pedido']}, {"_id": 0, "status_pedido": 1, "data_status": 1})
+            if pedido:
+                c['status_pedido'] = pedido.get('status_pedido', '')
+                c['data_ultimo_status'] = pedido.get('data_status', '')
     
     return chamados
 
@@ -2972,7 +3077,7 @@ async def sync_all_to_google_sheets(
 
 @api_router.get("/")
 async def root():
-    return {"message": "WeConnect Support API"}
+    return {"message": "ELO - Sistema de Atendimentos API"}
 
 # Include router and setup
 app.include_router(api_router)
