@@ -173,7 +173,7 @@ Seguimos a disposição.
 
 Atenciosamente,
 
-Letícia Martelo`,
+[ASSINATURA]`,
 
   "Devolvido - Cancelamento e Estorno": `Olá,
 
@@ -183,7 +183,7 @@ Estamos à disposição para qualquer dúvida.
 
 Atenciosamente,
 
-Letícia Martelo`,
+[ASSINATURA]`,
 
   "Devolvido - Reenvio": `Olá,
 
@@ -193,7 +193,7 @@ Estamos à disposição para qualquer dúvida.
 
 Atenciosamente,
 
-Letícia Martelo`
+[ASSINATURA]`
 };
 
 // Função para detectar categoria e motivo baseado no status do pedido
@@ -2189,6 +2189,11 @@ const NovoAtendimento = () => {
                     {pedidoErp.codigo_item_vtex && <p className="text-muted-foreground">SKU: {pedidoErp.codigo_item_vtex}</p>}
                     {pedidoErp.codigo_fornecedor && <p className="text-muted-foreground">Cód. Fornecedor: {pedidoErp.codigo_fornecedor}</p>}
                     {pedidoErp.quantidade && <p className="text-muted-foreground">Qtde: {pedidoErp.quantidade}</p>}
+                    {(pedidoErp.estoque_disponivel !== undefined && pedidoErp.estoque_disponivel !== null) && (
+                      <p className={`font-medium ${Number(pedidoErp.estoque_disponivel) > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        Estoque Disp.: {pedidoErp.estoque_disponivel}
+                      </p>
+                    )}
                     {pedidoErp.preco_final && (
                       <p className="text-muted-foreground">
                         Valor: R$ {parseFloat(pedidoErp.preco_final).toFixed(2)}
@@ -2422,17 +2427,46 @@ const NovoAtendimento = () => {
                         </div>
                       </div>
                     ) : formData.categoria === 'Falha de Compras' ? (
-                      <div className="flex gap-2">
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => loadTextoPadrao('Falha de Compras')}
-                          data-testid="btn-texto-padrao"
-                        >
-                          <MessageSquare className="h-4 w-4 mr-2" />
-                          Ver Texto Padrão
-                        </Button>
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Textos Padrão - Falha de Compras</Label>
+                        <div className="flex flex-wrap gap-2">
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => loadTextoPadrao('Falha de Compras')}
+                          >
+                            <MessageSquare className="h-4 w-4 mr-2" />
+                            Em Preparação
+                          </Button>
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => loadTextoPadrao('Falha de Compras - Em Separação')}
+                          >
+                            <MessageSquare className="h-4 w-4 mr-2" />
+                            Em Separação
+                          </Button>
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => loadTextoPadrao('Falha de Compras - Cancelamento sem Estoque')}
+                          >
+                            <MessageSquare className="h-4 w-4 mr-2" />
+                            Cancelamento sem Estoque
+                          </Button>
+                          <Button 
+                            type="button" 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => loadTextoPadrao('Falha de Compras - Cancelado')}
+                          >
+                            <MessageSquare className="h-4 w-4 mr-2" />
+                            Cancelado
+                          </Button>
+                        </div>
                       </div>
                     ) : formData.categoria === 'Falha Transporte' ? (
                       <div className="space-y-3">

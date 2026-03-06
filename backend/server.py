@@ -457,22 +457,37 @@ Atenciosamente,
     
     "Falha de Compras": """Olá,
 
+Identificamos uma falha operacional, a qual, está sendo resolvida. O pedido encontra-se em preparação. Assim que possível, disponibilizaremos o link para rastreio e previsão de entrega.
+
+Seguimos a disposição.
+Atenciosamente!
+[ASSINATURA]""",
+
+    "Falha de Compras - Em Separação": """Olá,
+
+Identificamos uma falha operacional, a qual, está sendo resolvida. O pedido encontra-se em separação para transportadora. Assim que possível, disponibilizaremos o link para rastreio e previsão de entrega.
+
+Seguimos a disposição.
+Atenciosamente!
+[ASSINATURA]""",
+
+    "Falha de Compras - Cancelamento sem Estoque": """Olá,
+
 Infelizmente, durante a preparação do item "[PRODUTO]" ([ENTREGA]), identificamos uma avaria, o que nos levou a optar pelo cancelamento devido à indisponibilidade para reposição.
 
 Poderia, por gentileza, seguir com o cancelamento e o estorno ao cliente?
 
 Atenciosamente,
 
-Letícia Martelo""",
+[ASSINATURA]""",
 
-    "Falha de Compras - Cancelamento sem Estoque": """Olá,
+    "Falha de Compras - Cancelado": """Olá,
 
-Infelizmente, durante a preparação do item [PRODUTO] - [ENTREGA], identificamos uma avaria, o que nos levou a optar pelo cancelamento devido à indisponibilidade para reposição.
+Pedido cancelado, por favor seguir com o estorno ao cliente e encerramento do chamado.
 
-Poderia, por gentileza, seguir com o cancelamento e o estorno ao cliente?
-
-Atenciosamente,
-Letícia Martelo""",
+Seguimos a disposição.
+Atenciosamente!
+[ASSINATURA]""",
     
     "Falha Transporte": """Olá, Boa tarde.
 
@@ -1077,7 +1092,7 @@ Seguimos a disposição.
 
 Atenciosamente,
 
-Letícia Martelo""",
+[ASSINATURA]""",
 
     "Devolvido - Cancelamento e Estorno": """Olá,
 
@@ -1087,7 +1102,7 @@ Estamos à disposição para qualquer dúvida.
 
 Atenciosamente,
 
-Letícia Martelo""",
+[ASSINATURA]""",
 
     "Devolvido - Reenvio": """Olá,
 
@@ -1097,7 +1112,7 @@ Estamos à disposição para qualquer dúvida.
 
 Atenciosamente,
 
-Letícia Martelo"""
+[ASSINATURA]"""
 }
 
 @api_router.get("/textos-padroes/{categoria}")
@@ -1459,13 +1474,29 @@ async def get_relatorio_ag_compras(current_user: dict = Depends(get_current_user
         elif chamado.get('verificar_adneia'):
             status_atendimento = "Verificar"
         
+        # Buscar estoque disponível
+        codigo_item = pedido.get('codigo_item_bseller', '')
+        estoque_disponivel = None
+        if codigo_item:
+            # Remover .0 se necessário
+            if str(codigo_item).endswith('.0'):
+                codigo_item = str(codigo_item)[:-2]
+            estoque = await db.estoque_sigeq.find_one({"id_item": str(codigo_item)}, {"_id": 0})
+            if estoque:
+                estoque_disponivel = estoque.get('disp_venda', 0)
+        
         item = {
             "fornecedor": fornecedor,
             "produto": pedido.get('produto', '') or chamado.get('produto', ''),
             "id_produto": pedido.get('codigo_item_bseller', ''),
+            "sku": pedido.get('codigo_item_vtex', ''),
             "quantidade": pedido.get('quantidade', ''),
             "codigo_fornecedor": pedido.get('codigo_fornecedor', ''),
             "entrega": chamado.get('numero_pedido', ''),
+            "parceiro_canal": pedido.get('canal_vendas', ''),
+            "cidade": pedido.get('cidade', ''),
+            "uf": pedido.get('uf', ''),
+            "estoque_disponivel": estoque_disponivel,
             "status_atendimento": status_atendimento,
             "status_entrega": pedido.get('status_pedido', ''),
             "data_ultimo_ponto": data_status
@@ -1867,10 +1898,23 @@ async def get_pedidos_by_cpf(cpf: str, current_user: dict = Depends(get_current_
         {"_id": 0}
     ).sort("data_status", -1).to_list(100)
     
-    # Adicionar info do galpão
+    # Adicionar info do galpão e estoque
     for p in pedidos:
         galpao_info = get_galpao_from_serie(p.get('serie_nf'), p.get('chave_nota'))
         p.update(galpao_info)
+        
+        # Buscar estoque disponível
+        codigo_item = p.get('codigo_item_bseller', '')
+        if codigo_item:
+            if str(codigo_item).endswith('.0'):
+                codigo_item = str(codigo_item)[:-2]
+            estoque = await db.estoque_sigeq.find_one({"id_item": str(codigo_item)}, {"_id": 0})
+            if estoque:
+                p['estoque_disponivel'] = estoque.get('disp_venda', 0)
+                p['estoque_reserva'] = estoque.get('qt_reserva', 0)
+            else:
+                p['estoque_disponivel'] = None
+                p['estoque_reserva'] = None
     
     return pedidos
 
@@ -1882,10 +1926,23 @@ async def get_pedidos_by_nome(nome: str, current_user: dict = Depends(get_curren
         {"_id": 0}
     ).sort("data_status", -1).to_list(100)
     
-    # Adicionar info do galpão
+    # Adicionar info do galpão e estoque
     for p in pedidos:
         galpao_info = get_galpao_from_serie(p.get('serie_nf'), p.get('chave_nota'))
         p.update(galpao_info)
+        
+        # Buscar estoque disponível
+        codigo_item = p.get('codigo_item_bseller', '')
+        if codigo_item:
+            if str(codigo_item).endswith('.0'):
+                codigo_item = str(codigo_item)[:-2]
+            estoque = await db.estoque_sigeq.find_one({"id_item": str(codigo_item)}, {"_id": 0})
+            if estoque:
+                p['estoque_disponivel'] = estoque.get('disp_venda', 0)
+                p['estoque_reserva'] = estoque.get('qt_reserva', 0)
+            else:
+                p['estoque_disponivel'] = None
+                p['estoque_reserva'] = None
     
     return pedidos
 
@@ -1901,10 +1958,23 @@ async def get_pedidos_by_pedido(pedido: str, current_user: dict = Depends(get_cu
         {"_id": 0}
     ).sort("data_status", -1).to_list(100)
     
-    # Adicionar info do galpão
+    # Adicionar info do galpão e estoque
     for p in pedidos:
         galpao_info = get_galpao_from_serie(p.get('serie_nf'), p.get('chave_nota'))
         p.update(galpao_info)
+        
+        # Buscar estoque disponível
+        codigo_item = p.get('codigo_item_bseller', '')
+        if codigo_item:
+            if str(codigo_item).endswith('.0'):
+                codigo_item = str(codigo_item)[:-2]
+            estoque = await db.estoque_sigeq.find_one({"id_item": str(codigo_item)}, {"_id": 0})
+            if estoque:
+                p['estoque_disponivel'] = estoque.get('disp_venda', 0)
+                p['estoque_reserva'] = estoque.get('qt_reserva', 0)
+            else:
+                p['estoque_disponivel'] = None
+                p['estoque_reserva'] = None
     
     return pedidos
 
@@ -1917,6 +1987,20 @@ async def get_pedido_erp(numero_pedido: str, current_user: dict = Depends(get_cu
     # Adicionar info do galpão
     galpao_info = get_galpao_from_serie(pedido.get('serie_nf'), pedido.get('chave_nota'))
     pedido.update(galpao_info)
+    
+    # Buscar estoque disponível pelo ID do item (codigo_item_bseller)
+    codigo_item = pedido.get('codigo_item_bseller', '')
+    if codigo_item:
+        # Remover .0 se necessário
+        if str(codigo_item).endswith('.0'):
+            codigo_item = str(codigo_item)[:-2]
+        estoque = await db.estoque_sigeq.find_one({"id_item": str(codigo_item)}, {"_id": 0})
+        if estoque:
+            pedido['estoque_disponivel'] = estoque.get('disp_venda', 0)
+            pedido['estoque_reserva'] = estoque.get('qt_reserva', 0)
+        else:
+            pedido['estoque_disponivel'] = None
+            pedido['estoque_reserva'] = None
     
     return pedido
 
@@ -1962,6 +2046,13 @@ async def import_pedidos(
                 logger.info(f"Aba Fornecedores encontrada: {len(df_fornecedores)} registros")
                 # Importar fornecedores para o banco
                 await import_fornecedores(df_fornecedores)
+            
+            # Tentar ler aba SIGEQ425 (estoque) se existir
+            if 'SIGEQ425' in sheet_names:
+                df_sigeq = pd.read_excel(excel_file, sheet_name='SIGEQ425')
+                logger.info(f"Aba SIGEQ425 encontrada: {len(df_sigeq)} registros de estoque")
+                # Importar dados de estoque para o banco
+                await import_estoque_sigeq(df_sigeq)
         else:
             raise HTTPException(status_code=400, detail="Formato de arquivo não suportado. Use CSV ou Excel.")
         
@@ -2041,6 +2132,66 @@ async def import_fornecedores(df):
         logger.info("Fornecedores importados com sucesso")
     except Exception as e:
         logger.error(f"Erro ao importar fornecedores: {e}")
+
+# Função para importar dados de estoque da aba SIGEQ425
+async def import_estoque_sigeq(df):
+    """Importa dados de estoque disponível para venda da aba SIGEQ425"""
+    try:
+        # Normalizar nomes das colunas
+        df.columns = df.columns.str.strip()
+        
+        imported = 0
+        updated = 0
+        
+        for idx, row in df.iterrows():
+            try:
+                id_item = str(row.get('ID do item', '')).strip()
+                if not id_item or id_item == 'nan':
+                    continue
+                
+                # Remover .0 de IDs numéricos
+                if id_item.endswith('.0'):
+                    id_item = id_item[:-2]
+                
+                estoque_data = {
+                    "id_item": id_item,
+                    "fornecedor": str(row.get('Nome do fornecedor', '')).strip(),
+                    "descricao": str(row.get('Descrição do item', '')).strip(),
+                    "codigo_fornecedor": str(row.get('Código fornecedor', '')).strip(),
+                    "qt_reserva": int(row.get('Qt. Res', 0)) if pd.notna(row.get('Qt. Res')) else 0,
+                    "disp_venda": int(row.get('Disp. Venda', 0)) if pd.notna(row.get('Disp. Venda')) else 0,
+                    "qt_arquivo": int(row.get('Qt. Arquivo', 0)) if pd.notna(row.get('Qt. Arquivo')) else 0,
+                    "ultima_atualizacao": datetime.now(timezone.utc).isoformat()
+                }
+                
+                existing = await db.estoque_sigeq.find_one({"id_item": id_item})
+                if existing:
+                    await db.estoque_sigeq.update_one(
+                        {"id_item": id_item},
+                        {"$set": estoque_data}
+                    )
+                    updated += 1
+                else:
+                    await db.estoque_sigeq.insert_one(estoque_data)
+                    imported += 1
+                    
+            except Exception as e:
+                logger.error(f"Erro ao processar estoque linha {idx}: {e}")
+                continue
+        
+        logger.info(f"Estoque SIGEQ importado: {imported} novos, {updated} atualizados")
+    except Exception as e:
+        logger.error(f"Erro ao importar estoque SIGEQ: {e}")
+
+# Endpoint para buscar estoque por ID do item
+@api_router.get("/estoque/{id_item}")
+async def get_estoque_item(id_item: str, current_user: dict = Depends(get_current_user)):
+    """Busca dados de estoque para um item específico"""
+    estoque = await db.estoque_sigeq.find_one({"id_item": id_item}, {"_id": 0})
+    if not estoque:
+        return {"disp_venda": None, "message": "Estoque não encontrado"}
+    return estoque
+
 
 @api_router.get("/fornecedores")
 async def list_fornecedores(current_user: dict = Depends(get_current_user)):

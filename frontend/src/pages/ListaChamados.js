@@ -210,9 +210,14 @@ const ListaAtendimentos = () => {
         'Fornecedor': item.fornecedor || '',
         'Produto': item.produto || '',
         'ID': item.id_produto || '',
+        'SKU': item.sku || '',
+        'Estoque Disp.': item.estoque_disponivel !== null ? item.estoque_disponivel : '-',
         'Qtd. Pedido': item.quantidade || '',
         'Cód. Fornecedor': item.codigo_fornecedor || '',
         'Entrega': item.entrega || '',
+        'Parceiro/Canal': item.parceiro_canal || '',
+        'Cidade': item.cidade || '',
+        'UF': item.uf || '',
         'Status Atendimento': item.status_atendimento || '',
         'Status Entrega': item.status_entrega || '',
         'Data Último Ponto': item.data_ultimo_ponto || ''
@@ -227,11 +232,16 @@ const ListaAtendimentos = () => {
       ws['!cols'] = [
         { wch: 20 }, // Fornecedor
         { wch: 35 }, // Produto
-        { wch: 15 }, // ID
-        { wch: 12 }, // Qtd
+        { wch: 12 }, // ID
+        { wch: 12 }, // SKU
+        { wch: 12 }, // Estoque Disp.
+        { wch: 10 }, // Qtd
         { wch: 15 }, // Cód Fornecedor
-        { wch: 15 }, // Entrega
-        { wch: 18 }, // Status Atendimento
+        { wch: 12 }, // Entrega
+        { wch: 15 }, // Parceiro/Canal
+        { wch: 15 }, // Cidade
+        { wch: 5 },  // UF
+        { wch: 15 }, // Status Atendimento
         { wch: 18 }, // Status Entrega
         { wch: 18 }, // Data
       ];

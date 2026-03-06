@@ -1,9 +1,13 @@
-# Emergent - Sistema de Atendimentos WeConnect
+# ELO - Sistema de Atendimentos WeConnect
 
 ## Status: MVP Funcional + Dashboard Multi-Abas ✅
-**Última atualização:** 03/03/2026
+**Última atualização:** 06/03/2026
 
 ## Changelog Recente
+- ✅ **06/03/2026:** Adicionada integração com dados de estoque (SIGEQ425)
+  - Novo campo "Estoque Disp." no atendimento (verde se >0, vermelho se =0)
+  - Relatório de Compras agora inclui: SKU, Parceiro/Canal, Cidade, UF, Estoque Disponível
+  - Importação automática de 66.771 registros de estoque durante o upload de dados
 - ✅ **03/03/2026:** Tabela "Atendimentos por Canal" expandida de 5 para 10 dias úteis
 - ✅ Corrigido bug do SelectItem com value="" no Dashboard (erro de runtime)
 - ✅ Dashboard multi-abas completamente funcional com 7 abas
