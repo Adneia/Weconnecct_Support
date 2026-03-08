@@ -31,7 +31,7 @@ const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/chamados/novo', label: 'Novo Atendimento', icon: Plus },
   { path: '/chamados', label: 'Atendimentos', icon: List },
-  { path: '/textos-padroes', label: 'Textos Padrões', icon: FileText, adminOnly: true },
+  { path: '/textos-padroes', label: 'Textos Padrões', icon: FileText },
   { path: '/importar', label: 'Base ELO', icon: Upload },
 ];
 

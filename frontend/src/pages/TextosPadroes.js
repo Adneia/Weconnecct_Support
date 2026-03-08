@@ -23,7 +23,7 @@ import {
   TableRow,
 } from '../components/ui/table';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2, FileText, Copy, Check } from 'lucide-react';
+import { Plus, Edit, Trash2, FileText, Copy, Check, Bell, History, Eye } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -34,11 +34,19 @@ const TextosPadroes = () => {
   const [editMode, setEditMode] = useState(false);
   const [currentTexto, setCurrentTexto] = useState({ categoria: '', texto: '' });
   const [copiedId, setCopiedId] = useState(null);
+  const [logAlteracoes, setLogAlteracoes] = useState([]);
+  const [logCount, setLogCount] = useState(0);
+  const [showLogDialog, setShowLogDialog] = useState(false);
 
-  const { getAuthHeader } = useAuth();
+  const { getAuthHeader, user } = useAuth();
+  
+  const isAdmin = user?.email === 'adneia@weconnect360.com.br';
 
   useEffect(() => {
     fetchTextos();
+    if (isAdmin) {
+      fetchLogCount();
+    }
   }, []);
 
   const fetchTextos = async () => {
@@ -52,6 +60,71 @@ const TextosPadroes = () => {
       toast.error('Erro ao carregar textos padrões');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchLogCount = async () => {
+    try {
+      const response = await axios.get(
+        `${API_URL}/api/textos-padroes-log/nao-visualizados`,
+        { headers: getAuthHeader() }
+      );
+      setLogCount(response.data.count);
+    } catch (error) {
+      console.error('Erro ao buscar contagem de logs');
+    }
+  };
+
+  const fetchLogs = async () => {
+    try {
+      const response = await axios.get(
+        `${API_URL}/api/textos-padroes-log`,
+        { headers: getAuthHeader() }
+      );
+      setLogAlteracoes(response.data);
+    } catch (error) {
+      toast.error('Erro ao carregar histórico');
+    }
+  };
+
+  const openLogDialog = async () => {
+    await fetchLogs();
+    setShowLogDialog(true);
+    
+    // Marcar como visualizados
+    try {
+      await axios.post(
+        `${API_URL}/api/textos-padroes-log/marcar-visualizados`,
+        {},
+        { headers: getAuthHeader() }
+      );
+      setLogCount(0);
+    } catch (error) {
+      console.error('Erro ao marcar logs como visualizados');
+    }
+  };
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const getAcaoBadge = (acao) => {
+    switch (acao) {
+      case 'criado':
+        return <Badge className="bg-green-100 text-green-700">Criado</Badge>;
+      case 'atualizado':
+        return <Badge className="bg-blue-100 text-blue-700">Atualizado</Badge>;
+      case 'excluido':
+        return <Badge className="bg-red-100 text-red-700">Excluído</Badge>;
+      default:
+        return <Badge variant="outline">{acao}</Badge>;
     }
   };
 
@@ -136,10 +209,28 @@ const TextosPadroes = () => {
           <h1 className="text-2xl font-bold tracking-tight font-['Plus_Jakarta_Sans']">Textos Padrões</h1>
           <p className="text-muted-foreground text-sm">{textos.length} textos cadastrados</p>
         </div>
-        <Button onClick={openNewDialog} data-testid="btn-novo-texto">
-          <Plus className="h-4 w-4 mr-2" />
-          Novo Texto Padrão
-        </Button>
+        <div className="flex gap-2">
+          {isAdmin && (
+            <Button 
+              variant="outline" 
+              onClick={openLogDialog}
+              className="relative"
+              data-testid="btn-historico"
+            >
+              <History className="h-4 w-4 mr-2" />
+              Histórico
+              {logCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  {logCount}
+                </span>
+              )}
+            </Button>
+          )}
+          <Button onClick={openNewDialog} data-testid="btn-novo-texto">
+            <Plus className="h-4 w-4 mr-2" />
+            Novo Texto Padrão
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -253,6 +344,50 @@ const TextosPadroes = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog: Histórico de Alterações */}
+      {isAdmin && (
+        <Dialog open={showLogDialog} onOpenChange={setShowLogDialog}>
+          <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>
+                <History className="h-5 w-5 inline mr-2" />
+                Histórico de Alterações
+              </DialogTitle>
+              <DialogDescription>
+                Todas as alterações feitas nos textos padrões
+              </DialogDescription>
+            </DialogHeader>
+            
+            {logAlteracoes.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Nenhuma alteração registrada
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Ação</TableHead>
+                    <TableHead>Categoria</TableHead>
+                    <TableHead>Usuário</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {logAlteracoes.map((log, index) => (
+                    <TableRow key={index} className={!log.visualizado ? 'bg-yellow-50' : ''}>
+                      <TableCell className="text-sm">{formatDate(log.data)}</TableCell>
+                      <TableCell>{getAcaoBadge(log.acao)}</TableCell>
+                      <TableCell className="font-medium">{log.categoria}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{log.usuario}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };

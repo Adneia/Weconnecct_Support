@@ -1198,6 +1198,16 @@ async def create_texto_padrao(
         "criado_em": datetime.now(timezone.utc).isoformat()
     })
     
+    # Registrar log de alteração
+    await db.textos_padroes_log.insert_one({
+        "acao": "criado",
+        "categoria": categoria,
+        "usuario": current_user['name'],
+        "email_usuario": current_user['email'],
+        "data": datetime.now(timezone.utc).isoformat(),
+        "visualizado": False
+    })
+    
     return {"message": "Texto padrão criado com sucesso"}
 
 @api_router.put("/textos-padroes/{categoria}")
@@ -1228,6 +1238,16 @@ async def update_texto_padrao(
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Texto padrão não encontrado")
     
+    # Registrar log de alteração
+    await db.textos_padroes_log.insert_one({
+        "acao": "atualizado",
+        "categoria": categoria,
+        "usuario": current_user['name'],
+        "email_usuario": current_user['email'],
+        "data": datetime.now(timezone.utc).isoformat(),
+        "visualizado": False
+    })
+    
     return {"message": "Texto padrão atualizado com sucesso"}
 
 @api_router.delete("/textos-padroes/{categoria}")
@@ -1245,7 +1265,55 @@ async def delete_texto_padrao(
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Texto padrão não encontrado")
     
+    # Registrar log de alteração
+    await db.textos_padroes_log.insert_one({
+        "acao": "excluido",
+        "categoria": categoria,
+        "usuario": current_user['name'],
+        "email_usuario": current_user['email'],
+        "data": datetime.now(timezone.utc).isoformat(),
+        "visualizado": False
+    })
+    
     return {"message": "Texto padrão excluído com sucesso"}
+
+@api_router.get("/textos-padroes-log")
+async def get_textos_padroes_log(current_user: dict = Depends(get_current_user)):
+    """Retorna o log de alterações dos textos padrão (apenas para admin)"""
+    # Verificar se é a Adnéia
+    if current_user['email'] != 'adneia@weconnect360.com.br':
+        return []
+    
+    logs = await db.textos_padroes_log.find(
+        {}, 
+        {"_id": 0}
+    ).sort("data", -1).to_list(100)
+    
+    return logs
+
+@api_router.get("/textos-padroes-log/nao-visualizados")
+async def get_textos_padroes_log_count(current_user: dict = Depends(get_current_user)):
+    """Retorna a contagem de alterações não visualizadas (apenas para admin)"""
+    # Verificar se é a Adnéia
+    if current_user['email'] != 'adneia@weconnect360.com.br':
+        return {"count": 0}
+    
+    count = await db.textos_padroes_log.count_documents({"visualizado": False})
+    return {"count": count}
+
+@api_router.post("/textos-padroes-log/marcar-visualizados")
+async def marcar_logs_visualizados(current_user: dict = Depends(get_current_user)):
+    """Marca todos os logs como visualizados (apenas para admin)"""
+    # Verificar se é a Adnéia
+    if current_user['email'] != 'adneia@weconnect360.com.br':
+        raise HTTPException(status_code=403, detail="Acesso negado")
+    
+    await db.textos_padroes_log.update_many(
+        {"visualizado": False},
+        {"$set": {"visualizado": True}}
+    )
+    
+    return {"message": "Logs marcados como visualizados"}
 
 @api_router.post("/gerar-reversa/{numero_pedido}")
 async def gerar_codigo_reversa(numero_pedido: str, current_user: dict = Depends(get_current_user)):
