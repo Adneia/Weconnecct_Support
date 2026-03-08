@@ -205,23 +205,31 @@ const ListaAtendimentos = () => {
         return;
       }
 
-      // Preparar dados para exportação
-      const dataToExport = data.map(item => ({
-        'Fornecedor': item.fornecedor || '',
-        'Produto': item.produto || '',
-        'ID': item.id_produto || '',
-        'SKU': item.sku || '',
-        'Estoque Disp.': item.estoque_disponivel !== null ? item.estoque_disponivel : '-',
-        'Qtd. Pedido': item.quantidade || '',
-        'Cód. Fornecedor': item.codigo_fornecedor || '',
-        'Entrega': item.entrega || '',
-        'Parceiro/Canal': item.parceiro_canal || '',
-        'Cidade': item.cidade || '',
-        'UF': item.uf || '',
-        'Status Atendimento': item.status_atendimento || '',
-        'Status Entrega': item.status_entrega || '',
-        'Data Último Ponto': item.data_ultimo_ponto || ''
-      }));
+      // Preparar dados para exportação - ordem conforme imagem
+      const dataToExport = data.map(item => {
+        // Determinar se é crítico (Verificar ou Retornar)
+        let statusAtendimento = item.status_atendimento || '';
+        if (statusAtendimento === 'Verificar' || statusAtendimento === 'Retornar') {
+          statusAtendimento = 'Crítico';
+        }
+        
+        return {
+          'Fornecedor': item.fornecedor || '',
+          'Produto': item.produto || '',
+          'Cód. Fornecedor': item.codigo_fornecedor || '',
+          'ID': item.id_produto || '',
+          'SKU': item.sku || '',
+          'Estoque Disp.': item.estoque_disponivel !== null ? item.estoque_disponivel : '-',
+          'Qtd. Pedido': item.quantidade || '',
+          'Entrega': item.entrega || '',
+          'Parceiro/Canal': item.parceiro_canal || '',
+          'Cidade': item.cidade || '',
+          'UF': item.uf || '',
+          'Status Atendimento': statusAtendimento,
+          'Status Entrega': item.status_entrega || '',
+          'Data Último Ponto': item.data_ultimo_ponto || ''
+        };
+      });
 
       // Criar workbook
       const ws = XLSX.utils.json_to_sheet(dataToExport);
@@ -232,11 +240,11 @@ const ListaAtendimentos = () => {
       ws['!cols'] = [
         { wch: 20 }, // Fornecedor
         { wch: 35 }, // Produto
+        { wch: 15 }, // Cód Fornecedor
         { wch: 12 }, // ID
         { wch: 12 }, // SKU
         { wch: 12 }, // Estoque Disp.
         { wch: 10 }, // Qtd
-        { wch: 15 }, // Cód Fornecedor
         { wch: 12 }, // Entrega
         { wch: 15 }, // Parceiro/Canal
         { wch: 15 }, // Cidade
@@ -271,14 +279,22 @@ const ListaAtendimentos = () => {
       }
 
       // Preparar dados para exportação
-      const dataToExport = data.map(item => ({
-        'Entrega': item.entrega || '',
-        'Nota': item.nota || '',
-        'Galpão': item.galpao || '',
-        'Status Entrega': item.status_entrega || '',
-        'Data Último Ponto': item.data_ultimo_ponto || '',
-        'Status Atendimento': item.status_atendimento || ''
-      }));
+      const dataToExport = data.map(item => {
+        // Determinar se é crítico (Verificar ou Retornar)
+        let statusAtendimento = item.status_atendimento || '';
+        if (statusAtendimento === 'Verificar' || statusAtendimento === 'Retornar') {
+          statusAtendimento = 'Crítico';
+        }
+        
+        return {
+          'Entrega': item.entrega || '',
+          'Nota': item.nota || '',
+          'Galpão': item.galpao || '',
+          'Status Entrega': item.status_entrega || '',
+          'Data Último Ponto': item.data_ultimo_ponto || '',
+          'Status Atendimento': statusAtendimento
+        };
+      });
 
       // Criar workbook
       const ws = XLSX.utils.json_to_sheet(dataToExport);
