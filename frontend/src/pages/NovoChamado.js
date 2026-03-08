@@ -1033,6 +1033,7 @@ const NovoAtendimento = () => {
   const [transportadoraDetectada, setTransportadoraDetectada] = useState(null);
   const [retornarChamado, setRetornarChamado] = useState(false);
   const [verificarAdneia, setVerificarAdneia] = useState(false);
+  const [encerrarAoCriar, setEncerrarAoCriar] = useState(false);
   const [pedidoExpanded, setPedidoExpanded] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({
     solicitacao: false,
@@ -1761,6 +1762,12 @@ const NovoAtendimento = () => {
       hasError = true;
     }
     
+    // Validação para encerrar ao criar
+    if (!isEditMode && encerrarAoCriar && !MOTIVOS_FINALIZADORES.includes(motivoPendencia)) {
+      toast.error(`Para encerrar, selecione um motivo finalizador: ${MOTIVOS_FINALIZADORES.join(', ')}`);
+      return;
+    }
+    
     if (hasError) {
       setFieldErrors(newErrors);
       return;
@@ -1777,6 +1784,12 @@ const NovoAtendimento = () => {
         retornar_chamado: retornarChamado,
         verificar_adneia: verificarAdneia
       };
+      
+      // Se marcou encerrar ao criar, adiciona os campos de fechamento
+      if (!isEditMode && encerrarAoCriar) {
+        payload.pendente = false;
+        payload.data_fechamento = new Date().toISOString();
+      }
       
       if (isEditMode && atendimentoId) {
         // Atualizar atendimento existente
@@ -3415,7 +3428,28 @@ const NovoAtendimento = () => {
                   </Badge>
                 )}
               </div>
-              <div className="flex gap-3">
+              <div className="flex gap-3 items-center">
+                {/* Opção de encerrar ao criar (apenas para novos atendimentos) */}
+                {!isEditMode && (
+                  <div className="flex items-center gap-2 mr-4">
+                    <input
+                      type="checkbox"
+                      id="encerrar-ao-criar"
+                      checked={encerrarAoCriar}
+                      onChange={(e) => setEncerrarAoCriar(e.target.checked)}
+                      className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                      data-testid="checkbox-encerrar"
+                    />
+                    <label htmlFor="encerrar-ao-criar" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Encerrar ao criar
+                    </label>
+                    {encerrarAoCriar && !MOTIVOS_FINALIZADORES.includes(motivoPendencia) && (
+                      <span className="text-xs text-amber-600 ml-1">
+                        (selecione um motivo finalizador)
+                      </span>
+                    )}
+                  </div>
+                )}
                 <Button 
                   type="button" 
                   variant="outline" 
@@ -3424,14 +3458,23 @@ const NovoAtendimento = () => {
                 >
                   Cancelar
                 </Button>
-                <Button type="submit" disabled={loading} size="lg" data-testid="btn-criar">
+                <Button 
+                  type="submit" 
+                  disabled={loading || (!isEditMode && encerrarAoCriar && !MOTIVOS_FINALIZADORES.includes(motivoPendencia))} 
+                  size="lg" 
+                  data-testid="btn-criar"
+                  className={encerrarAoCriar && MOTIVOS_FINALIZADORES.includes(motivoPendencia) ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
+                >
                   {loading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      {isEditMode ? 'Atualizando...' : 'Criando...'}
+                      {isEditMode ? 'Atualizando...' : encerrarAoCriar ? 'Criando e Encerrando...' : 'Criando...'}
                     </>
                   ) : (
-                    isEditMode ? 'Atualizar Atendimento' : 'Criar Atendimento'
+                    <>
+                      {encerrarAoCriar && <CheckCircle className="h-4 w-4 mr-2" />}
+                      {isEditMode ? 'Atualizar Atendimento' : encerrarAoCriar ? 'Criar e Encerrar' : 'Criar Atendimento'}
+                    </>
                   )}
                 </Button>
               </div>
