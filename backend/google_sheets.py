@@ -51,22 +51,30 @@ ATENDIMENTO_COLUMNS = [
 ]
 
 # Column mapping for Devoluções sheet
+# Column mapping for Devoluções sheet (planilha Gestão Devoluções 2026_E)
+# A=ID_Devolução, B=Pedido_Cliente, C=Data, D=Entrega, E=Parceiro, F=Motivo_Devolucao,
+# G=Codigo_Reversa, H=Status_Devolucao, I=Responsavel, J=Atendimento, K=Devolvido_por,
+# L=Data_Conclusao, M=Condicao_Produto, N=Proxima_Acao, O=Data_Recebimento,
+# P=Responsavel_Galpao, Q=Observacoes_Galpao, R=Data_Conclusao
 DEVOLUCAO_COLUMNS = [
-    'ID_Devolucao',     # A - DEV-2026-XXX
-    'ID_Atendimento',   # B - ATD-2026-XXX (link com planilha principal)
-    'Data_Entrada_Lista', # C - Quando foi movido para lista
-    'Entrega',          # D - Código da entrega
-    'CPF',              # E - CPF do cliente
-    'Nome',             # F - Nome do cliente
-    'Produto',          # G - Nome do produto
-    'Codigo_Reversa',   # H - Código da reversa (se houver)
-    'Status_Galpao',    # I - AGUARDANDO / RECEBIDO / PROCESSADO
-    'Data_Recebimento', # J - Quando chegou no galpão
-    'Condicao_Produto', # K - Bom estado / Avariado / Incompleto
-    'Proxima_Acao',     # L - REENVIO / ESTORNO / TROCAR
-    'Responsavel_Galpao', # M - Quem está tratando
-    'Observacoes_Galpao', # N - Notas do galpão
-    'Data_Conclusao'    # O - Quando foi finalizado
+    'ID_Devolução',       # A
+    'Pedido_Cliente',     # B
+    'Data',               # C
+    'Entrega',            # D
+    'Parceiro',           # E
+    'Motivo_Devolucao',   # F
+    'Codigo_Reversa',     # G
+    'Status_Devolucao',   # H
+    'Responsavel',        # I
+    'Atendimento',        # J - Aguardando / Estornado / Reenviado
+    'Devolvido_por',      # K - Correios ou Transportadora
+    'Data_Conclusao',     # L
+    'Condicao_Produto',   # M
+    'Proxima_Acao',       # N
+    'Data_Recebimento',   # O
+    'Responsavel_Galpao', # P
+    'Observacoes_Galpao', # Q
+    'Data_Conclusao'      # R
 ]
 
 
@@ -375,37 +383,31 @@ class GoogleSheetsClient:
             return False
         
         try:
-            worksheet = self.devolucoes_sheet.worksheet("Lista_Devolucao")
+            # Usar a primeira aba da planilha
+            worksheet = self.devolucoes_sheet.sheet1
             
-            # Ensure headers exist
-            self._ensure_headers(worksheet, DEVOLUCAO_COLUMNS)
-            
-            # Prepare row data
+            # Preparar dados da linha conforme estrutura real da planilha
+            # A=ID_Devolucao, B=ID_Atendimento, C=Data_Entrada_Lista, D=Entrega, E=CPF, F=Nome,
+            # G=Produto, H=Filial, I=Codigo_Reversa, J=Atendimento, K=Devolvido_por, L=Status_Galpao
             row = [
-                devolucao.get('id_devolucao', ''),
-                devolucao.get('id_atendimento', ''),
-                datetime.now(timezone.utc).strftime('%d/%m/%Y %H:%M'),
-                devolucao.get('entrega', ''),
-                devolucao.get('cpf', ''),
-                devolucao.get('nome', ''),
-                devolucao.get('produto', ''),
-                devolucao.get('codigo_reversa', ''),
-                devolucao.get('status_galpao', 'AGUARDANDO'),
-                '',  # Data_Recebimento
-                '',  # Condicao_Produto
-                '',  # Proxima_Acao
-                '',  # Responsavel_Galpao
-                '',  # Observacoes_Galpao
-                ''   # Data_Conclusao
+                devolucao.get('id_devolucao', ''),           # A - ID_Devolucao
+                devolucao.get('id_atendimento', ''),         # B - ID_Atendimento
+                datetime.now(timezone.utc).strftime('%d/%m/%Y %H:%M'),  # C - Data_Entrada_Lista
+                devolucao.get('entrega', ''),                # D - Entrega
+                devolucao.get('cpf', ''),                    # E - CPF
+                devolucao.get('nome', ''),                   # F - Nome
+                devolucao.get('produto', ''),                # G - Produto
+                devolucao.get('filial', ''),                 # H - Filial
+                devolucao.get('codigo_reversa', ''),         # I - Codigo_Reversa
+                devolucao.get('atendimento', 'Aguardando'),  # J - Atendimento (Aguardando/Estornado/Reenviado)
+                devolucao.get('devolvido_por', ''),          # K - Devolvido_por (Correios ou Transportadora)
+                'AGUARDANDO',                                # L - Status_Galpao
             ]
             
             worksheet.append_row(row, value_input_option='USER_ENTERED')
             logger.info(f"Devolução {devolucao.get('id_devolucao')} added to Google Sheets")
             return True
             
-        except gspread.exceptions.WorksheetNotFound:
-            logger.error("Worksheet 'Lista_Devolucao' not found in Devoluções spreadsheet")
-            return False
         except Exception as e:
             logger.error(f"Error adding devolução to Google Sheets: {e}")
             return False

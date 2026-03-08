@@ -1047,6 +1047,9 @@ const NovoAtendimento = () => {
   const [existingAtendimento, setExistingAtendimento] = useState(null);
   const [showExistingDialog, setShowExistingDialog] = useState(false);
   const [categoriaInicial, setCategoriaInicial] = useState('');
+  const [statusDevolucao, setStatusDevolucao] = useState(''); // Aguardando, Estornado, Reenviado
+  const [showStatusDevolucaoDialog, setShowStatusDevolucaoDialog] = useState(false);
+  const [pendingSubmitData, setPendingSubmitData] = useState(null);
   
   const [formData, setFormData] = useState({
     numero_pedido: '',
@@ -1773,16 +1776,30 @@ const NovoAtendimento = () => {
       return;
     }
 
+    // Verificar se é "Em devolução" ou "Devolvido" e não tem status de devolução selecionado
+    if ((motivoPendencia === 'Em devolução' || motivoPendencia === 'Devolvido') && !statusDevolucao) {
+      // Guardar os dados para submeter depois
+      setPendingSubmitData({ formData, motivoPendencia, codigoReversa, dataVencimentoReversa, retornarChamado, verificarAdneia, encerrarAoCriar });
+      setShowStatusDevolucaoDialog(true);
+      return;
+    }
+
+    await submitAtendimento(formData, motivoPendencia, codigoReversa, dataVencimentoReversa, retornarChamado, verificarAdneia, encerrarAoCriar, statusDevolucao);
+  };
+
+  const submitAtendimento = async (formData, motivoPendencia, codigoReversa, dataVencimentoReversa, retornarChamado, verificarAdneia, encerrarAoCriar, statusDevolucaoParam) => {
     setLoading(true);
     try {
       const payload = {
         ...formData,
-        atendente: user?.name || formData.atendente, // Sempre usa o usuário logado como última revisão
+        atendente: user?.name || formData.atendente,
         motivo_pendencia: motivoPendencia || null,
         codigo_reversa: codigoReversa || null,
         data_vencimento_reversa: dataVencimentoReversa || null,
         retornar_chamado: retornarChamado,
-        verificar_adneia: verificarAdneia
+        verificar_adneia: verificarAdneia,
+        status_devolucao: statusDevolucaoParam || null,
+        transportadora: pedidoErp?.transportadora || null
       };
       
       // Se marcou encerrar ao criar, adiciona os campos de fechamento
@@ -1825,6 +1842,17 @@ const NovoAtendimento = () => {
       toast.error(error.response?.data?.detail || `Erro ao ${isEditMode ? 'atualizar' : 'criar'} atendimento`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleConfirmStatusDevolucao = (status) => {
+    setStatusDevolucao(status);
+    setShowStatusDevolucaoDialog(false);
+    
+    if (pendingSubmitData) {
+      const { formData, motivoPendencia, codigoReversa, dataVencimentoReversa, retornarChamado, verificarAdneia, encerrarAoCriar } = pendingSubmitData;
+      submitAtendimento(formData, motivoPendencia, codigoReversa, dataVencimentoReversa, retornarChamado, verificarAdneia, encerrarAoCriar, status);
+      setPendingSubmitData(null);
     }
   };
 
@@ -3616,6 +3644,64 @@ const NovoAtendimento = () => {
                 Registrar e Encerrar
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Status da Devolução */}
+      <Dialog open={showStatusDevolucaoDialog} onOpenChange={setShowStatusDevolucaoDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <RotateCcw className="h-5 w-5 text-amber-500" />
+              Status do Pedido
+            </DialogTitle>
+            <DialogDescription>
+              Selecione o status atual do pedido para registrar na devolução:
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 py-4">
+            <Button 
+              variant="outline"
+              className="w-full justify-start text-left h-auto py-3"
+              onClick={() => handleConfirmStatusDevolucao('Aguardando')}
+            >
+              <div className="flex flex-col items-start">
+                <span className="font-medium">Aguardando</span>
+                <span className="text-xs text-muted-foreground">Pedido aguardando retorno/processamento</span>
+              </div>
+            </Button>
+            <Button 
+              variant="outline"
+              className="w-full justify-start text-left h-auto py-3"
+              onClick={() => handleConfirmStatusDevolucao('Estornado')}
+            >
+              <div className="flex flex-col items-start">
+                <span className="font-medium">Estornado</span>
+                <span className="text-xs text-muted-foreground">Valor já foi estornado ao cliente</span>
+              </div>
+            </Button>
+            <Button 
+              variant="outline"
+              className="w-full justify-start text-left h-auto py-3"
+              onClick={() => handleConfirmStatusDevolucao('Reenviado')}
+            >
+              <div className="flex flex-col items-start">
+                <span className="font-medium">Reenviado</span>
+                <span className="text-xs text-muted-foreground">Novo produto foi enviado ao cliente</span>
+              </div>
+            </Button>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="ghost" 
+              onClick={() => {
+                setShowStatusDevolucaoDialog(false);
+                setPendingSubmitData(null);
+              }}
+            >
+              Cancelar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

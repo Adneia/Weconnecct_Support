@@ -149,6 +149,7 @@ class ChamadoBase(BaseModel):
     data_vencimento_reversa: Optional[str] = None  # Data de vencimento da reversa
     retornar_chamado: bool = False  # Sinaliza que precisa retorno/atuação
     verificar_adneia: bool = False  # Sinaliza que Adnéia precisa verificar
+    status_devolucao: Optional[str] = None  # Aguardando, Estornado, Reenviado
 
 class ChamadoCreate(ChamadoBase):
     pass
@@ -169,6 +170,7 @@ class ChamadoUpdate(BaseModel):
     data_vencimento_reversa: Optional[str] = None
     retornar_chamado: Optional[bool] = None  # Sinaliza que precisa retorno/atuação
     verificar_adneia: Optional[bool] = None  # Sinaliza que Adnéia precisa verificar
+    status_devolucao: Optional[str] = None  # Aguardando, Estornado, Reenviado
 
 class Chamado(ChamadoBase):
     model_config = ConfigDict(extra="ignore")
@@ -1325,8 +1327,44 @@ def sync_to_google_sheets(chamado_dict: dict, pedido_info: dict = None):
     """Background task to sync atendimento to Google Sheets"""
     try:
         sheets_client.add_atendimento(chamado_dict, pedido_info)
+        
+        # Se for "Em devolução" ou "Devolvido", sincroniza com planilha de Devoluções
+        motivo_pendencia = chamado_dict.get('motivo_pendencia', '')
+        if motivo_pendencia in ['Em devolução', 'Devolvido']:
+            sync_devolucao_to_sheets(chamado_dict, pedido_info)
+            
     except Exception as e:
         logger.error(f"Error syncing to Google Sheets: {e}")
+
+def sync_devolucao_to_sheets(chamado_dict: dict, pedido_info: dict = None):
+    """Sincroniza devolução com a planilha de Devoluções"""
+    try:
+        # Determinar "Devolvido por": se tem reversa = Correios, senão = transportadora
+        codigo_reversa = chamado_dict.get('codigo_reversa') or chamado_dict.get('reversa_codigo')
+        transportadora = pedido_info.get('transportadora', '') if pedido_info else ''
+        devolvido_por = 'Correios' if codigo_reversa else transportadora
+        
+        # Status devolução (Aguardando, Estornado, Reenviado)
+        status_devolucao = chamado_dict.get('status_devolucao', 'Aguardando')
+        
+        devolucao_data = {
+            'id_devolucao': f"DEV-{chamado_dict.get('id_atendimento', '').replace('ATD-', '')}",
+            'id_atendimento': chamado_dict.get('id_atendimento', ''),
+            'entrega': chamado_dict.get('numero_pedido', ''),
+            'cpf': chamado_dict.get('cpf_cliente', '') or (pedido_info.get('cpf_cliente', '') if pedido_info else ''),
+            'nome': chamado_dict.get('nome_cliente', '') or (pedido_info.get('nome_cliente', '') if pedido_info else ''),
+            'produto': chamado_dict.get('produto', '') or (pedido_info.get('produto', '') if pedido_info else ''),
+            'filial': pedido_info.get('uf', '') if pedido_info else '',
+            'codigo_reversa': codigo_reversa or '',
+            'atendimento': status_devolucao,  # Coluna J - Aguardando/Estornado/Reenviado
+            'devolvido_por': devolvido_por,    # Coluna K - Correios ou Transportadora
+        }
+        
+        sheets_client.add_devolucao(devolucao_data)
+        logger.info(f"Devolução {devolucao_data['id_devolucao']} sincronizada com Google Sheets")
+        
+    except Exception as e:
+        logger.error(f"Error syncing devolução to Google Sheets: {e}")
 
 @api_router.post("/chamados", response_model=dict)
 async def create_chamado(
