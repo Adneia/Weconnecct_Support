@@ -1504,7 +1504,7 @@ async def list_chamados(
                 {"id_atendimento": search_regex}
             ]
     
-    chamados = await db.chamados.find(query, {"_id": 0}).sort("data_abertura", -1).to_list(1000)
+    chamados = await db.chamados.find(query, {"_id": 0}).sort("data_abertura", -1).to_list(5000)
     
     # Calculate days open and fetch pedido status
     now = datetime.now(timezone.utc)
@@ -1548,7 +1548,7 @@ async def list_pendentes(
     if atendente:
         query['atendente'] = atendente
     
-    chamados = await db.chamados.find(query, {"_id": 0}).sort("data_abertura", 1).to_list(1000)
+    chamados = await db.chamados.find(query, {"_id": 0}).sort("data_abertura", 1).to_list(5000)
     
     now = datetime.now(timezone.utc)
     for c in chamados:
