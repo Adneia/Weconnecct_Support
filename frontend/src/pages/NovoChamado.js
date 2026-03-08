@@ -1784,11 +1784,13 @@ const NovoAtendimento = () => {
     // Verificar se é "Em devolução" ou "Devolvido" e precisa selecionar status de devolução
     const isDevolucao = motivoPendencia === 'Em devolução' || motivoPendencia === 'Devolvido';
     
-    // Exibir diálogo de status se é devolução E não tem status_devolucao selecionado
-    if (isDevolucao && !statusDevolucao) {
+    // Se é devolução, não tem status selecionado E ainda não registrou a devolução na planilha
+    // Então precisa mostrar o fluxo de registro
+    if (isDevolucao && !statusDevolucao && !devolucaoRegistrada) {
       // Guardar os dados para submeter depois
       setPendingSubmitData({ formData, motivoPendencia, codigoReversa, dataVencimentoReversa, retornarChamado, verificarAdneia, encerrarAoCriar });
-      setShowStatusDevolucaoDialog(true);
+      // Mostrar diálogo perguntando se quer registrar
+      setShowDevolucaoDialog(true);
       return;
     }
 
@@ -1853,13 +1855,55 @@ const NovoAtendimento = () => {
     }
   };
 
-  const handleConfirmStatusDevolucao = (status) => {
+  const handleConfirmStatusDevolucao = async (status) => {
     setStatusDevolucao(status);
     setShowStatusDevolucaoDialog(false);
+    setLoading(true);
     
+    try {
+      // Determinar "Devolvido por": Correios (se tem reversa) ou Transportadora
+      const devolvidoPor = codigoReversa ? 'Correios' : (pedidoErp?.transportadora || 'Transportadora');
+      
+      // Registrar na planilha de devoluções via API
+      const response = await axios.post(
+        `${API_URL}/api/devolucoes`,
+        {
+          numero_pedido: formData.numero_pedido,
+          nome_cliente: pedidoErp?.nome_cliente || '',
+          cpf_cliente: pedidoErp?.cpf_cliente || '',
+          solicitacao: formData.solicitacao || '',
+          canal_vendas: formData.parceiro || pedidoErp?.canal_vendas || '',
+          motivo: formData.motivo || '',
+          codigo_reversa: codigoReversa || '',
+          chamado_id: atendimentoId || '',
+          id_atendimento: atendimentoOriginal?.id_atendimento || '',
+          produto: pedidoErp?.produto || '',
+          filial: pedidoErp?.uf_galpao || '',
+          // Novos campos para colunas J, K, L
+          atendimento: status,  // Coluna J: Aguardando/Estornado/Reenviado
+          devolvido_por: devolvidoPor,  // Coluna K: Correios ou Transportadora
+          status_galpao: 'AGUARDANDO'  // Coluna L
+        },
+        { headers: getAuthHeader() }
+      );
+      
+      if (response.data.sync_status === 'success') {
+        toast.success(`Devolução registrada! Status: ${status}, Devolvido por: ${devolvidoPor}`);
+        setDevolucaoRegistrada(true);
+      } else {
+        toast.error('Falha ao registrar na planilha');
+      }
+    } catch (error) {
+      toast.error('Erro ao registrar devolução na planilha');
+      console.error('Erro ao registrar devolução:', error);
+    } finally {
+      setLoading(false);
+    }
+    
+    // Se tinha dados pendentes de submit, submeter agora
     if (pendingSubmitData) {
-      const { formData, motivoPendencia, codigoReversa, dataVencimentoReversa, retornarChamado, verificarAdneia, encerrarAoCriar } = pendingSubmitData;
-      submitAtendimento(formData, motivoPendencia, codigoReversa, dataVencimentoReversa, retornarChamado, verificarAdneia, encerrarAoCriar, status);
+      const { formData: pendingFormData, motivoPendencia: pendingMotivo, codigoReversa: pendingReversa, dataVencimentoReversa: pendingDataReversa, retornarChamado: pendingRetornar, verificarAdneia: pendingVerificar, encerrarAoCriar: pendingEncerrar } = pendingSubmitData;
+      submitAtendimento(pendingFormData, pendingMotivo, pendingReversa, pendingDataReversa, pendingRetornar, pendingVerificar, pendingEncerrar, status);
       setPendingSubmitData(null);
     }
   };
@@ -1986,45 +2030,33 @@ const NovoAtendimento = () => {
     }
   };
 
-  // Handler para quando muda o motivo da pendência para "Em devolução"
+  // Handler para quando muda o motivo da pendência para "Em devolução" ou "Devolvido"
   const handleMotivoPendenciaChange = async (value) => {
     setMotivoPendencia(value);
     if (fieldErrors.motivoPendencia) setFieldErrors(prev => ({...prev, motivoPendencia: false}));
     
-    // Se mudou para "Em devolução" ou "Devolvido", resetar status_devolucao para forçar seleção
+    // Se mudou para "Em devolução" ou "Devolvido", mostrar diálogo perguntando se quer registrar
     if (value === 'Em devolução' || value === 'Devolvido') {
-      // Se o motivo anterior não era devolução, resetar o status
-      const motivoAnterior = atendimentoOriginal?.motivo_pendencia || '';
-      if (motivoAnterior !== 'Em devolução' && motivoAnterior !== 'Devolvido') {
-        setStatusDevolucao('');
-      }
+      // Resetar status de devolução para forçar nova seleção
+      setStatusDevolucao('');
+      setDevolucaoRegistrada(false);
       
-      // Mostrar diálogo informativo sobre devolução
+      // Mostrar diálogo perguntando se quer registrar na planilha
       if (formData.numero_pedido) {
         setShowDevolucaoDialog(true);
       }
     }
   };
 
-  // Handler para confirmar devolução (apenas informativo)
-  const handleDevolucaoConfirm = async (encerrar) => {
+  // Handler para o primeiro diálogo: "Deseja registrar na planilha?"
+  const handleDevolucaoConfirm = async (registrar) => {
     setShowDevolucaoDialog(false);
     
-    // Se quiser encerrar, precisamos do status de devolução
-    if (encerrar) {
-      // Mostrar diálogo de seleção de status
-      setPendingSubmitData({ 
-        formData, 
-        motivoPendencia, 
-        codigoReversa, 
-        dataVencimentoReversa, 
-        retornarChamado: false, 
-        verificarAdneia: false, 
-        encerrarAoCriar: true 
-      });
+    if (registrar) {
+      // Usuário quer registrar - mostrar segundo diálogo para selecionar status
       setShowStatusDevolucaoDialog(true);
     }
-    // Se não quiser encerrar, apenas fecha o diálogo e o usuário continua editando
+    // Se não quiser registrar, apenas fecha e continua editando normalmente
   };
 
   const getStatusBadgeColor = (status) => {
@@ -3606,24 +3638,22 @@ const NovoAtendimento = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Dialog de Confirmação de Devolução */}
+      {/* Dialog de Confirmação de Devolução - Pergunta 1: Deseja registrar? */}
       <Dialog open={showDevolucaoDialog} onOpenChange={setShowDevolucaoDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-amber-500" />
-              Devolução
+              <RotateCcw className="h-5 w-5 text-amber-500" />
+              Registrar Devolução
             </DialogTitle>
             <DialogDescription className="space-y-2">
-              <p>Ao salvar, o atendimento será registrado na planilha <strong>Gestão Devoluções 2026_E</strong>.</p>
+              <p>Deseja registrar este pedido na planilha <strong>Gestão Devoluções 2026_E</strong>?</p>
               <div className="p-3 bg-muted rounded-lg mt-2">
                 <p><strong>Pedido:</strong> #{formData.numero_pedido}</p>
                 <p><strong>Cliente:</strong> {pedidoErp?.nome_cliente || '-'}</p>
-                <p><strong>Motivo:</strong> {formData.motivo || '-'}</p>
+                <p><strong>Reversa:</strong> {codigoReversa || 'Não informada'}</p>
+                <p><strong>Devolvido por:</strong> {codigoReversa ? 'Correios' : (pedidoErp?.transportadora || 'Transportadora')}</p>
               </div>
-              <p className="text-sm text-muted-foreground mt-2">
-                Você será perguntado sobre o status da devolução ao salvar o atendimento.
-              </p>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex flex-col sm:flex-row gap-2">
@@ -3632,47 +3662,47 @@ const NovoAtendimento = () => {
               onClick={() => handleDevolucaoConfirm(false)}
               className="w-full sm:w-auto"
             >
-              Continuar Editando
+              Não Registrar
             </Button>
-            {isEditMode && (
-              <Button 
-                onClick={() => handleDevolucaoConfirm(true)}
-                className="w-full sm:w-auto bg-rose-600 hover:bg-rose-700"
-              >
-                Encerrar Agora
-              </Button>
-            )}
+            <Button 
+              onClick={() => handleDevolucaoConfirm(true)}
+              className="w-full sm:w-auto bg-amber-600 hover:bg-amber-700"
+            >
+              Sim, Registrar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Dialog: Status da Devolução */}
+      {/* Dialog: Status da Devolução - Pergunta 2: Qual o status? */}
       <Dialog open={showStatusDevolucaoDialog} onOpenChange={setShowStatusDevolucaoDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <RotateCcw className="h-5 w-5 text-amber-500" />
-              Status do Pedido
+              Status da Devolução
             </DialogTitle>
             <DialogDescription>
-              Selecione o status atual do pedido para registrar na devolução:
+              Selecione o status do atendimento para registrar na planilha:
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-3 py-4">
             <Button 
               variant="outline"
-              className="w-full justify-start text-left h-auto py-3"
+              className="w-full justify-start text-left h-auto py-3 hover:bg-amber-50 hover:border-amber-300"
               onClick={() => handleConfirmStatusDevolucao('Aguardando')}
+              disabled={loading}
             >
               <div className="flex flex-col items-start">
                 <span className="font-medium">Aguardando</span>
-                <span className="text-xs text-muted-foreground">Pedido aguardando retorno/processamento</span>
+                <span className="text-xs text-muted-foreground">Aguardando retorno do produto ao galpão</span>
               </div>
             </Button>
             <Button 
               variant="outline"
-              className="w-full justify-start text-left h-auto py-3"
+              className="w-full justify-start text-left h-auto py-3 hover:bg-green-50 hover:border-green-300"
               onClick={() => handleConfirmStatusDevolucao('Estornado')}
+              disabled={loading}
             >
               <div className="flex flex-col items-start">
                 <span className="font-medium">Estornado</span>
@@ -3681,8 +3711,9 @@ const NovoAtendimento = () => {
             </Button>
             <Button 
               variant="outline"
-              className="w-full justify-start text-left h-auto py-3"
+              className="w-full justify-start text-left h-auto py-3 hover:bg-blue-50 hover:border-blue-300"
               onClick={() => handleConfirmStatusDevolucao('Reenviado')}
+              disabled={loading}
             >
               <div className="flex flex-col items-start">
                 <span className="font-medium">Reenviado</span>
@@ -3697,6 +3728,7 @@ const NovoAtendimento = () => {
                 setShowStatusDevolucaoDialog(false);
                 setPendingSubmitData(null);
               }}
+              disabled={loading}
             >
               Cancelar
             </Button>

@@ -1,19 +1,26 @@
 # ELO - Sistema de Atendimentos WeConnect
 
-## Status: MVP Funcional + Dashboard Multi-Abas ✅
-**Última atualização:** 06/03/2026
+## Status: MVP Funcional + Fluxo de Devoluções Corrigido ✅
+**Última atualização:** 08/03/2026
 
 ## Changelog Recente
+- ✅ **08/03/2026:** Corrigido fluxo completo de Devoluções
+  - **Fluxo implementado:**
+    1. Ao mudar motivo para "Em devolução" ou "Devolvido" → Diálogo pergunta "Deseja registrar na planilha?"
+    2. Se "Sim" → Segundo diálogo pergunta status: Aguardando/Estornado/Reenviado
+    3. Ao selecionar → Registra na planilha "Gestão Devoluções 2026_E" com:
+       - Coluna J (Atendimento): Status selecionado
+       - Coluna K (Devolvido por): "Correios" se tem reversa, senão nome da transportadora
+       - Coluna L (Status_Galpao): "AGUARDANDO"
+  - Arquivos modificados:
+    - `/app/frontend/src/pages/NovoChamado.js`: handleMotivoPendenciaChange, handleDevolucaoConfirm, handleConfirmStatusDevolucao
+    - `/app/backend/server.py`: DevolucaoCreate model, create_devolucao endpoint
+    - `/app/backend/google_sheets.py`: add_devolucao_row com mapeamento de colunas J, K, L
+
 - ✅ **06/03/2026:** Adicionada integração com dados de estoque (SIGEQ425)
-  - Novo campo "Estoque Disp." no atendimento (verde se >0, vermelho se =0)
-  - Relatório de Compras agora inclui: SKU, Parceiro/Canal, Cidade, UF, Estoque Disponível
-  - Importação automática de 66.771 registros de estoque durante o upload de dados
 - ✅ **03/03/2026:** Tabela "Atendimentos por Canal" expandida de 5 para 10 dias úteis
-- ✅ Corrigido bug do SelectItem com value="" no Dashboard (erro de runtime)
 - ✅ Dashboard multi-abas completamente funcional com 7 abas
-- ✅ Backend com endpoints /api/dashboard/v2/* implementados
-- ✅ Filtros globais (Período, Canal, Fornecedor) funcionando
-- ✅ Gráficos com recharts (LineChart, BarChart, PieChart)
+- ✅ Sincronização Google Sheets com formatação de fundo verde para encerrados
 
 ## Dashboard Multi-Abas (Implementado)
 
@@ -27,114 +34,88 @@
 - Gráfico de pizza: Distribuição por Canal
 
 ### Aba 3 - Classificação
-- Por Categoria
-- Pendentes por Categoria
-- Por Motivo da Pendência
-- Top 10 Produtos
-- Por Fornecedor
+- Por Categoria, Pendentes, Motivo da Pendência
+- Top 10 Produtos, Por Fornecedor
 
 ### Aba 4 - Performance
-- Tempo Médio por Canal (gráfico de barras horizontal)
-- Tempo Médio por Fornecedor (gráfico de barras horizontal)
+- Tempo Médio por Canal e por Fornecedor
 
 ### Aba 5 - Pendências
-- Card: Total Pendentes
-- Listas: Por Categoria, Por Motivo, Por Canal
-- Tabela: Detalhamento (lista de pendências clicáveis)
+- Detalhamento de pendências clicáveis
 
 ### Aba 6 - Estornos
-- Cards: Total Estornos, % Geral
-- Gráfico: % Estornos por Mês
-- Ranking: % por Canal
+- % Estornos por Mês e por Canal
 
 ### Aba 7 - Reincidência
-- Cards: Taxa Geral, Clientes Reincidentes
-- Lista: Reincidência por Canal
-- Lista: Reincidência por Produto (Top 10)
+- Métricas de reincidência
 
-### Filtros Globais
-- Período: 7 dias, 30 dias, 90 dias, 1 ano
-- Canal de Venda
-- Fornecedor
+## Funcionalidades Principais
 
-## Categorias (8)
-1. Falha Produção
-2. Falha de Compras
-3. Falha Transporte
-4. Produto com Avaria
-5. Arrependimento
-6. Acompanhamento
-7. Reclame Aqui
-8. Assistência Técnica
+### Chamados/Atendimentos
+- CRUD completo de atendimentos
+- Busca por Entrega, CPF, Nome, Pedido, Galpão+Nota
+- Categorias: Falha Produção, Compras, Transporte, etc.
+- Motivos de Pendência com textos padrão
+- Encerrar ao criar (checkbox)
+- Verificar Adnéia / Retornar Chamado (flags)
 
-## Fluxo de Trabalho
-- **Retornar Chamado:** Checkbox amarelo para sinalizar retorno
-- **Verificar:** Checkbox roxo para sinalizar verificação necessária
+### Devoluções (CORRIGIDO 08/03/2026)
+- Fluxo de 3 passos: Registrar → Selecionar Status → Sincronizar
+- Status: Aguardando, Estornado, Reenviado
+- Devolvido por: Correios (se tem reversa) ou Transportadora
+- Sincronização com planilha "Gestão Devoluções 2026_E"
 
-## Integrações
-- **Google Sheets:** Atendimentos e Devoluções sincronizados ✅
-- **Base de Dados:** 152.551 pedidos importados ✅
+### Relatórios
+- Ag. Compras: SKU, Parceiro, Cidade, UF, Estoque
+- Ag. Logística: Com status crítico
+- Exportação Excel
 
-## Credenciais de Teste
-- Email: test@example.com
-- Senha: password123
+### Textos Padrão
+- Gestão de textos por categoria
+- Acesso para todos os usuários
+- Log de alterações (visível para admin)
+
+### Integrações
+- Google Sheets (gspread): 2 planilhas
+  - Atendimentos 2026_E
+  - Gestão Devoluções 2026_E
 
 ## Arquitetura
+
 ```
 /app/
 ├── backend/
-│   ├── server.py        # FastAPI com rotas, modelos e lógica
-│   ├── google_sheets.py # Integração Google Sheets
-│   └── requirements.txt
-├── frontend/
-│   ├── src/pages/
-│   │   ├── Dashboard.js     # Dashboard multi-abas (7 abas)
-│   │   ├── NovoChamado.js   # Criar/editar chamados
-│   │   ├── ListaChamados.js # Lista com filtros
-│   │   └── ImportarPedidos.js
-│   └── package.json
-└── memory/PRD.md
+│   ├── server.py          # API FastAPI (monolítico)
+│   ├── google_sheets.py   # Integração Google Sheets
+│   └── credentials.json   # Service Account
+└── frontend/
+    └── src/
+        ├── pages/
+        │   ├── NovoChamado.js    # Formulário de atendimento
+        │   ├── ListaChamados.js  # Lista e filtros
+        │   └── Dashboard.js      # Dashboard multi-abas
+        └── components/ui/        # Shadcn/UI
 ```
 
-## Backlog
+## Credenciais de Teste
+- Admin: adneia@weconnect360.com.br / 20wead
+- Standard: leticia@weconnect360.com.br / Teste123
 
-### P1 - Refatoração (RECOMENDADO)
-- Dividir server.py em routes/, models/, services/
-- Decompor NovoChamado.js em componentes menores
+## Próximas Tarefas (P0-P3)
 
-### P1 - Fluxo completo de Devoluções
+### P0 - Crítico
+- [ ] Refatoração do backend (server.py → estrutura modular)
+- [ ] Refatoração do frontend (NovoChamado.js → componentes menores)
 
-### P2 - Interface conversacional, APIs de Rastreio
+### P1 - Alta Prioridade
+- [ ] Carga da base de atendimentos históricos (Excel)
+- [ ] Fluxo completo de Reversas
 
-### P3 - Relatórios, Outlook/Zendesk, IA
+### P2 - Média Prioridade
+- [ ] Interface conversacional (chatbot)
+- [ ] Integração com APIs de Rastreio (Correios, Total Express)
 
-## API Endpoints
-
-### Autenticação
-- POST /api/auth/register
-- POST /api/auth/login
-
-### Atendimentos
-- GET /api/chamados (com filtros)
-- POST /api/chamados
-- PUT /api/chamados/{id}
-- DELETE /api/chamados/{id}
-
-### Dashboard V2
-- GET /api/dashboard/v2/visao-geral
-- GET /api/dashboard/v2/volume-canal
-- GET /api/dashboard/v2/classificacao
-- GET /api/dashboard/v2/performance
-- GET /api/dashboard/v2/pendencias
-- GET /api/dashboard/v2/estornos
-- GET /api/dashboard/v2/reincidencia
-- GET /api/dashboard/v2/filtros
-
-### Pedidos
-- GET /api/pedidos/search
-- POST /api/pedidos/import
-
-### Google Sheets
-- GET /api/google-sheets/status
-- POST /api/google-sheets/initialize
-- POST /api/devolucoes
+### P3 - Baixa Prioridade
+- [ ] Geração de Relatórios nativa
+- [ ] Integração Outlook/Zendesk
+- [ ] IA para sugestão de categorias

@@ -1928,6 +1928,10 @@ class DevolucaoCreate(BaseModel):
     id_atendimento: Optional[str] = None
     produto: Optional[str] = None
     filial: Optional[str] = None
+    # Novos campos para colunas J, K, L da planilha
+    atendimento: Optional[str] = 'Aguardando'  # Coluna J: Aguardando/Estornado/Reenviado
+    devolvido_por: Optional[str] = None  # Coluna K: Correios ou Transportadora
+    status_galpao: Optional[str] = 'AGUARDANDO'  # Coluna L
 
 @api_router.post("/devolucoes", response_model=dict)
 async def create_devolucao(devolucao_data: DevolucaoCreate, current_user: dict = Depends(get_current_user)):
@@ -1940,7 +1944,7 @@ async def create_devolucao(devolucao_data: DevolucaoCreate, current_user: dict =
         id_devolucao = f"DEV-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{str(uuid4())[:6].upper()}"
         
         # Preparar dados para a planilha no formato das colunas
-        data_atual = datetime.now(timezone.utc).strftime('%d/%m/%Y')
+        data_atual = datetime.now(timezone.utc).strftime('%d/%m/%y')
         
         row_data = {
             'id_devolucao': id_devolucao,
@@ -1956,7 +1960,11 @@ async def create_devolucao(devolucao_data: DevolucaoCreate, current_user: dict =
             'motivo': devolucao_data.motivo or '',
             'solicitacao': devolucao_data.solicitacao or '',
             'status': 'Em devolução',
-            'responsavel': current_user.get('name', '')
+            'responsavel': current_user.get('name', ''),
+            # Novos campos para colunas J, K, L
+            'atendimento': devolucao_data.atendimento or 'Aguardando',
+            'devolvido_por': devolucao_data.devolvido_por or '',
+            'status_galpao': devolucao_data.status_galpao or 'AGUARDANDO'
         }
         
         # Adicionar à planilha de devoluções
