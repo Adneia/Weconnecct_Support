@@ -36,14 +36,21 @@ const API_URL = process.env.REACT_APP_BACKEND_URL;
 
 const CATEGORIAS = [
   "Falha Produção",
+  "Falha Compras",
   "Falha de Compras", 
   "Falha Transporte",
+  "Falha Fornecedor",
+  "Falha Integração",
+  "Falha de Integração",
+  "Falha Parceiro",
+  "Falha Cadastro",
   "Produto com Avaria",
   "Arrependimento",
   "Acompanhamento",
+  "Comprovante de Entrega",
+  "Impossibilidade Entrega",
   "Reclame Aqui",
-  "Assistência Técnica",
-  "Falha de Integração"
+  "Assistência Técnica"
 ];
 
 const ATENDENTES = ["Letícia Martelo", "Adnéia Campos"];
@@ -1136,11 +1143,21 @@ const NovoAtendimento = () => {
       }
       
       // Preencher dados da reversa
-      if (atd.codigo_reversa) {
-        setCodigoReversa(atd.codigo_reversa);
+      if (atd.reversa_codigo || atd.codigo_reversa) {
+        setCodigoReversa(atd.reversa_codigo || atd.codigo_reversa);
       }
       if (atd.data_vencimento_reversa) {
-        setDataVencimentoReversa(atd.data_vencimento_reversa);
+        // Converter formato "16/3" para "2026-03-16" se necessário
+        let dataVenc = atd.data_vencimento_reversa;
+        if (dataVenc && dataVenc.includes('/') && !dataVenc.includes('-')) {
+          const parts = dataVenc.split('/');
+          if (parts.length === 2) {
+            const dia = parts[0].padStart(2, '0');
+            const mes = parts[1].padStart(2, '0');
+            dataVenc = `2026-${mes}-${dia}`;
+          }
+        }
+        setDataVencimentoReversa(dataVenc);
       }
       
       // Carregar retornar_chamado
