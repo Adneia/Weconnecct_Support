@@ -213,7 +213,11 @@ class GoogleSheetsClient:
             # Add pedido info if available
             if pedido_info:
                 row[17] = pedido_info.get('status_pedido', '')   # R - Status_Pedido
-                row[18] = pedido_info.get('nota_fiscal', '')     # S - Nota
+                # Remover .0 da nota fiscal
+                nota = str(pedido_info.get('nota_fiscal', ''))
+                if nota.endswith('.0'):
+                    nota = nota[:-2]
+                row[18] = nota                                    # S - Nota
                 row[19] = pedido_info.get('chave_nota', '')      # T - Chave_Acesso
                 row[20] = pedido_info.get('filial', '') or pedido_info.get('uf', '')  # U - Filial
             

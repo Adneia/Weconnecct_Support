@@ -1018,7 +1018,7 @@ const NovoAtendimento = () => {
   };
   const [dataVencimentoReversa, setDataVencimentoReversa] = useState(getDefaultVencimento());
   
-  const [searchType, setSearchType] = useState('pedido'); // 'pedido', 'cpf', 'nome', 'entrega', 'nota', 'galpao'
+  const [searchType, setSearchType] = useState('pedido'); // 'pedido', 'cpf', 'nome', 'entrega', 'galpao'
   const [selectedGalpao, setSelectedGalpao] = useState('SP'); // SC, SP, ES
   const [searchValue, setSearchValue] = useState('');
   const [selectedAvaria, setSelectedAvaria] = useState('');
@@ -1080,8 +1080,6 @@ const NovoAtendimento = () => {
           searchByNome(searchValue.trim());
         } else if (searchType === 'pedido') {
           searchByPedido(searchValue.trim());
-        } else if (searchType === 'nota') {
-          searchByNota(searchValue.trim());
         } else if (searchType === 'galpao') {
           searchByGalpaoNota(selectedGalpao, searchValue.trim());
         }
@@ -2033,7 +2031,7 @@ const NovoAtendimento = () => {
               <Search className="h-5 w-5" />
               1. Buscar Pedido
             </CardTitle>
-            <CardDescription>Busque por Pedido, CPF, Nome, Entrega, Nota ou Galpão+Nota</CardDescription>
+            <CardDescription>Busque por Pedido, CPF, Nome, Entrega ou Galpão+Nota</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex gap-2">
@@ -2046,7 +2044,6 @@ const NovoAtendimento = () => {
                   <SelectItem value="cpf">CPF</SelectItem>
                   <SelectItem value="nome">Nome</SelectItem>
                   <SelectItem value="entrega">Entrega</SelectItem>
-                  <SelectItem value="nota">Nota</SelectItem>
                   <SelectItem value="galpao">Galpão + Nota</SelectItem>
                 </SelectContent>
               </Select>
@@ -2072,7 +2069,6 @@ const NovoAtendimento = () => {
                     searchType === 'pedido' ? 'Digite o número do pedido' : 
                     searchType === 'cpf' ? 'Digite o CPF do cliente' : 
                     searchType === 'nome' ? 'Digite o nome do cliente' :
-                    searchType === 'nota' ? 'Digite o número da Nota Fiscal' :
                     searchType === 'galpao' ? 'Digite o número da Nota Fiscal' :
                     'Digite o número da Entrega'
                   }
