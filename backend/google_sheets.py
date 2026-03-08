@@ -184,11 +184,11 @@ class GoogleSheetsClient:
             if isinstance(data_abertura, str):
                 try:
                     dt = datetime.fromisoformat(data_abertura.replace('Z', '+00:00'))
-                    data_formatted = dt.strftime('%d/%m/%Y %H:%M')
+                    data_formatted = dt.strftime('%d/%m/%y')
                 except:
                     data_formatted = data_abertura
             else:
-                data_formatted = data_abertura.strftime('%d/%m/%Y %H:%M') if data_abertura else ''
+                data_formatted = data_abertura.strftime('%d/%m/%y') if data_abertura else ''
             
             # Prepare row data matching the column structure
             row = [
@@ -340,7 +340,7 @@ class GoogleSheetsClient:
                     elif field == 'data_fechamento' and value:
                         try:
                             dt = datetime.fromisoformat(str(value).replace('Z', '+00:00'))
-                            value = dt.strftime('%d/%m/%Y %H:%M')
+                            value = dt.strftime('%d/%m/%y')
                         except:
                             pass
                     
@@ -392,7 +392,7 @@ class GoogleSheetsClient:
             row = [
                 devolucao.get('id_devolucao', ''),           # A - ID_Devolucao
                 devolucao.get('id_atendimento', ''),         # B - ID_Atendimento
-                datetime.now(timezone.utc).strftime('%d/%m/%Y %H:%M'),  # C - Data_Entrada_Lista
+                datetime.now(timezone.utc).strftime('%d/%m/%y'),  # C - Data_Entrada_Lista
                 devolucao.get('entrega', ''),                # D - Entrega
                 devolucao.get('cpf', ''),                    # E - CPF
                 devolucao.get('nome', ''),                   # F - Nome
