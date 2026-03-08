@@ -1,76 +1,77 @@
 <analysis>**original_problem_statement:**
-O usuário solicitou a criação de um sistema de controle de chamados (tickets) para a equipe de atendimento da WeConnect. O sistema, agora chamado ELO, precisa gerenciar fluxos de trabalho detalhados, uma grande base de dados de pedidos, e automatizar mudanças de status com base em regras de negócio complexas. O sistema também deve sincronizar atendimentos com o Google Sheets.
+O usuário solicitou a criação de um sistema de controle de chamados (tickets) para a equipe de atendimento da WeConnect, chamado ELO. O sistema precisa gerenciar fluxos de trabalho detalhados, uma grande base de dados de pedidos, e automatizar mudanças de status.
 
 **PRODUCT REQUIREMENTS:**
 - **Telas e Funcionalidades:**
-    - : Visão geral e estatísticas, com uma tabela detalhando a performance dos últimos 10 dias úteis por canal.
-    - : Formulário para criar/editar tickets com busca de pedidos, auto-preenchimento, campos obrigatórios, textos padrão dinâmicos, validação, e lógica para impedir a criação de chamados duplicados para a mesma entrega.
-    - : Tabela com filtros avançados (status, data, parceiro/canal), estatísticas, e exportação de relatórios customizados (Ag. Compras, Ag. Logística).
-    - : Tela para upload de arquivo Excel/CSV, com processamento em background para arquivos grandes e lógica para importar apenas os últimos 6 meses.
-    - : Uma nova tela (com acesso restrito) para criar, editar e deletar textos padrão.
-- **Integrações:**
-    - Sincronização de atendimentos com a planilha Google Sheets Atendimentos 2026_E.
+    - : Visão geral e estatísticas.
+    - : Formulário para criar/editar tickets com busca de pedidos (incluindo por Galpão + Nota), auto-preenchimento, e lógica para impedir duplicados. Opção de Encerrar ao criar.
+    - : Tabela com filtros avançados e exportação de relatórios customizados (Ag. Compras, Ag. Logística).
+    - : Upload de Excel/CSV com processamento em background.
+    - : Tela para CRUD de textos padrão, acessível a todos, com um log de alterações visível para o admin.
+- **Integrações e Automações:**
+    - Sincronização de atendimentos com a planilha Google Sheets Atendimentos 2026_E, formatando linhas resolvidas com fundo verde.
+    - Sincronização de chamados de devolução com uma planilha Google Sheets separada (Devoluções).
+    - Ao criar/editar um chamado de devolução, o sistema deve perguntar o status (Aguardando, Estornado, Reenviado) e registrar na planilha correta.
+    - Exibir o estoque disponível ( de uma planilha externa) nos detalhes do produto e no relatório de compras.
 - **Autenticação:** JWT (email/senha).
-- **Funcionalidades Chave:**
-    - Um sistema robusto de textos padrão (templates) sugeridos com base em categorias e motivos de pendência. Todos os textos usam uma assinatura dinâmica .
-    - Automação que altera o  de um chamado com base na evolução do status do pedido, executada durante a importação de dados.
-    - Relatórios de Ag. Compras e Ag. Logística com regras de negócio específicas (ex: itens em Aguardando Estoque por mais de X dias, com X variando por fornecedor).
-    - Preservação da categoria original de um chamado, mesmo que ela seja alterada posteriormente.
 
 **User's preferred language**: Portuguese (pt-BR)
 
 **what currently exists?**
-Uma aplicação full-stack (React + FastAPI + MongoDB) funcional, renomeada para ELO. O sistema inclui autenticação JWT, gestão de usuários, e um CRUD completo de atendimentos. O processo de importação de pedidos foi significativamente melhorado para lidar com arquivos grandes (~33MB) através de processamento em background, evitando timeouts. Este processo agora também importa dados de fornecedores de uma aba separada e executa uma lógica complexa para atualizar automaticamente o  dos chamados existentes com base em novas informações de status. Foram implementados novos relatórios customizados (Ag. Compras e Ag. Logística) com filtros baseados em regras de negócio. A UI foi aprimorada com uma nova página para gerenciamento de textos padrão (com acesso restrito por usuário), um aviso de chamados duplicados, e várias melhorias na lista de atendimentos, incluindo novos filtros e colunas.
+Uma aplicação full-stack (React + FastAPI + MongoDB) funcional, ELO. O sistema agora integra dados de estoque de um arquivo Excel, exibindo-os na UI e em relatórios. A busca de pedidos foi expandida para incluir Galpão + Nota. A gestão de textos padrão foi liberada para todos os usuários, com um novo sistema de log de alterações visível apenas para o admin. Foi implementado um novo fluxo para sincronizar chamados de Devolução com uma planilha Google Sheets dedicada, embora este fluxo apresente bugs. Foi iniciada uma refatoração crítica do backend, com a criação de uma estrutura de diretórios modular, mas a migração do código está em fase inicial.
 
 **Last working item**:
--   **Last item agent was working:** O agente estava finalizando a adição de novos textos padrão para a categoria Falha de Compras e garantindo que todos os textos padrão do sistema usassem uma assinatura dinâmica () baseada no nome do usuário logado, em vez de um nome estático.
--   **Status:** USER VERIFICATION PENDING
--   **Agent Testing Done:** Y (O agente implementou as alterações no backend e frontend e verificou com screenshots que a UI exibia os novos botões e os textos corretos).
+-   **Last item agent was working:** O agente estava tentando corrigir um bug no novo fluxo de Devoluções. O usuário reportou que ao **editar** um chamado existente para a categoria Em devolução, o diálogo para selecionar o status da devolução não aparece. Além disso, ao **criar** um novo chamado de devolução, as informações específicas (colunas J, K, L) não estão sendo preenchidas na planilha de Devoluções.
+-   **Status:** BLOCKED
+-   **Agent Testing Done:** N
 -   **Which testing method agent to use?** both
--   **User Testing Done:** N
+-   **User Testing Done:** N (User found the bugs)
 
 **All Pending/In progress Issue list**:
-Nenhum bug conhecido. Apenas tarefas em andamento.
+-   **Issue 1:** Fluxo de Devolução está quebrado (P0)
+
+**Issues Detail:**
+-   **Issue 1:**
+    -   **Attempted fixes:** O agente implementou a lógica inicial que funciona apenas na criação do chamado, e mesmo assim de forma incompleta, não preenchendo as colunas J, K e L conforme o último feedback do usuário. A lógica para a edição do chamado não foi implementada.
+    -   **Next debug checklist:**
+        1.  **Frontend ():** Modificar a função  para que a lógica que exibe o diálogo de status de devolução () seja acionada tanto ao criar () quanto ao editar () um chamado, se a categoria for Em devolução ou Devolvido.
+        2.  **Backend ():** Garantir que o endpoint de atualização () receba o campo  do frontend e o passe para a função de sincronização com o Google Sheets ().
+        3.  **Backend ():** Revisar a função  (ou similar) para garantir que os dados de  (coluna J), Devolvido por (coluna K), e status do galpão (coluna L) sejam corretamente mapeados e enviados para a planilha ao criar um novo chamado.
+    -   **Why fix this issue and what will be achieved with the fix?** Corrigir este bug é essencial para que o fluxo de devoluções, uma funcionalidade chave solicitada pelo usuário, funcione corretamente tanto na criação quanto na edição de chamados.
+    -   **Status:** IN PROGRESS
+    -   **Is recurring issue?** N
+    -   **Should Test frontend/backend/both after fix?** both
+    -   **Blocked on other issue:** Não.
 
 **In progress Task List**:
--   **Task 1:** Finalizar e obter a confirmação do usuário para os novos textos padrão da categoria Falha de Compras e a atualização das assinaturas dinâmicas. (P0)
-    -   **Where to resume:** Apresentar a implementação final ao usuário, mostrando os múltiplos botões para a categoria Falha de Compras e confirmando que a assinatura dinâmica está funcionando como esperado em todos os textos.
-    -   **What will be achieved with this?** Concluir os requisitos de personalização dos textos padrão.
-    -   **Status:** USER VERIFICATION PENDING
-    -   **Should Test frontend/backend/both after fix?** both
-    -   **Blocked on something:** Não.
+-   **Task 1:** Refatoração do Backend (P0)
+    -   **Where to resume:** O agente já criou a nova estrutura de diretórios (, , ) e moveu alguns modelos Pydantic e a lógica de autenticação. A próxima etapa é continuar migrando os endpoints de  para arquivos específicos dentro de  (ex: , ), e popular o novo arquivo de entrypoint .
+    -   **What will be achieved with this?** A refatoração é crítica para reduzir a complexidade, melhorar a manutenibilidade e garantir a estabilidade futura da aplicação.
+    -   **Status:** IN PROGRESS
+    -   **Should Test frontend/backend/both after fix?** backend
+    -   **Blocked on something:** Não, mas deve ser retomada após a correção do Issue 1.
 
 **Upcoming and Future Tasks**
 -   **Upcoming Tasks:**
-    -   **P0: Refatoração do Código:** A complexidade dos arquivos  e  atingiu um nível crítico. É **URGENTE** propor e executar uma refatoração para dividir esses monólitos em módulos menores (routes, services, models para o backend; componentes e hooks para o frontend) para garantir a estabilidade e manutenibilidade do projeto.
-    -   **P1: Carga da base de atendimentos:** O usuário deseja importar em massa seus atendimentos históricos de um arquivo Excel (). Esta tarefa ainda está pendente.
+    -   **P0: Refatoração do Frontend:** O arquivo  é um componente monolítico com quase 4000 linhas e precisa ser urgentemente decomposto em componentes menores e hooks reutilizáveis.
+    -   **P1: Carga da base de atendimentos:** Implementar a funcionalidade para importar em massa os atendimentos históricos do usuário a partir de um arquivo Excel ().
 -   **Future Tasks:**
-    -   **P1: Implementar fluxo completo de Devoluções (Reversas):** Criar a lógica e as telas para gerenciar o ciclo de vida completo de uma devolução.
-    -   **P2: Implementar a interface conversacional:** Adaptar a interface atual para um estilo de chatbot.
+    -   **P1: Implementar fluxo completo de Devoluções (Reversas):** Expandir a funcionalidade atual para gerenciar todo o ciclo de vida de uma devolução.
+    -   **P2: Implementar interface conversacional (chatbot).**
     -   **P2: Integração com APIs de Rastreio:** Conectar com Correios e Total Express.
-    -   **P3: Geração de Relatórios:** Adicionar uma funcionalidade nativa de relatórios.
+    -   **P3: Geração de Relatórios nativa.**
     -   **P3: Integração com Canais de Entrada:** Microsoft Graph API (Outlook) e Zendesk.
-    -   **P3: Integração com IA:** Adicionar IA para sugerir categorias e gerar resumos.
+    -   **P3: Integração com IA para sugestão de categorias e resumos.**
 
 **Completed work in this session**
--   **Dashboard:** A tabela de performance foi expandida para exibir os últimos 10 dias úteis.
--   **Fluxo de Falha de Integração:** O fluxo foi aprimorado para consolidar botões de texto padrão e instruir o atendente a registrar o CPF do cliente.
--   **Relatórios e Automação:**
-    -   Implementados relatórios customizados para Ag. Compras e Ag. Logística com regras de negócio complexas.
-    -   Criada uma automação que atualiza o  dos chamados durante a importação de dados, com base na evolução do status do pedido e regras de tempo.
--   **Importação de Dados:**
-    -   Resolvido um erro crítico de timeout (502) na importação de arquivos grandes (~33MB) ao implementar processamento em background com  no FastAPI.
-    -   Adicionado um filtro para importar apenas pedidos dos últimos 6 meses.
-    -   O processo de importação agora também lê uma aba Fornecedores para alimentar a lógica de negócio.
--   **Gestão de Chamados e Textos Padrão:**
-    -   Implementada uma funcionalidade para avisar sobre chamados existentes para a mesma entrega.
-    -   Adicionada a capacidade de alterar a categoria de um chamado, mantendo um registro da categoria original.
-    -   Criada uma nova página para CRUD de textos padrão, com acesso restrito ao usuário adneia.
-    -   Adicionados múltiplos novos textos padrão para as categorias Devolvido e Falha de Compras.
-    -   Padronizado o uso de uma assinatura dinâmica  em todos os textos.
--   **UI/UX e Renomeação:**
-    -   A aplicação foi renomeada para ELO, com a tela de login atualizada.
-    -   A tabela de atendimentos foi reestruturada: novas colunas (Status Pedido), remoção de outras (Atendente), remoção do filtro de atendente e formatação de dados (ex: remoção de  e ).
+-   **Dados de Estoque:** Integrado estoque do Excel (), exibido na UI () e no relatório de compras.
+-   **Busca de Pedidos:** Adicionada a opção de busca por Galpão + Nota.
+-   **Relatórios:** Reordenadas as colunas e adicionada a lógica de status Crítico nos relatórios de Ag. Compras e Ag. Logística.
+-   **Textos Padrão:** Liberado o acesso para todos os usuários e implementado um log de alterações com visualização para o admin.
+-   **Sincronização Google Sheets:** Corrigido o mapeamento e a formatação de datas (DD/MM/AA) para a planilha Atendimentos 2026_E. Adicionada formatação de fundo verde para chamados encerrados.
+-   **Fluxo de Chamado:** Adicionada a funcionalidade Encerrar ao criar.
+-   **Fluxo de Devolução:** Implementada a lógica inicial (porém com bugs) para sincronizar chamados de devolução com uma planilha dedicada.
+-   **Refatoração:** Iniciada a refatoração do backend com a criação de uma nova estrutura de diretórios modular.
 
 **Earlier issues found/mentioned but not fixed**
 Nenhum.
@@ -82,79 +83,71 @@ Nenhum.
 
 
 **Key Technical Concepts**
--   **Backend:** FastAPI, Pydantic, MongoDB (), , . **Uso de  para processamento assíncrono.**
--   **Frontend:** React (Hooks), React Router, , TailwindCSS, , .
--   **Integração:**  para Google Sheets.
+-   **Backend:** FastAPI, Pydantic, MongoDB (), , , .
+-   **Frontend:** React (Hooks), React Router, , TailwindCSS, , Shadcn/UI.
 
 **key DB schema**
--   **atendimentos:**  agora inclui .
--   **pedidos_erp:** Coleção com ~153k registros, atualizada por um processo de importação em background.
--   **users:** .
--   **fornecedores:** **(NOVO)** .
--   **textos_padroes_db:** **(NOVO)** .
--   **import_jobs:** **(NOVO)** .
+-   **atendimentos:**  agora inclui  (opcional).
+-   **textos_padroes_log:** **(NOVO)**  para registrar alterações nos textos padrão.
+-   **estoque_sigeq:** **(NOVO)**  para armazenar o estoque.
 
 **changes in tech stack**
 Nenhuma.
 
 **All files of reference**
--   : **Arquivo mais crítico.** Contém toda a nova lógica de relatórios, importação em background, automação e CRUD de textos padrão.
--   : **Arquivo crítico.** Contém a lógica de UI para aviso de duplicados, exibição de categoria inicial e múltiplos botões de texto padrão.
--   : Modificado para incluir novos filtros e uma tabela completamente reestruturada.
--   : Atualizado para suportar a UI de importação em background.
--   : **(NOVO)** Página para CRUD de textos padrão.
--   : Modificado para adicionar a navegação condicional para a nova página de textos padrão.
--   : Modificado para atualizar o nome da aplicação.
+-   : **Arquivo mais crítico.** Contém a maior parte da lógica, incluindo os endpoints de CRUD, relatórios e a lógica de sincronização que chama o .
+-   : **Arquivo crítico.** Contém toda a lógica de interação com as duas planilhas Google Sheets (Atendimentos e Devoluções), incluindo a formatação e o mapeamento de colunas.
+-   : **Arquivo crítico.** Contém toda a lógica de UI para o formulário, incluindo a nova busca, o checkbox Encerrar ao criar e o diálogo de status de devolução.
+-   : Contém a nova lógica para exibir o histórico de alterações para o usuário admin.
+-   : Contém a lógica para exportar os relatórios com a nova ordem de colunas.
+-   **Novos arquivos de refatoração:** Todos os arquivos dentro de ,  e .
 
 **Areas that need refactoring**:
--   ****: **EXTREMAMENTE CRÍTICO.** O arquivo tornou-se um monólito perigosamente grande e complexo. A manutenção é de alto risco e ineficiente. A refatoração para uma estrutura de projeto modular (routes, services, models) não é mais uma sugestão, mas uma necessidade para a sobrevivência do projeto.
--   ****: **EXTREMAMENTE CRÍTICO.** Com quase 4000 linhas, este componente é incontrolável. Depurar ou adicionar novas funcionalidades é um processo lento e propenso a erros. Precisa ser decomposto urgentemente em componentes menores e hooks customizados.
+-   ****: **EXTREMAMENTE CRÍTICO.** A refatoração já foi iniciada, mas precisa ser continuada com urgência para migrar toda a lógica para a nova estrutura modular.
+-   ****: **EXTREMAMENTE CRÍTICO.** O componente é quase incontrolável. Precisa ser decomposto em componentes menores (ex: , , ) e hooks customizados (ex: , ).
 
 **key api endpoints**
--   , : **(NOVOS)** Para gerar relatórios.
--   : **(REATORADO)** Agora suporta processamento em background.
--   : **(NOVO)** Para verificar o progresso da importação.
--   : **(NOVO)** Para verificar chamados duplicados.
--   : **(NOVOS)** Endpoints CRUD para gestão de textos padrão.
--   : Atualizado para suportar filtro  e retornar dados adicionais do pedido.
--   : Atualizado para salvar o campo .
+-   : **(NOVO)** Busca pedido por nota fiscal.
+-   : **(NOVO)** Busca pedido por galpão e nota.
+-   : **(NOVO)** Retorna o histórico de alterações dos textos padrão.
+-   : Modificado para acionar a sincronização com a planilha de devoluções.
 
 **Critical Info for New Agent**
--   **A Refatoração é Prioridade Máxima:** A dívida técnica atingiu um ponto de inflexão. Ignore o pedido de refatoração por sua conta e risco. A estabilidade da aplicação está comprometida. Após validar o último pedido do usuário, você DEVE propor e iniciar a refatoração como a próxima tarefa.
--   **Lógica de Negócio Complexa:** O sistema agora contém regras de negócio automatizadas e sensíveis ao tempo que são executadas durante a importação de dados. Entenda bem essa lógica em  antes de fazer qualquer alteração nos fluxos de dados.
--   **Processamento em Background:** A importação de pedidos é assíncrona. A depuração deve ser feita analisando os logs e o status retornado pela API .
+-   **Prioridade 1: Corrigir o Bug de Devolução.** O usuário está bloqueado. A funcionalidade de devolução não funciona corretamente ao editar um chamado e preenche dados incorretos ao criar um novo. Investigue os arquivos , , e .
+-   **Prioridade 2: Continuar a Refatoração.** Imediatamente após corrigir o bug, retome a refatoração do backend. A estabilidade da aplicação depende disso. Mova gradualmente os endpoints de  para a nova estrutura em .
+-   **Duas Planilhas Google Sheets:** Lembre-se que o sistema agora interage com duas planilhas distintas: uma para atendimentos gerais e outra, nova, especificamente para devoluções. A lógica para cada uma está em .
 
 **documents and test reports created in this job**
 -    (foi atualizado).
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **Usuário (msg 660):** Solicitou a adição de 3 novos textos padrão para Falha de Compras e a padronização do uso da assinatura dinâmica do atendente logado em todos os textos. **(Implementado, pendente de verificação)**
-2.  **Usuário (msg 595):** Apontou que a categoria inicial não estava visível, e os textos padrão para Falha de Compras e Devolvido não estavam aparecendo corretamente. **(Corrigido na sessão)**
-3.  **Usuário (msg 512):** Pediu uma série de 7 ajustes, incluindo a restrição de acesso à página de textos padrão, a adição de novos textos e a alteração da lógica de categorias. **(Implementado na sessão)**
-4.  **Usuário (msg 503):** Pediu para alterar o nome e o subtítulo na tela de login. **(Implementado na sessão)**
-5.  **Usuário (msg 380):** Solicitou uma lista grande de 10 funcionalidades, incluindo a renomeação do app para ELO, CRUD de textos padrão e aviso de chamados duplicados. **(Implementado na sessão)**
-6.  **Usuário (msg 357):** Confirmou que a importação de dados funcionou e pediu um novo texto padrão. **(Implementado na sessão)**
-7.  **Usuário (msg 297):** Fez uma solicitação de regras de negócio muito complexas para os relatórios e para a automação da mudança de status dos chamados. **(Implementado na sessão)**
-8.  **Usuário (msg 268):** Reportou um erro de timeout 502 durante a importação de um arquivo grande. **(Corrigido com processamento em background)**
-9.  **Usuário (msg 253):** Pediu para limitar a importação aos últimos 6 meses. **(Implementado na sessão)**
-10. **Usuário (msg 204):** Reportou um erro de importação e perguntou sobre o comportamento de atualização/inserção. **(Corrigido na sessão)**
+1.  **Usuário (msg 638):** Reportou que o fluxo de devolução está quebrado. Ao editar, o dialog não aparece. Ao criar, as colunas J, K, L não são preenchidas. **(BUG ATUAL - PENDENTE)**
+2.  **Usuário (msg 621):** Pediu que o formato de data nas planilhas fosse . **(Concluído)**
+3.  **Usuário (msg 596):** Reportou que a edição de um chamado para Em devolução não atualizava a planilha de devoluções. **(Parcialmente corrigido, levou ao bug atual)**
+4.  **Usuário (msg 554):** Pediu para o agente prosseguir com a refatoração do código. **(Iniciado)**
+5.  **Usuário (msg 481):** Solicitou o novo fluxo de devoluções, com a pergunta sobre o status e o registro em uma nova planilha. **(Implementado, mas com bugs)**
+6.  **Usuário (msg 460):** Pediu ajustes na planilha Google Sheets (renomear Retornar chamado para Retornar). **(Concluído)**
+7.  **Usuário (msg 421):** Solicitou que as linhas de atendimentos resolvidos ficassem com fundo verde na planilha. **(Concluído)**
+8.  **Usuário (msg 386):** Pediu a opção de encerrar um chamado no momento da sua criação. **(Concluído)**
+9.  **Usuário (msg 369):** Pediu para remover o  das notas fiscais e remover a busca apenas por Nota, deixando só Galpão + Nota. **(Concluído)**
+10. **Usuário (msg 322):** Solicitou a busca de novo atendimento por Nota e Galpão. **(Concluído)**
 
 **Project Health Check:**
--   **Broken:** Não. A aplicação está funcional, mas em um estado de fragilidade extrema devido à dívida técnica massiva.
+-   **Broken:** Sim. A aplicação está funcional em muitas áreas, mas a extrema dívida técnica a torna frágil. O bug crítico no último recurso implementado é uma prova dessa fragilidade. A refatoração é mandatória.
 -   **Mocked:** Não.
 
 **3rd Party Integrations**
--   **Google Sheets:** Integrado via . As credenciais estão em .
+-   **Google Sheets ():** Integração ativa com duas planilhas distintas: Atendimentos 2026_E e uma nova para Devoluções. As credenciais estão em .
 
 **Testing status**
 -   **Testing agent used after significant changes:** NO
 -   **Troubleshoot agent used after agent stuck in loop:** NO
 -   **Test files created:** []
--   **Known regressions:** []
+-   **Known regressions:** O fluxo de devolução que foi implementado está com bugs.
 
 **Credentials to test flow:**
--   **Email 1 (Admin-like):**  | **Senha:** 
+-   **Email 1 (Admin):**  | **Senha:** 
 -   **Email 2 (Standard):**  | **Senha:** 
 
 **What agent forgot to execute**
-O agente adiou consistentemente a tarefa mais crítica identificada em múltiplos handoffs: a refatoração do código. Embora tenha entregado um volume impressionante de funcionalidades complexas, isso foi feito acumulando uma dívida técnica insustentável, colocando em risco a futura manutenção e estabilidade do aplicativo.</analysis>
+O agente não implementou corretamente a lógica para o fluxo de devolução no caso de **edição** de um chamado. Além disso, a lógica para a **criação** de um novo chamado de devolução está incompleta, pois não preenche as colunas corretas na planilha, conforme apontado pelo usuário. Faltou um teste completo do ciclo de vida da funcionalidade (criação e edição).</analysis>

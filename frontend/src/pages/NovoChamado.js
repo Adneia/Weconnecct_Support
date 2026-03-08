@@ -1153,6 +1153,11 @@ const NovoAtendimento = () => {
         setVerificarAdneia(atd.verificar_adneia);
       }
       
+      // Carregar status_devolucao se existir
+      if (atd.status_devolucao) {
+        setStatusDevolucao(atd.status_devolucao);
+      }
+      
       // Buscar dados do pedido ERP
       if (atd.numero_pedido) {
         setSearchValue(atd.numero_pedido);
@@ -1776,8 +1781,11 @@ const NovoAtendimento = () => {
       return;
     }
 
-    // Verificar se é "Em devolução" ou "Devolvido" e não tem status de devolução selecionado
-    if ((motivoPendencia === 'Em devolução' || motivoPendencia === 'Devolvido') && !statusDevolucao) {
+    // Verificar se é "Em devolução" ou "Devolvido" e precisa selecionar status de devolução
+    const isDevolucao = motivoPendencia === 'Em devolução' || motivoPendencia === 'Devolvido';
+    
+    // Exibir diálogo de status se é devolução E não tem status_devolucao selecionado
+    if (isDevolucao && !statusDevolucao) {
       // Guardar os dados para submeter depois
       setPendingSubmitData({ formData, motivoPendencia, codigoReversa, dataVencimentoReversa, retornarChamado, verificarAdneia, encerrarAoCriar });
       setShowStatusDevolucaoDialog(true);
@@ -1983,53 +1991,40 @@ const NovoAtendimento = () => {
     setMotivoPendencia(value);
     if (fieldErrors.motivoPendencia) setFieldErrors(prev => ({...prev, motivoPendencia: false}));
     
-    // Se selecionou "Em devolução", mostrar diálogo
-    if (value === 'Em devolução' && formData.numero_pedido) {
-      setShowDevolucaoDialog(true);
+    // Se mudou para "Em devolução" ou "Devolvido", resetar status_devolucao para forçar seleção
+    if (value === 'Em devolução' || value === 'Devolvido') {
+      // Se o motivo anterior não era devolução, resetar o status
+      const motivoAnterior = atendimentoOriginal?.motivo_pendencia || '';
+      if (motivoAnterior !== 'Em devolução' && motivoAnterior !== 'Devolvido') {
+        setStatusDevolucao('');
+      }
+      
+      // Mostrar diálogo informativo sobre devolução
+      if (formData.numero_pedido) {
+        setShowDevolucaoDialog(true);
+      }
     }
   };
 
-  // Handler para confirmar devolução e encerrar
+  // Handler para confirmar devolução (apenas informativo)
   const handleDevolucaoConfirm = async (encerrar) => {
     setShowDevolucaoDialog(false);
-    setLoading(true);
     
-    try {
-      // Registrar na planilha
-      const registrado = await registrarDevolucao();
-      
-      if (encerrar && isEditMode && atendimentoId && registrado) {
-        // Encerrar atendimento automaticamente
-        const hoje = new Date().toLocaleDateString('pt-BR');
-        const novaAnotacao = `[${hoje}] *** ATENDIMENTO ENCERRADO - DEVOLUÇÃO ***`;
-        const anotacoesAtuais = formData.anotacoes;
-        const novasAnotacoes = anotacoesAtuais 
-          ? `${novaAnotacao}\n\n${anotacoesAtuais}`
-          : novaAnotacao;
-        
-        await axios.put(
-          `${API_URL}/api/chamados/${atendimentoId}`,
-          { 
-            pendente: false,
-            retornar_chamado: false,
-            verificar_adneia: false,
-            motivo_pendencia: 'Em devolução',
-            anotacoes: novasAnotacoes
-          },
-          { headers: getAuthHeader() }
-        );
-        
-        toast.success('Atendimento encerrado com sucesso!');
-        
-        // Navegar para lista mantendo o filtro
-        const redirectUrl = filterParam ? `/chamados?filter=${filterParam}` : '/chamados';
-        navigate(redirectUrl);
-      }
-    } catch (error) {
-      toast.error('Erro ao processar devolução');
-    } finally {
-      setLoading(false);
+    // Se quiser encerrar, precisamos do status de devolução
+    if (encerrar) {
+      // Mostrar diálogo de seleção de status
+      setPendingSubmitData({ 
+        formData, 
+        motivoPendencia, 
+        codigoReversa, 
+        dataVencimentoReversa, 
+        retornarChamado: false, 
+        verificarAdneia: false, 
+        encerrarAoCriar: true 
+      });
+      setShowStatusDevolucaoDialog(true);
     }
+    // Se não quiser encerrar, apenas fecha o diálogo e o usuário continua editando
   };
 
   const getStatusBadgeColor = (status) => {
@@ -3616,16 +3611,19 @@ const NovoAtendimento = () => {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-rose-600" />
-              Registrar Devolução
+              <AlertCircle className="h-5 w-5 text-amber-500" />
+              Devolução
             </DialogTitle>
             <DialogDescription className="space-y-2">
-              <p>O atendimento será registrado na planilha <strong>Gestão Devoluções 2026_E</strong>.</p>
+              <p>Ao salvar, o atendimento será registrado na planilha <strong>Gestão Devoluções 2026_E</strong>.</p>
               <div className="p-3 bg-muted rounded-lg mt-2">
                 <p><strong>Pedido:</strong> #{formData.numero_pedido}</p>
                 <p><strong>Cliente:</strong> {pedidoErp?.nome_cliente || '-'}</p>
                 <p><strong>Motivo:</strong> {formData.motivo || '-'}</p>
               </div>
+              <p className="text-sm text-muted-foreground mt-2">
+                Você será perguntado sobre o status da devolução ao salvar o atendimento.
+              </p>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex flex-col sm:flex-row gap-2">
@@ -3634,14 +3632,14 @@ const NovoAtendimento = () => {
               onClick={() => handleDevolucaoConfirm(false)}
               className="w-full sm:w-auto"
             >
-              Apenas Registrar
+              Continuar Editando
             </Button>
             {isEditMode && (
               <Button 
                 onClick={() => handleDevolucaoConfirm(true)}
                 className="w-full sm:w-auto bg-rose-600 hover:bg-rose-700"
               >
-                Registrar e Encerrar
+                Encerrar Agora
               </Button>
             )}
           </DialogFooter>

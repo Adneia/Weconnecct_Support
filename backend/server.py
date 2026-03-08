@@ -1724,7 +1724,9 @@ def sync_update_to_google_sheets(id_atendimento: str, updates: dict, chamado_com
         # Se mudou para "Em devolução" ou "Devolvido", sincroniza com planilha de Devoluções
         motivo_pendencia = updates.get('motivo_pendencia', '')
         if motivo_pendencia in ['Em devolução', 'Devolvido'] and chamado_completo:
-            sync_devolucao_to_sheets(chamado_completo, pedido_info)
+            # Mesclar updates com chamado_completo para garantir que os dados mais recentes sejam usados
+            chamado_merged = {**chamado_completo, **updates}
+            sync_devolucao_to_sheets(chamado_merged, pedido_info)
             
     except Exception as e:
         logger.error(f"Error syncing update to Google Sheets: {e}")

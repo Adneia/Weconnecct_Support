@@ -467,8 +467,8 @@ class GoogleSheetsClient:
             
             # Map row_data keys to the exact column names in the spreadsheet
             # Colunas: ID_Devolucao, ID_Atendimento, Data_Entrada_Lista, Entrega, CPF, Nome, Produto, Filial, 
-            #          Codigo_Reversa, Status_Galpao, Data_Recebimento, Condicao_Produto, Proxima_Acao, 
-            #          Responsavel_Galpao, Observacoes_Galpao, Data_Conclusao
+            #          Codigo_Reversa, Atendimento, Devolvido_por, Status_Galpao, Data_Recebimento, Condicao_Produto, 
+            #          Proxima_Acao, Responsavel_Galpao, Observacoes_Galpao, Data_Conclusao
             column_mapping = {
                 'ID_Devolucao': row_data.get('id_devolucao', ''),
                 'ID_Atendimento': row_data.get('id_atendimento', ''),
@@ -479,7 +479,9 @@ class GoogleSheetsClient:
                 'Produto': row_data.get('produto', ''),
                 'Filial': row_data.get('filial', ''),
                 'Codigo_Reversa': row_data.get('codigo_reversa', ''),
-                'Status_Galpao': '',  # Preenchido posteriormente
+                'Atendimento': row_data.get('atendimento', 'Aguardando'),  # J - Aguardando/Estornado/Reenviado
+                'Devolvido_por': row_data.get('devolvido_por', ''),  # K - Correios ou Transportadora
+                'Status_Galpao': row_data.get('status_galpao', 'AGUARDANDO'),  # L
                 'Data_Recebimento': '',  # Preenchido posteriormente
                 'Condicao_Produto': '',  # Preenchido posteriormente
                 'Proxima_Acao': 'Aguardando recebimento',
