@@ -1716,10 +1716,16 @@ async def get_chamado(chamado_id: str, current_user: dict = Depends(get_current_
     
     return chamado
 
-def sync_update_to_google_sheets(id_atendimento: str, updates: dict):
+def sync_update_to_google_sheets(id_atendimento: str, updates: dict, chamado_completo: dict = None, pedido_info: dict = None):
     """Background task to sync atendimento updates to Google Sheets"""
     try:
         sheets_client.update_atendimento(id_atendimento, updates)
+        
+        # Se mudou para "Em devolução" ou "Devolvido", sincroniza com planilha de Devoluções
+        motivo_pendencia = updates.get('motivo_pendencia', '')
+        if motivo_pendencia in ['Em devolução', 'Devolvido'] and chamado_completo:
+            sync_devolucao_to_sheets(chamado_completo, pedido_info)
+            
     except Exception as e:
         logger.error(f"Error syncing update to Google Sheets: {e}")
 
@@ -1763,7 +1769,20 @@ async def update_chamado(
         # Sync to Google Sheets in background
         id_atendimento = existing.get('id_atendimento')
         if id_atendimento:
-            background_tasks.add_task(sync_update_to_google_sheets, id_atendimento, update_data)
+            # Se é devolução, buscar pedido para sincronizar com planilha de devoluções
+            chamado_completo = None
+            pedido_info = None
+            motivo_pendencia = update_data.get('motivo_pendencia', '')
+            
+            if motivo_pendencia in ['Em devolução', 'Devolvido']:
+                # Buscar chamado atualizado
+                chamado_completo = await db.chamados.find_one({"id": chamado_id}, {"_id": 0})
+                # Buscar pedido
+                numero_pedido = existing.get('numero_pedido')
+                if numero_pedido:
+                    pedido_info = await db.pedidos_erp.find_one({"numero_pedido": numero_pedido}, {"_id": 0})
+            
+            background_tasks.add_task(sync_update_to_google_sheets, id_atendimento, update_data, chamado_completo, pedido_info)
     
     return {"message": "Chamado atualizado com sucesso", "google_sheets_sync": "queued"}
 
