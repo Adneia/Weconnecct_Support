@@ -1718,7 +1718,7 @@ async def get_relatorio_ag_logistica(current_user: dict = Depends(get_current_us
         
         item = {
             "entrega": chamado.get('numero_pedido', ''),
-            "nota": pedido.get('nota_fiscal', ''),
+            "nota": str(pedido.get('nota_fiscal', '')).replace('.0', '') if pedido.get('nota_fiscal') else '',
             "galpao": pedido.get('filial', ''),
             "status_entrega": pedido.get('status_pedido', ''),
             "data_ultimo_ponto": data_status,
