@@ -29,6 +29,34 @@ JWT_SECRET = os.environ.get('JWT_SECRET', 'weconnect-secret-key-2024')
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_HOURS = 24
 
+# Helper function to parse dates safely
+def parse_date_safe(date_value) -> datetime:
+    """Parse date value to timezone-aware datetime"""
+    if date_value is None:
+        return datetime.now(timezone.utc)
+    
+    if isinstance(date_value, str):
+        try:
+            dt = datetime.fromisoformat(date_value.replace('Z', '+00:00'))
+        except:
+            try:
+                # Try pandas timestamp
+                dt = pd.to_datetime(date_value).to_pydatetime()
+            except:
+                dt = datetime.now(timezone.utc)
+    elif hasattr(date_value, 'to_pydatetime'):
+        dt = date_value.to_pydatetime()
+    elif isinstance(date_value, datetime):
+        dt = date_value
+    else:
+        dt = datetime.now(timezone.utc)
+    
+    # Ensure timezone aware
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    
+    return dt
+
 security = HTTPBearer()
 
 # Logging setup (moved up for use in sync functions)
@@ -1524,7 +1552,7 @@ async def list_pendentes(
     
     now = datetime.now(timezone.utc)
     for c in chamados:
-        data_abertura = datetime.fromisoformat(c['data_abertura'].replace('Z', '+00:00')) if isinstance(c['data_abertura'], str) else c['data_abertura']
+        data_abertura = parse_date_safe(c.get('data_abertura'))
         c['dias_aberto'] = (now - data_abertura).days
     
     return chamados
@@ -1712,7 +1740,7 @@ async def get_chamado(chamado_id: str, current_user: dict = Depends(get_current_
     
     # Calculate days open
     now = datetime.now(timezone.utc)
-    data_abertura = datetime.fromisoformat(chamado['data_abertura'].replace('Z', '+00:00')) if isinstance(chamado['data_abertura'], str) else chamado['data_abertura']
+    data_abertura = parse_date_safe(chamado.get('data_abertura'))
     if chamado.get('pendente', True):
         chamado['dias_aberto'] = (now - data_abertura).days
     else:
@@ -1882,10 +1910,10 @@ async def list_reversas(current_user: dict = Depends(get_current_user)):
     # Calculate days since creation and enrich with chamado info
     now = datetime.now(timezone.utc)
     for r in reversas:
-        data_criacao = datetime.fromisoformat(r['data_criacao'].replace('Z', '+00:00')) if isinstance(r['data_criacao'], str) else r['data_criacao']
+        data_criacao = parse_date_safe(r.get('data_criacao'))
         r['dias_desde_criacao'] = (now - data_criacao).days
         
-        ultima_atualizacao = datetime.fromisoformat(r['ultima_atualizacao'].replace('Z', '+00:00')) if isinstance(r['ultima_atualizacao'], str) else r['ultima_atualizacao']
+        ultima_atualizacao = parse_date_safe(r.get('ultima_atualizacao'))
         r['dias_sem_atualizacao'] = (now - ultima_atualizacao).days
         
         # Get chamado info
@@ -2717,12 +2745,8 @@ async def get_dashboard_stats(
 ):
     now = datetime.now(timezone.utc)
     
-    # Filtro base por período
-    periodo_inicio = (now - timedelta(days=periodo_dias)).isoformat()
+    # Filtro base - sem filtro de data por padrão para mostrar todos
     base_query = {}
-    
-    if periodo_dias < 365:  # Se não for "todos"
-        base_query["data_abertura"] = {"$gte": periodo_inicio}
     
     if categoria:
         base_query["categoria"] = categoria
@@ -2745,9 +2769,7 @@ async def get_dashboard_stats(
     dias_mais_antigo = 0
     id_mais_antigo = None
     if atendimento_mais_antigo:
-        data_abertura = datetime.fromisoformat(
-            atendimento_mais_antigo['data_abertura'].replace('Z', '+00:00')
-        ) if isinstance(atendimento_mais_antigo['data_abertura'], str) else atendimento_mais_antigo['data_abertura']
+        data_abertura = parse_date_safe(atendimento_mais_antigo.get('data_abertura'))
         dias_mais_antigo = (now - data_abertura).days
         id_mais_antigo = atendimento_mais_antigo.get('id_atendimento')
     
@@ -2785,7 +2807,7 @@ async def get_dashboard_stats(
     
     # Calculate days open
     for c in chamados_atencao:
-        data_abertura = datetime.fromisoformat(c['data_abertura'].replace('Z', '+00:00')) if isinstance(c['data_abertura'], str) else c['data_abertura']
+        data_abertura = parse_date_safe(c.get('data_abertura'))
         c['dias_aberto'] = (now - data_abertura).days
     
     # Últimos N dias - abertos vs resolvidos (dinâmico)
@@ -2878,11 +2900,9 @@ async def get_dashboard_visao_geral(
 ):
     """Aba 1 - Visão Geral"""
     now = datetime.now(timezone.utc)
-    periodo_inicio = (now - timedelta(days=periodo_dias)).isoformat()
     
+    # Filtro base - sem filtro de data para mostrar todos os dados
     base_query = {}
-    if periodo_dias < 365:
-        base_query["data_abertura"] = {"$gte": periodo_inicio}
     if canal:
         base_query["$or"] = [{"parceiro": canal}, {"canal_vendas": canal}]
     if fornecedor:
@@ -2903,7 +2923,7 @@ async def get_dashboard_visao_geral(
     data_mais_antigo = None
     id_mais_antigo = None
     if mais_antigo:
-        data_abertura = datetime.fromisoformat(mais_antigo['data_abertura'].replace('Z', '+00:00'))
+        data_abertura = parse_date_safe(mais_antigo.get('data_abertura'))
         dias_mais_antigo = (now - data_abertura).days
         data_mais_antigo = mais_antigo['data_abertura']
         id_mais_antigo = mais_antigo.get('id_atendimento')
@@ -3267,7 +3287,7 @@ async def get_dashboard_pendencias(
     # Tabela detalhada
     pendentes = await db.chamados.find(base_match, {"_id": 0}).sort("data_abertura", 1).to_list(100)
     for p in pendentes:
-        data_abertura = datetime.fromisoformat(p['data_abertura'].replace('Z', '+00:00'))
+        data_abertura = parse_date_safe(p.get('data_abertura'))
         p['dias_aberto'] = (now - data_abertura).days
     
     return {
