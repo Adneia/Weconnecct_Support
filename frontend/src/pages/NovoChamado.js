@@ -1018,7 +1018,8 @@ const NovoAtendimento = () => {
   };
   const [dataVencimentoReversa, setDataVencimentoReversa] = useState(getDefaultVencimento());
   
-  const [searchType, setSearchType] = useState('pedido'); // 'pedido', 'cpf', 'nome', 'entrega'
+  const [searchType, setSearchType] = useState('pedido'); // 'pedido', 'cpf', 'nome', 'entrega', 'nota', 'galpao'
+  const [selectedGalpao, setSelectedGalpao] = useState('SP'); // SC, SP, ES
   const [searchValue, setSearchValue] = useState('');
   const [selectedAvaria, setSelectedAvaria] = useState('');
   const [selectedFalhaProducao, setSelectedFalhaProducao] = useState('');
@@ -1079,6 +1080,10 @@ const NovoAtendimento = () => {
           searchByNome(searchValue.trim());
         } else if (searchType === 'pedido') {
           searchByPedido(searchValue.trim());
+        } else if (searchType === 'nota') {
+          searchByNota(searchValue.trim());
+        } else if (searchType === 'galpao') {
+          searchByGalpaoNota(selectedGalpao, searchValue.trim());
         }
       } else {
         setPedidoErp(null);
@@ -1088,7 +1093,7 @@ const NovoAtendimento = () => {
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [searchValue, searchType]);
+  }, [searchValue, searchType, selectedGalpao]);
 
   // Carregar atendimento existente no modo de edição
   useEffect(() => {
@@ -1325,6 +1330,60 @@ const NovoAtendimento = () => {
       }
     } catch (error) {
       toast.error('Erro ao buscar por pedido');
+    } finally {
+      setSearchingPedido(false);
+    }
+  };
+
+  const searchByNota = async (nota) => {
+    setSearchingPedido(true);
+    setPedidoErp(null);
+    setPedidosList([]);
+    setPedidoNotFound(false);
+    
+    try {
+      const response = await axios.get(
+        `${API_URL}/api/pedidos-erp/buscar/nota/${encodeURIComponent(nota)}`,
+        { headers: getAuthHeader() }
+      );
+      
+      if (response.data.length === 0) {
+        setPedidoNotFound(true);
+      } else if (response.data.length === 1) {
+        processarPedido(response.data[0]);
+      } else {
+        setPedidosList(response.data);
+        setShowPedidosDialog(true);
+      }
+    } catch (error) {
+      toast.error('Erro ao buscar por nota');
+    } finally {
+      setSearchingPedido(false);
+    }
+  };
+
+  const searchByGalpaoNota = async (galpao, nota) => {
+    setSearchingPedido(true);
+    setPedidoErp(null);
+    setPedidosList([]);
+    setPedidoNotFound(false);
+    
+    try {
+      const response = await axios.get(
+        `${API_URL}/api/pedidos-erp/buscar/galpao/${encodeURIComponent(galpao)}/nota/${encodeURIComponent(nota)}`,
+        { headers: getAuthHeader() }
+      );
+      
+      if (response.data.length === 0) {
+        setPedidoNotFound(true);
+      } else if (response.data.length === 1) {
+        processarPedido(response.data[0]);
+      } else {
+        setPedidosList(response.data);
+        setShowPedidosDialog(true);
+      }
+    } catch (error) {
+      toast.error('Erro ao buscar por galpão/nota');
     } finally {
       setSearchingPedido(false);
     }
@@ -1974,7 +2033,7 @@ const NovoAtendimento = () => {
               <Search className="h-5 w-5" />
               1. Buscar Pedido
             </CardTitle>
-            <CardDescription>Busque por Pedido, CPF, Nome ou Entrega</CardDescription>
+            <CardDescription>Busque por Pedido, CPF, Nome, Entrega, Nota ou Galpão+Nota</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex gap-2">
@@ -1987,8 +2046,23 @@ const NovoAtendimento = () => {
                   <SelectItem value="cpf">CPF</SelectItem>
                   <SelectItem value="nome">Nome</SelectItem>
                   <SelectItem value="entrega">Entrega</SelectItem>
+                  <SelectItem value="nota">Nota</SelectItem>
+                  <SelectItem value="galpao">Galpão + Nota</SelectItem>
                 </SelectContent>
               </Select>
+              
+              {searchType === 'galpao' && (
+                <Select value={selectedGalpao} onValueChange={setSelectedGalpao}>
+                  <SelectTrigger className="w-24" data-testid="select-galpao">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="SC">SC</SelectItem>
+                    <SelectItem value="SP">SP</SelectItem>
+                    <SelectItem value="ES">ES</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
               
               <div className="flex-1 relative">
                 <Input
@@ -1998,6 +2072,8 @@ const NovoAtendimento = () => {
                     searchType === 'pedido' ? 'Digite o número do pedido' : 
                     searchType === 'cpf' ? 'Digite o CPF do cliente' : 
                     searchType === 'nome' ? 'Digite o nome do cliente' :
+                    searchType === 'nota' ? 'Digite o número da Nota Fiscal' :
+                    searchType === 'galpao' ? 'Digite o número da Nota Fiscal' :
                     'Digite o número da Entrega'
                   }
                   className="text-lg h-12 pr-12"

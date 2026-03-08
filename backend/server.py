@@ -2046,6 +2046,87 @@ async def get_pedidos_by_pedido(pedido: str, current_user: dict = Depends(get_cu
     
     return pedidos
 
+@api_router.get("/pedidos-erp/buscar/nota/{nota}", response_model=List[dict])
+async def get_pedidos_by_nota(nota: str, current_user: dict = Depends(get_current_user)):
+    """Buscar pedidos por número da Nota Fiscal"""
+    # Limpar o número da nota (remover pontos, traços, espaços)
+    nota_limpa = nota.replace('.', '').replace('-', '').replace(' ', '').strip()
+    
+    pedidos = await db.pedidos_erp.find(
+        {"$or": [
+            {"nota_fiscal": {"$regex": nota_limpa, "$options": "i"}},
+            {"nota_fiscal": nota_limpa},
+            {"nota_fiscal": nota}
+        ]}, 
+        {"_id": 0}
+    ).sort("data_status", -1).to_list(100)
+    
+    # Adicionar info do galpão e estoque
+    for p in pedidos:
+        galpao_info = get_galpao_from_serie(p.get('serie_nf'), p.get('chave_nota'))
+        p.update(galpao_info)
+        
+        # Buscar estoque disponível
+        codigo_item = p.get('codigo_item_bseller', '')
+        if codigo_item:
+            if str(codigo_item).endswith('.0'):
+                codigo_item = str(codigo_item)[:-2]
+            estoque = await db.estoque_sigeq.find_one({"id_item": str(codigo_item)}, {"_id": 0})
+            if estoque:
+                p['estoque_disponivel'] = estoque.get('disp_venda', 0)
+                p['estoque_reserva'] = estoque.get('qt_reserva', 0)
+            else:
+                p['estoque_disponivel'] = None
+                p['estoque_reserva'] = None
+    
+    return pedidos
+
+@api_router.get("/pedidos-erp/buscar/galpao/{galpao}/nota/{nota}", response_model=List[dict])
+async def get_pedidos_by_galpao_nota(galpao: str, nota: str, current_user: dict = Depends(get_current_user)):
+    """Buscar pedidos por Galpão (SC, SP, ES) e número da Nota Fiscal"""
+    # Limpar o número da nota
+    nota_limpa = nota.replace('.', '').replace('-', '').replace(' ', '').strip()
+    
+    # Mapear galpão para UF
+    galpao_upper = galpao.upper()
+    
+    # Buscar pedidos pela nota
+    pedidos = await db.pedidos_erp.find(
+        {"$or": [
+            {"nota_fiscal": {"$regex": nota_limpa, "$options": "i"}},
+            {"nota_fiscal": nota_limpa},
+            {"nota_fiscal": nota}
+        ]}, 
+        {"_id": 0}
+    ).sort("data_status", -1).to_list(100)
+    
+    # Filtrar por galpão e adicionar info
+    resultado = []
+    for p in pedidos:
+        galpao_info = get_galpao_from_serie(p.get('serie_nf'), p.get('chave_nota'))
+        p.update(galpao_info)
+        
+        # Filtrar por galpão selecionado (comparar com uf_galpao ou filial)
+        uf_galpao = p.get('uf_galpao', '').upper()
+        filial = p.get('filial', '').upper()
+        
+        if uf_galpao == galpao_upper or filial == galpao_upper:
+            # Buscar estoque disponível
+            codigo_item = p.get('codigo_item_bseller', '')
+            if codigo_item:
+                if str(codigo_item).endswith('.0'):
+                    codigo_item = str(codigo_item)[:-2]
+                estoque = await db.estoque_sigeq.find_one({"id_item": str(codigo_item)}, {"_id": 0})
+                if estoque:
+                    p['estoque_disponivel'] = estoque.get('disp_venda', 0)
+                    p['estoque_reserva'] = estoque.get('qt_reserva', 0)
+                else:
+                    p['estoque_disponivel'] = None
+                    p['estoque_reserva'] = None
+            resultado.append(p)
+    
+    return resultado
+
 @api_router.get("/pedidos-erp/{numero_pedido}", response_model=dict)
 async def get_pedido_erp(numero_pedido: str, current_user: dict = Depends(get_current_user)):
     pedido = await db.pedidos_erp.find_one({"numero_pedido": numero_pedido}, {"_id": 0})
