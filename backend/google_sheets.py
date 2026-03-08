@@ -22,11 +22,11 @@ SCOPES = [
     'https://www.googleapis.com/auth/drive'
 ]
 
-# Column mapping for Atendimentos sheet (matching EMERGENT_PROMPT_V10 structure)
+# Column mapping for Atendimentos sheet (matching planilha Atendimentos 2026_E)
 # A=ID, B=Data, C=Atendente, D=Parceiro, E=Entrega, F=Solicitação, G=Nome, H=CPF,
-# I=Categoria, J=Motivo, K=Pendente, L=Motivo_Pendencia, M=DT_Encerramento, N=Reversa,
-# O=Anotações, P=Status_Pedido, Q=Nota, R=Chave_Acesso, S=Filial, T=Tempo_Dias,
-# U=Verif_Adneia, V=Retornar_Chamado
+# I=Categoria, J=Motivo, K=Pendente, L=Motivo_Pendencia, M=Verificar, N=Retornar_Chamado,
+# O=DT_Encerramento, P=Reversa, Q=Anotações, R=Status_Pedido, S=Nota, T=Chave_Acesso,
+# U=Filial, V=Tempo_Dias
 ATENDIMENTO_COLUMNS = [
     'ID',               # A - ATD-2026-XXX
     'Data',             # B - Data de abertura
@@ -39,17 +39,17 @@ ATENDIMENTO_COLUMNS = [
     'Categoria',        # I - Área (Falha Transporte, etc)
     'Motivo',           # J - Motivo específico
     'Pendente',         # K - SIM/NÃO
-    'Motivo_Pendencia', # L - Motivo da pendência (antigo Status_Cliente)
-    'DT_Encerramento',  # M - Data de fechamento
-    'Reversa',          # N - Código de reversa
-    'Anotações',        # O - Histórico completo
-    'Status_Pedido',    # P - Status da entrega
-    'Nota',             # Q - Número da NF
-    'Chave_Acesso',     # R - Chave da NF-e
-    'Filial',           # S - UF
-    'Tempo_Dias',       # T - Tempo de resolução
-    'Verif_Adneia',     # U - Verificar Adnéia (SIM/NÃO)
-    'Retornar_Chamado'  # V - Retornar Chamado (SIM/NÃO)
+    'Motivo_Pendencia', # L - Motivo da pendência
+    'Verificar',        # M - Verificar Adnéia (SIM/NÃO)
+    'Retornar_Chamado', # N - Retornar Chamado (SIM/NÃO)
+    'DT_Encerramento',  # O - Data de fechamento
+    'Reversa',          # P - Código de reversa
+    'Anotações',        # Q - Histórico completo
+    'Status_Pedido',    # R - Status da entrega
+    'Nota',             # S - Número da NF
+    'Chave_Acesso',     # T - Chave da NF-e
+    'Filial',           # U - UF
+    'Tempo_Dias'        # V - Tempo de resolução
 ]
 
 # Column mapping for Devoluções sheet
@@ -198,24 +198,24 @@ class GoogleSheetsClient:
                 atendimento.get('motivo', ''),                   # J - Motivo
                 'SIM' if atendimento.get('pendente', True) else 'NÃO',  # K - Pendente
                 atendimento.get('motivo_pendencia', ''),         # L - Motivo_Pendencia
-                '',                                               # M - DT_Encerramento (empty on creation)
-                atendimento.get('reversa_codigo', ''),           # N - Reversa
-                str(atendimento.get('anotacoes', '') or ''),     # O - Anotações (ensure string)
-                '',                                               # P - Status_Pedido
-                '',                                               # Q - Nota
-                '',                                               # R - Chave_Acesso
-                '',                                               # S - Filial
-                '0',                                              # T - Tempo_Dias
-                'SIM' if atendimento.get('verificar_adneia', False) else 'NÃO',  # U - Verif_Adneia
-                'SIM' if atendimento.get('retornar_chamado', False) else 'NÃO'   # V - Retornar_Chamado
+                'SIM' if atendimento.get('verificar_adneia', False) else 'NÃO',  # M - Verificar
+                'SIM' if atendimento.get('retornar_chamado', False) else 'NÃO',  # N - Retornar_Chamado
+                '',                                               # O - DT_Encerramento (empty on creation)
+                atendimento.get('reversa_codigo', ''),           # P - Reversa
+                str(atendimento.get('anotacoes', '') or ''),     # Q - Anotações (ensure string)
+                '',                                               # R - Status_Pedido
+                '',                                               # S - Nota
+                '',                                               # T - Chave_Acesso
+                '',                                               # U - Filial
+                '0'                                               # V - Tempo_Dias
             ]
             
             # Add pedido info if available
             if pedido_info:
-                row[15] = pedido_info.get('status_pedido', '')   # P - Status_Pedido
-                row[16] = pedido_info.get('nota_fiscal', '')     # Q - Nota
-                row[17] = pedido_info.get('chave_nota', '')      # R - Chave_Acesso
-                row[18] = pedido_info.get('filial', '') or pedido_info.get('uf', '')  # S - Filial
+                row[17] = pedido_info.get('status_pedido', '')   # R - Status_Pedido
+                row[18] = pedido_info.get('nota_fiscal', '')     # S - Nota
+                row[19] = pedido_info.get('chave_nota', '')      # T - Chave_Acesso
+                row[20] = pedido_info.get('filial', '') or pedido_info.get('uf', '')  # U - Filial
             
             # Append row to sheet
             worksheet.append_row(row, value_input_option='USER_ENTERED')
@@ -278,7 +278,7 @@ class GoogleSheetsClient:
             
             row_num = cell.row
             
-            # Map update fields to column indices
+            # Map update fields to column indices (1-indexed for gspread)
             field_to_col = {
                 'atendente': 3,           # C
                 'parceiro': 4,            # D
@@ -286,12 +286,12 @@ class GoogleSheetsClient:
                 'categoria': 9,           # I
                 'motivo': 10,             # J
                 'pendente': 11,           # K
-                'motivo_pendencia': 12,   # L (antigo status_cliente)
-                'data_fechamento': 13,    # M
-                'reversa_codigo': 14,     # N
-                'anotacoes': 15,          # O
-                'verificar_adneia': 21,   # U
-                'retornar_chamado': 22,   # V
+                'motivo_pendencia': 12,   # L
+                'verificar_adneia': 13,   # M
+                'retornar_chamado': 14,   # N
+                'data_fechamento': 15,    # O
+                'reversa_codigo': 16,     # P
+                'anotacoes': 17,          # Q
             }
             
             # Build batch update
@@ -326,7 +326,7 @@ class GoogleSheetsClient:
                         data_abertura = datetime.strptime(data_abertura_str, '%d/%m/%Y %H:%M')
                         tempo_dias = (datetime.now() - data_abertura).days
                         updates_to_apply.append({
-                            'range': f"T{row_num}",
+                            'range': f"V{row_num}",  # V = Tempo_Dias
                             'values': [[str(tempo_dias)]]
                         })
                     except:
