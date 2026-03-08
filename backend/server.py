@@ -3519,6 +3519,62 @@ async def sync_all_to_google_sheets(
 async def root():
     return {"message": "ELO - Sistema de Atendimentos API"}
 
+@api_router.post("/admin/sync-fornecedores")
+async def sync_fornecedores(current_user: dict = Depends(get_current_user)):
+    """Sincronizar dados de fornecedor dos pedidos ERP para os atendimentos"""
+    if current_user.get('email') != 'adneia@weconnect360.com.br':
+        raise HTTPException(status_code=403, detail="Apenas admin pode executar esta ação")
+    
+    try:
+        # Buscar todos os atendimentos
+        atendimentos = await db.chamados.find({}, {"_id": 1, "numero_pedido": 1}).to_list(10000)
+        
+        # Criar índice de pedidos ERP
+        pedidos_dict = {}
+        async for pedido in db.pedidos_erp.find({}, {
+            "_id": 0, 
+            "numero_pedido": 1, 
+            "codigo_fornecedor": 1,
+            "departamento": 1,
+            "produto": 1,
+            "transportadora": 1,
+            "cpf_cliente": 1
+        }):
+            num = str(pedido.get('numero_pedido', ''))
+            if num:
+                pedidos_dict[num] = pedido
+        
+        # Atualizar atendimentos
+        atualizados = 0
+        for atd in atendimentos:
+            numero_pedido = str(atd.get('numero_pedido', ''))
+            
+            if numero_pedido in pedidos_dict:
+                pedido = pedidos_dict[numero_pedido]
+                update_data = {}
+                
+                if pedido.get('codigo_fornecedor'):
+                    update_data['codigo_fornecedor'] = pedido['codigo_fornecedor']
+                if pedido.get('departamento'):
+                    update_data['departamento'] = pedido['departamento']
+                if pedido.get('produto'):
+                    update_data['produto'] = pedido['produto']
+                if pedido.get('transportadora'):
+                    update_data['transportadora'] = pedido['transportadora']
+                if pedido.get('cpf_cliente'):
+                    update_data['cpf_cliente'] = str(pedido['cpf_cliente'])
+                
+                if update_data:
+                    await db.chamados.update_one(
+                        {"_id": atd['_id']},
+                        {"$set": update_data}
+                    )
+                    atualizados += 1
+        
+        return {"message": f"Sincronização concluída! {atualizados} atendimentos atualizados."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Include router and setup
 app.include_router(api_router)
 
