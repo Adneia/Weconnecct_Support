@@ -24,8 +24,9 @@ SCOPES = [
 
 # Column mapping for Atendimentos sheet (matching EMERGENT_PROMPT_V10 structure)
 # A=ID, B=Data, C=Atendente, D=Parceiro, E=Entrega, F=Solicitação, G=Nome, H=CPF,
-# I=Categoria, J=Motivo, K=Pendente, L=Status_Cliente, M=DT_Encerramento, N=Reversa,
-# O=Anotações, P=Status_Pedido, Q=Nota, R=Chave_Acesso, S=Filial, T=Tempo_Dias
+# I=Categoria, J=Motivo, K=Pendente, L=Motivo_Pendencia, M=DT_Encerramento, N=Reversa,
+# O=Anotações, P=Status_Pedido, Q=Nota, R=Chave_Acesso, S=Filial, T=Tempo_Dias,
+# U=Verif_Adneia, V=Retornar_Chamado
 ATENDIMENTO_COLUMNS = [
     'ID',               # A - ATD-2026-XXX
     'Data',             # B - Data de abertura
@@ -38,7 +39,7 @@ ATENDIMENTO_COLUMNS = [
     'Categoria',        # I - Área (Falha Transporte, etc)
     'Motivo',           # J - Motivo específico
     'Pendente',         # K - SIM/NÃO
-    'Status_Cliente',   # L - Status final ao encerrar
+    'Motivo_Pendencia', # L - Motivo da pendência (antigo Status_Cliente)
     'DT_Encerramento',  # M - Data de fechamento
     'Reversa',          # N - Código de reversa
     'Anotações',        # O - Histórico completo
@@ -46,7 +47,9 @@ ATENDIMENTO_COLUMNS = [
     'Nota',             # Q - Número da NF
     'Chave_Acesso',     # R - Chave da NF-e
     'Filial',           # S - UF
-    'Tempo_Dias'        # T - Tempo de resolução
+    'Tempo_Dias',       # T - Tempo de resolução
+    'Verif_Adneia',     # U - Verificar Adnéia (SIM/NÃO)
+    'Retornar_Chamado'  # V - Retornar Chamado (SIM/NÃO)
 ]
 
 # Column mapping for Devoluções sheet
@@ -194,7 +197,7 @@ class GoogleSheetsClient:
                 atendimento.get('categoria', ''),                # I - Categoria
                 atendimento.get('motivo', ''),                   # J - Motivo
                 'SIM' if atendimento.get('pendente', True) else 'NÃO',  # K - Pendente
-                atendimento.get('status_cliente', ''),           # L - Status_Cliente
+                atendimento.get('motivo_pendencia', ''),         # L - Motivo_Pendencia
                 '',                                               # M - DT_Encerramento (empty on creation)
                 atendimento.get('reversa_codigo', ''),           # N - Reversa
                 str(atendimento.get('anotacoes', '') or ''),     # O - Anotações (ensure string)
@@ -202,7 +205,9 @@ class GoogleSheetsClient:
                 '',                                               # Q - Nota
                 '',                                               # R - Chave_Acesso
                 '',                                               # S - Filial
-                '0'                                               # T - Tempo_Dias
+                '0',                                              # T - Tempo_Dias
+                'SIM' if atendimento.get('verificar_adneia', False) else 'NÃO',  # U - Verif_Adneia
+                'SIM' if atendimento.get('retornar_chamado', False) else 'NÃO'   # V - Retornar_Chamado
             ]
             
             # Add pedido info if available
@@ -275,16 +280,18 @@ class GoogleSheetsClient:
             
             # Map update fields to column indices
             field_to_col = {
-                'atendente': 3,        # C
-                'parceiro': 4,         # D
-                'solicitacao': 6,      # F
-                'categoria': 9,        # I
-                'motivo': 10,          # J
-                'pendente': 11,        # K
-                'status_cliente': 12,  # L
-                'data_fechamento': 13, # M
-                'reversa_codigo': 14,  # N
-                'anotacoes': 15,       # O
+                'atendente': 3,           # C
+                'parceiro': 4,            # D
+                'solicitacao': 6,         # F
+                'categoria': 9,           # I
+                'motivo': 10,             # J
+                'pendente': 11,           # K
+                'motivo_pendencia': 12,   # L (antigo status_cliente)
+                'data_fechamento': 13,    # M
+                'reversa_codigo': 14,     # N
+                'anotacoes': 15,          # O
+                'verificar_adneia': 21,   # U
+                'retornar_chamado': 22,   # V
             }
             
             # Build batch update
@@ -295,6 +302,8 @@ class GoogleSheetsClient:
                     
                     # Handle special cases
                     if field == 'pendente':
+                        value = 'SIM' if value else 'NÃO'
+                    elif field in ['verificar_adneia', 'retornar_chamado']:
                         value = 'SIM' if value else 'NÃO'
                     elif field == 'data_fechamento' and value:
                         try:
