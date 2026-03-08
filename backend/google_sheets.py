@@ -24,9 +24,8 @@ SCOPES = [
 
 # Column mapping for Atendimentos sheet (matching planilha Atendimentos 2026_E)
 # A=ID, B=Data, C=Atendente, D=Parceiro, E=Entrega, F=Solicitação, G=Nome, H=CPF,
-# I=Categoria, J=Motivo, K=Pendente, L=Motivo_Pendencia, M=Verificar, N=Retornar_Chamado,
-# O=DT_Encerramento, P=Reversa, Q=Anotações, R=Status_Pedido, S=Nota, T=Chave_Acesso,
-# U=Filial, V=Tempo_Dias
+# I=Categoria, J=Motivo, K=Pendente, L=Motivo_Pendencia, M=Verificar, N=Retornar,
+# O=DT_Encerramento, P=Reversa, Q=Anotações, R=Status_Pedido, S=Nota, T=Chave_Acesso, U=Filial
 ATENDIMENTO_COLUMNS = [
     'ID',               # A - ATD-2026-XXX
     'Data',             # B - Data de abertura
@@ -41,15 +40,14 @@ ATENDIMENTO_COLUMNS = [
     'Pendente',         # K - SIM/NÃO
     'Motivo_Pendencia', # L - Motivo da pendência
     'Verificar',        # M - Verificar Adnéia (SIM/NÃO)
-    'Retornar_Chamado', # N - Retornar Chamado (SIM/NÃO)
+    'Retornar',         # N - Retornar (SIM/NÃO)
     'DT_Encerramento',  # O - Data de fechamento
     'Reversa',          # P - Código de reversa
     'Anotações',        # Q - Histórico completo
     'Status_Pedido',    # R - Status da entrega
     'Nota',             # S - Número da NF
     'Chave_Acesso',     # T - Chave da NF-e
-    'Filial',           # U - UF
-    'Tempo_Dias'        # V - Tempo de resolução
+    'Filial'            # U - UF
 ]
 
 # Column mapping for Devoluções sheet
@@ -199,15 +197,14 @@ class GoogleSheetsClient:
                 'SIM' if atendimento.get('pendente', True) else 'NÃO',  # K - Pendente
                 atendimento.get('motivo_pendencia', ''),         # L - Motivo_Pendencia
                 'SIM' if atendimento.get('verificar_adneia', False) else 'NÃO',  # M - Verificar
-                'SIM' if atendimento.get('retornar_chamado', False) else 'NÃO',  # N - Retornar_Chamado
+                'SIM' if atendimento.get('retornar_chamado', False) else 'NÃO',  # N - Retornar
                 '',                                               # O - DT_Encerramento (empty on creation)
                 atendimento.get('reversa_codigo', ''),           # P - Reversa
                 str(atendimento.get('anotacoes', '') or ''),     # Q - Anotações (ensure string)
                 '',                                               # R - Status_Pedido
                 '',                                               # S - Nota
                 '',                                               # T - Chave_Acesso
-                '',                                               # U - Filial
-                '0'                                               # V - Tempo_Dias
+                ''                                                # U - Filial
             ]
             
             # Add pedido info if available
@@ -268,7 +265,7 @@ class GoogleSheetsClient:
         """Aplica fundo verde claro na linha quando o atendimento é encerrado"""
         try:
             # Verde claro similar ao da planilha (RGB aproximado: 217, 234, 211)
-            worksheet.format(f"A{row_num}:V{row_num}", {
+            worksheet.format(f"A{row_num}:U{row_num}", {
                 "backgroundColor": {
                     "red": 0.85,
                     "green": 0.92,
@@ -343,21 +340,6 @@ class GoogleSheetsClient:
                         'range': f"{chr(64 + col)}{row_num}",
                         'values': [[value or '']]
                     })
-            
-            # Calculate tempo_dias if closing
-            if 'pendente' in updates and not updates['pendente']:
-                # Get data_abertura from sheet
-                data_abertura_str = worksheet.cell(row_num, 2).value
-                if data_abertura_str:
-                    try:
-                        data_abertura = datetime.strptime(data_abertura_str, '%d/%m/%Y %H:%M')
-                        tempo_dias = (datetime.now() - data_abertura).days
-                        updates_to_apply.append({
-                            'range': f"V{row_num}",  # V = Tempo_Dias
-                            'values': [[str(tempo_dias)]]
-                        })
-                    except:
-                        pass
             
             # Apply batch update
             if updates_to_apply:
