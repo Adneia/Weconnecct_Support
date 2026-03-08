@@ -1481,10 +1481,24 @@ async def list_chamados(
     # Calculate days open and fetch pedido status
     now = datetime.now(timezone.utc)
     for c in chamados:
-        data_abertura = datetime.fromisoformat(c['data_abertura'].replace('Z', '+00:00')) if isinstance(c['data_abertura'], str) else c['data_abertura']
-        if c.get('pendente', True):
-            c['dias_aberto'] = (now - data_abertura).days
-        else:
+        try:
+            data_abertura_raw = c.get('data_abertura')
+            if isinstance(data_abertura_raw, str):
+                data_abertura = datetime.fromisoformat(data_abertura_raw.replace('Z', '+00:00'))
+            elif hasattr(data_abertura_raw, 'replace'):
+                data_abertura = data_abertura_raw.replace(tzinfo=timezone.utc) if data_abertura_raw.tzinfo is None else data_abertura_raw
+            else:
+                data_abertura = now
+            
+            # Garantir que tem timezone
+            if data_abertura.tzinfo is None:
+                data_abertura = data_abertura.replace(tzinfo=timezone.utc)
+            
+            if c.get('pendente', True):
+                c['dias_aberto'] = (now - data_abertura).days
+            else:
+                c['dias_aberto'] = 0
+        except Exception as e:
             c['dias_aberto'] = 0
         
         # Buscar status do pedido ERP
