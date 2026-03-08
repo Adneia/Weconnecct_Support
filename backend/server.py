@@ -1944,7 +1944,8 @@ async def create_devolucao(devolucao_data: DevolucaoCreate, current_user: dict =
         id_devolucao = f"DEV-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{str(uuid4())[:6].upper()}"
         
         # Preparar dados para a planilha no formato das colunas
-        data_atual = datetime.now(timezone.utc).strftime('%d/%m/%y')
+        # Data no formato DD/MM/AAAA
+        data_atual = datetime.now(timezone.utc).strftime('%d/%m/%Y')
         
         row_data = {
             'id_devolucao': id_devolucao,
