@@ -224,6 +224,14 @@ class GoogleSheetsClient:
             # Append row to sheet
             worksheet.append_row(row, value_input_option='USER_ENTERED')
             logger.info(f"Atendimento {atendimento.get('id_atendimento')} added to Google Sheets")
+            
+            # Se o atendimento foi criado já encerrado, aplicar formatação verde
+            if not atendimento.get('pendente', True):
+                # Pegar o número da última linha (a que acabou de ser inserida)
+                all_values = worksheet.get_all_values()
+                last_row = len(all_values)
+                self._apply_green_background(worksheet, last_row)
+            
             return True
             
         except gspread.exceptions.WorksheetNotFound:
@@ -255,6 +263,21 @@ class GoogleSheetsClient:
             if worksheets:
                 return worksheets[0]
             return self.devolucoes_sheet.add_worksheet("Devoluções", rows=1000, cols=20)
+    
+    def _apply_green_background(self, worksheet, row_num: int):
+        """Aplica fundo verde claro na linha quando o atendimento é encerrado"""
+        try:
+            # Verde claro similar ao da planilha (RGB aproximado: 217, 234, 211)
+            worksheet.format(f"A{row_num}:V{row_num}", {
+                "backgroundColor": {
+                    "red": 0.85,
+                    "green": 0.92,
+                    "blue": 0.83
+                }
+            })
+            logger.info(f"Formatação verde aplicada na linha {row_num}")
+        except Exception as e:
+            logger.error(f"Erro ao aplicar formatação verde: {e}")
     
     def update_atendimento(self, id_atendimento: str, updates: Dict[str, Any]) -> bool:
         """
@@ -340,6 +363,10 @@ class GoogleSheetsClient:
             if updates_to_apply:
                 worksheet.batch_update(updates_to_apply)
                 logger.info(f"Atendimento {id_atendimento} updated in Google Sheets")
+            
+            # Aplicar formatação verde se o atendimento foi encerrado
+            if 'pendente' in updates and not updates['pendente']:
+                self._apply_green_background(worksheet, row_num)
             
             return True
             
