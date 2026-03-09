@@ -528,6 +528,127 @@ class GoogleSheetsClient:
             "spreadsheet_atendimentos_id": SPREADSHEET_ATENDIMENTOS_ID,
             "spreadsheet_devolucoes_id": SPREADSHEET_DEVOLUCOES_ID
         }
+    
+    def get_all_devolucoes(self) -> List[Dict[str, Any]]:
+        """Get all devoluções from the sheet"""
+        if not self.devolucoes_sheet:
+            logger.warning("Devoluções sheet not available")
+            return []
+        
+        try:
+            worksheet = self.devolucoes_sheet.sheet1
+            records = worksheet.get_all_records()
+            return records
+        except Exception as e:
+            logger.error(f"Error getting devoluções: {e}")
+            return []
+    
+    def update_devolucao_transportadora(self, row_num: int, transportadora: str) -> bool:
+        """Update the 'Devolvido_por' column (K) for a specific row"""
+        if not self.devolucoes_sheet:
+            logger.warning("Devoluções sheet not available")
+            return False
+        
+        try:
+            worksheet = self.devolucoes_sheet.sheet1
+            # Coluna K = 11
+            worksheet.update_cell(row_num, 11, transportadora)
+            logger.info(f"Updated row {row_num} with transportadora: {transportadora}")
+            return True
+        except Exception as e:
+            logger.error(f"Error updating transportadora in row {row_num}: {e}")
+            return False
+    
+    def sync_transportadoras_devolucoes(self, pedidos_dict: Dict[str, str]) -> Dict[str, Any]:
+        """
+        Sync transportadoras in devoluções sheet.
+        pedidos_dict: {numero_pedido: transportadora_name}
+        """
+        if not self.devolucoes_sheet:
+            return {"success": False, "error": "Devoluções sheet not available"}
+        
+        try:
+            worksheet = self.devolucoes_sheet.sheet1
+            all_values = worksheet.get_all_values()
+            
+            if len(all_values) < 2:
+                return {"success": True, "updated": 0, "message": "No data rows found"}
+            
+            headers = all_values[0]
+            
+            # Find column indices
+            entrega_col = None
+            devolvido_por_col = None
+            codigo_reversa_col = None
+            
+            for i, h in enumerate(headers):
+                h_lower = h.lower().strip()
+                if h_lower == 'entrega':
+                    entrega_col = i
+                elif h_lower == 'devolvido_por' or h_lower == 'devolvido por':
+                    devolvido_por_col = i
+                elif h_lower == 'codigo_reversa' or h_lower == 'codigo reversa':
+                    codigo_reversa_col = i
+            
+            if entrega_col is None or devolvido_por_col is None:
+                return {"success": False, "error": f"Required columns not found. Headers: {headers}"}
+            
+            # Prepare batch updates
+            updates = []
+            updated = 0
+            skipped = 0
+            
+            for row_idx, row in enumerate(all_values[1:], start=2):  # Start from row 2
+                if len(row) <= devolvido_por_col:
+                    continue
+                
+                current_devolvido = row[devolvido_por_col].strip() if devolvido_por_col < len(row) else ''
+                entrega = row[entrega_col].strip() if entrega_col < len(row) else ''
+                codigo_reversa = row[codigo_reversa_col].strip() if codigo_reversa_col is not None and codigo_reversa_col < len(row) else ''
+                
+                # Skip if already has specific transportadora (not generic "Transportadora")
+                if current_devolvido and current_devolvido.lower() != 'transportadora':
+                    skipped += 1
+                    continue
+                
+                new_value = None
+                
+                # If has reversa code, it's Correios
+                if codigo_reversa:
+                    if current_devolvido.lower() != 'correios':
+                        new_value = 'Correios'
+                # Get transportadora from pedidos_dict
+                elif entrega in pedidos_dict:
+                    transp = pedidos_dict[entrega]
+                    if transp and transp.lower() != 'transportadora':
+                        new_value = transp
+                
+                if new_value:
+                    # Column K = column 11 = index 10 in 0-based
+                    cell = gspread.utils.rowcol_to_a1(row_idx, devolvido_por_col + 1)
+                    updates.append({
+                        'range': cell,
+                        'values': [[new_value]]
+                    })
+                    updated += 1
+            
+            # Execute batch update
+            if updates:
+                worksheet.batch_update(updates)
+                logger.info(f"Batch updated {len(updates)} cells")
+            
+            return {
+                "success": True,
+                "updated": updated,
+                "skipped": skipped,
+                "total_rows": len(all_values) - 1
+            }
+            
+        except Exception as e:
+            logger.error(f"Error syncing transportadoras: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return {"success": False, "error": str(e)}
 
 
 # Global instance

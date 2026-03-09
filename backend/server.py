@@ -3575,6 +3575,70 @@ async def sync_fornecedores(current_user: dict = Depends(get_current_user)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+def normalize_transportadora(transportadora: str) -> str:
+    """Normaliza o nome da transportadora para um formato padrão"""
+    if not transportadora:
+        return ''
+    
+    t = transportadora.lower().strip()
+    
+    if t.includes('total') if hasattr(t, 'includes') else 'total' in t or 'tex' in t:
+        return 'Total Express'
+    elif 'j&t' in t or 'jt' in t or 'j t' in t or 'j e t' in t:
+        return 'J&T'
+    elif 'cb' in t:
+        return 'CB'
+    elif 'asap' in t or 'logistica e solucoes' in t or 'logística e soluções' in t:
+        return 'ASAP Log'
+    elif 'correios' in t or 'sedex' in t or 'pac' in t:
+        return 'Correios'
+    else:
+        return transportadora
+
+
+@api_router.post("/admin/sync-transportadoras-devolucoes")
+async def sync_transportadoras_devolucoes(current_user: dict = Depends(get_current_user)):
+    """Sincronizar transportadoras na planilha de devoluções"""
+    if current_user.get('email') != 'adneia@weconnect360.com.br':
+        raise HTTPException(status_code=403, detail="Apenas admin pode executar esta ação")
+    
+    try:
+        if not sheets_client.is_initialized():
+            sheets_client.initialize()
+        
+        # Buscar todos os pedidos ERP para criar dicionário de transportadoras
+        pedidos_dict = {}
+        async for pedido in db.pedidos_erp.find({}, {"_id": 0, "numero_pedido": 1, "transportadora": 1}):
+            num = str(pedido.get('numero_pedido', ''))
+            transp = pedido.get('transportadora', '')
+            if num and transp:
+                # Normalizar nome da transportadora
+                t = transp.lower()
+                if 'total' in t or 'tex' in t:
+                    pedidos_dict[num] = 'Total Express'
+                elif 'j&t' in t or 'jt' in t or 'j t' in t or 'j e t' in t:
+                    pedidos_dict[num] = 'J&T'
+                elif 'cb' in t:
+                    pedidos_dict[num] = 'CB'
+                elif 'asap' in t or 'logistica e solucoes' in t or 'logística e soluções' in t:
+                    pedidos_dict[num] = 'ASAP Log'
+                else:
+                    pedidos_dict[num] = transp  # Manter original se não reconhecer
+        
+        logger.info(f"Loaded {len(pedidos_dict)} pedidos with transportadora info")
+        
+        # Sincronizar com a planilha
+        result = sheets_client.sync_transportadoras_devolucoes(pedidos_dict)
+        
+        return result
+    except Exception as e:
+        logger.error(f"Erro ao sincronizar transportadoras: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Include router and setup
 app.include_router(api_router)
 
