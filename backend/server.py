@@ -2906,6 +2906,16 @@ async def process_import_background(import_id: str, df):
     # Executar atualização automática de motivos de pendência
     await atualizar_motivos_pendencia_automatico()
 
+@api_router.post("/admin/atualizar-motivos")
+async def atualizar_motivos_endpoint(current_user: dict = Depends(get_admin_user)):
+    """Endpoint para forçar atualização dos motivos de pendência"""
+    try:
+        await atualizar_motivos_pendencia_automatico()
+        return {"success": True, "message": "Motivos de pendência atualizados com sucesso"}
+    except Exception as e:
+        logger.error(f"Erro ao atualizar motivos: {e}")
+        return {"success": False, "message": str(e)}
+
 async def atualizar_motivos_pendencia_automatico():
     """
     Atualiza automaticamente os motivos de pendência dos chamados
@@ -2935,16 +2945,22 @@ async def atualizar_motivos_pendencia_automatico():
         novo_motivo = None
         
         # Regra 1: Ag. Compras → Ag. Logística
-        # Quando sair de "Aguardando estoque" para qualquer outro status
+        # Quando sair de "Aguardando estoque" ou quando chegar em "Entregue a/à Transportadora"
         if motivo_atual == 'Ag. Compras':
-            if status_pedido and status_pedido.lower() != 'aguardando estoque':
+            status_lower = status_pedido.lower() if status_pedido else ''
+            # Se não é mais "aguardando estoque" OU se foi entregue à transportadora
+            if status_pedido and (status_lower != 'aguardando estoque' or 
+                                  'entregue' in status_lower and 'transportadora' in status_lower):
                 novo_motivo = 'Ag. Logística'
                 atualizacoes['compras_para_logistica'] += 1
         
         # Regra 2: Ag. Logística → Enviado
-        # Quando status mudar para MAIÚSCULAS (ex: SAIDA DA FILIAL)
+        # Quando status mudar para MAIÚSCULAS (ex: SAIDA DA FILIAL) ou sair de "Entregue a Transportadora"
         elif motivo_atual == 'Ag. Logística':
-            if is_status_maiusculo(status_pedido):
+            status_lower = status_pedido.lower() if status_pedido else ''
+            is_entregue_transportadora = 'entregue' in status_lower and 'transportadora' in status_lower
+            # Se status está em maiúsculas OU se saiu do "Entregue a Transportadora"
+            if is_status_maiusculo(status_pedido) or (status_pedido and not is_entregue_transportadora and status_lower not in ['aguardando estoque', 'nf emitida', 'nf aprovada']):
                 novo_motivo = 'Enviado'
                 atualizacoes['logistica_para_enviado'] += 1
         
