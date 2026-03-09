@@ -2018,10 +2018,12 @@ const NovoAtendimento = () => {
     }
     
     // Se for edição, verificar se uma NOVA anotação foi adicionada
+    // Se não foi, perguntar se deseja continuar
     if (isEditMode && formData.anotacoes.trim() === anotacoesOriginais.trim()) {
-      toast.error('Adicione uma nova observação para atualizar o atendimento');
-      newErrors.anotacoes = true;
-      hasError = true;
+      const continuar = window.confirm('Você não adicionou uma nova anotação. Deseja continuar mesmo assim?');
+      if (!continuar) {
+        return;
+      }
     }
     
     // Validação para encerrar ao criar
@@ -3452,12 +3454,14 @@ const NovoAtendimento = () => {
             <Card className={fieldErrors.anotacoes ? 'border-red-500' : ''}>
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg">
-                  3. Anotações <span className="text-red-500">*</span>
+                  3. Anotações {!isEditMode && <span className="text-red-500">*</span>}
                 </CardTitle>
                 <CardDescription>
                   {fieldErrors.anotacoes 
                     ? <span className="text-red-500">⚠️ É obrigatório adicionar uma anotação para salvar o atendimento</span>
-                    : 'Registre o histórico e observações do atendimento'
+                    : isEditMode 
+                      ? 'Registre o histórico e observações do atendimento (opcional na edição)'
+                      : 'Registre o histórico e observações do atendimento'
                   }
                 </CardDescription>
               </CardHeader>
