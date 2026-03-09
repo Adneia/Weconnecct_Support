@@ -1,0 +1,166 @@
+<analysis>**original_problem_statement:**
+O usuário solicitou a criação de um sistema de controle de chamados (tickets) para a equipe de atendimento da WeConnect, chamado ELO. O sistema precisa gerenciar fluxos de trabalho detalhados, uma grande base de dados de pedidos, e automatizar mudanças de status.
+
+**PRODUCT REQUIREMENTS:**
+-   **Telas e Funcionalidades:**
+    -   : Visão geral e estatísticas.
+    -   : Formulário para criar/editar tickets com busca de pedidos (incluindo por Galpão + Nota), auto-preenchimento, e lógica para impedir duplicados. Opção de Encerrar ao criar.
+    -   : Tabela com filtros avançados e exportação de relatórios customizados (Ag. Compras, Ag. Logística).
+    -   : Upload de Excel/CSV com processamento em background.
+    -   : Tela para CRUD de textos padrão, acessível a todos, com um log de alterações visível para o admin.
+-   **Integrações e Automações:**
+    -   Sincronização de atendimentos com a planilha Google Sheets Atendimentos 2026_E.
+    -   Sincronização de chamados de devolução com uma planilha Google Sheets separada (Devoluções).
+    -   Ao criar/editar um chamado de devolução, o sistema deve registrar o status (Aguardando, Estornado, Reenviado).
+    -   Exibir o estoque disponível de uma planilha externa.
+-   **Autenticação:** JWT (email/senha).
+
+**User's preferred language**: Portuguese (pt-BR)
+
+**what currently exists?**
+Uma aplicação full-stack (React + FastAPI + MongoDB) chamada ELO. O sistema gerencia chamados, importa dados de pedidos de arquivos Excel, e sincroniza informações com Google Sheets. Recentemente, foram implementadas melhorias significativas:
+-   **Importação de Arquivos Grandes:** A funcionalidade de importação agora suporta processamento em background com uma barra de progresso em tempo real, evitando timeouts (erros 503/504) para arquivos de até 10MB.
+-   **Dashboard Atendimentos por Canal:** A tabela do dashboard foi completamente reformulada para espelhar um layout de Excel, exibindo dados diários (AR, A, F) na ordem de canais solicitada pelo usuário e com a lógica de cálculo corrigida.
+-   **Refatoração (Fase 1):** A estrutura do código foi preparada para modularização. Novos arquivos para rotas de backend e componentes de frontend foram criados, embora a aplicação ainda opere com os arquivos monolíticos originais.
+-   **Sincronização com Google Sheets:** Otimizada para evitar erros de quota de API, usando atualizações em lote.
+
+**Last working item**:
+-   **Last item agent was working:** O agente estava corrigindo a funcionalidade de Textos Padrão. O usuário criou um novo texto, mas as informações dinâmicas (data de entrega e assinatura) não foram preenchidas. O agente identificou que o usuário precisa usar placeholders específicos (ex: , ) e começou a adicionar um guia na interface para listar os placeholders disponíveis.
+-   **Status:** IN PROGRESS
+-   **Agent Testing Done:** N
+-   **Which testing method agent to use?** frontend testing agent (O agente deve verificar se a lista de placeholders aparece corretamente na UI e se, ao selecionar um texto padrão com placeholders, o conteúdo do chamado é preenchido com os dados corretos).
+-   **User Testing Done:** N
+
+**All Pending/In progress Issue list**:
+-   **Issue 1:** Textos Padrão não substituem placeholders (P0)
+    -   **Attempted fixes:** O agente identificou a causa raiz (o usuário não utilizou os placeholders corretos como ) e começou a modificar a tela  para exibir uma lista de todos os placeholders disponíveis como um guia.
+    -   **Next debug checklist:**
+        1.  Finalizar a implementação da UI que exibe os placeholders disponíveis na página de gestão de textos padrão ().
+        2.  Verificar se a lógica de substituição no frontend () é aplicada corretamente quando um texto padrão customizado é selecionado.
+        3.  Testar o fluxo: criar um novo texto padrão usando os placeholders corretos, ir para a tela Novo Chamado, selecionar o texto criado e confirmar que os valores são substituídos.
+    -   **Why fix this issue and what will be achieved with the fix?** Para que a funcionalidade de textos padrão seja intuitiva e totalmente funcional, permitindo que os usuários criem templates dinâmicos e eficientes.
+    -   **Status:** IN PROGRESS
+    -   **Is recurring issue?** N
+    -   **Should Test frontend/backend/both after fix?** frontend
+    -   **Blocked on other issue:** Não.
+
+**In progress Task List**:
+-   **Task 1:** Refatoração do Backend (P0)
+    -   **Where to resume:** A Fase 1 da refatoração está concluída: os arquivos modulares de rotas (ex: , ) foram criados em . A próxima etapa (Fase 2) é migrar a aplicação para usar o novo  como ponto de entrada, substituindo gradualmente a lógica do monolítico .
+    -   **What will be achieved with this?** Reduzir a complexidade, melhorar a manutenibilidade e a estabilidade da aplicação em produção.
+    -   **Status:** IN PROGRESS
+    -   **Should Test frontend/backend/both after fix?** backend
+    -   **Blocked on something:** Não.
+-   **Task 2:** Refatoração do Frontend (P0)
+    -   **Where to resume:** A Fase 1 está concluída: componentes modulares (ex: , ) foram criados em . A próxima etapa (Fase 2) é refatorar o monolítico  para usar esses novos componentes, decompondo sua lógica.
+    -   **What will be achieved with this?** Melhorar a performance, a legibilidade e facilitar a manutenção do formulário mais complexo da aplicação.
+    -   **Status:** IN PROGRESS
+    -   **Should Test frontend/backend/both after fix?** frontend
+    -   **Blocked on something:** Não.
+
+**Upcoming and Future Tasks**
+-   **Future Tasks:**
+    -   P1: Implementar fluxo completo de Devoluções (Reversas).
+    -   P2: Implementar interface conversacional (chatbot).
+    -   P2: Integração com APIs de Rastreio (Correios e Total Express).
+    -   P3: Geração de Relatórios nativa.
+    -   P3: Integração com Canais de Entrada (Microsoft Graph API - Outlook, Zendesk).
+    -   P3: Integração com IA para sugestão de categorias e resumos.
+
+**Completed work in this session**
+-   **Importação de Arquivos Grandes (Fix Erro 503/504):**
+    -   Implementado processamento em background para arquivos com mais de 500 linhas.
+    -   Adicionada uma barra de progresso em tempo real no frontend, que consulta o status da importação.
+    -   Implementado um limite de 10MB no frontend com uma mensagem de aviso para orientar o usuário.
+    -   Criada lógica específica para processar o arquivo outras.xlsx, que contém fornecedores e um grande volume de dados de estoque.
+-   **Rework do Dashboard (Atendimentos por Canal):**
+    -   Reordenados os canais para corresponder a uma planilha Excel, com Mercado Livre em primeiro.
+    -   Garantido que todos os canais apareçam, mesmo com valores zerados.
+    -   Corrigida a lógica de cálculo de AR (criados no dia), A (pendentes acumulados) e F (fechados no dia) para refletir os dados reais do banco, incluindo o dia atual.
+    -   Resolvido um bug de fuso horário na query do MongoDB que impedia a contagem correta dos dados diários.
+-   **Sincronização com Google Sheets:**
+    -   Criado e executado um endpoint () para atualizar em massa os nomes das transportadoras em registros históricos na planilha Gestão Devoluções.
+    -   A lógica de atualização foi modificada para usar  para evitar erros de quota da API do Google.
+-   **Refatoração (Fase 1 - Preparação):**
+    -   **Backend:** Criados múltiplos arquivos de rota (, , etc.) em  e um novo arquivo de entrada ().
+    -   **Frontend:** Criados múltiplos componentes (, , etc.) em  para modularizar .
+
+**Earlier issues found/mentioned but not fixed**
+Nenhum.
+
+**Known issue recurrence from previous fork**
+Nenhum.
+
+**Code Architecture**
+
+
+**Key Technical Concepts**
+-   **Backend:** FastAPI, Pydantic, MongoDB (), , , .
+-   **Frontend:** React (Hooks), React Router, , TailwindCSS, , Shadcn/UI.
+-   **Background Jobs:** Uso de  no FastAPI para processamento de longa duração (importação de arquivos), com o frontend realizando polling para obter o status e exibir o progresso.
+
+**key DB schema**
+-   **chamados (ou atendimentos):**  Sem alterações no esquema.
+-   **pedidos_erp:**  Sem alterações no esquema.
+-   **import_jobs:**  **(NOVO)** Coleção para rastrear o status de tarefas de importação em background (, , , , ).
+
+**changes in tech stack**
+Nenhuma.
+
+**All files of reference**
+-   : Modificado extensivamente para adicionar a lógica de importação em background, o endpoint de sincronização de transportadoras e a nova lógica do dashboard.
+-   : Totalmente refatorado para suportar upload com barra de progresso e polling.
+-   : Totalmente refatorado para exibir a nova tabela de canais.
+-   : Modificado para iniciar a correção dos placeholders.
+-   : Modificado para adicionar o guia de placeholders.
+-   , : Novos diretórios e arquivos criados para a refatoração.
+
+**Areas that need refactoring**:
+-   ****: **EXTREMAMENTE CRÍTICO.** Apesar da criação de rotas modulares, a aplicação ainda roda neste arquivo monolítico. A migração para a nova estrutura ( e ) é a principal dívida técnica a ser paga.
+-   ****: **EXTREMAMENTE CRÍTICO.** O componente permanece enorme e complexo. A migração para usar os novos componentes criados em  é prioritária.
+
+**key api endpoints**
+-   : Modificado para retornar um  e iniciar uma tarefa em background.
+-   : **(NOVO)** Endpoint para consultar o status de uma tarefa de importação.
+-   : Endpoint reescrito para retornar dados diários formatados conforme a nova estrutura da tabela do dashboard.
+-   : **(NOVO)** Endpoint de uso único para corrigir dados históricos de transportadoras no Google Sheets.
+
+**Critical Info for New Agent**
+-   **Redeploy é Necessário:** O usuário foi informado várias vezes que precisa fazer **redeploy** para que as últimas correções (importação com progresso, lógica do dashboard, placeholder de textos) entrem em produção. O ambiente de produção está executando uma versão de código desatualizada.
+-   **Refatoração Incompleta:** A refatoração foi feita em duas fases. A Fase 1 (criação de arquivos) está concluída, mas a Fase 2 (migração para usar os novos arquivos) não foi iniciada. A aplicação continua rodando sobre os arquivos monolíticos  e .
+-   **Bancos de Dados Separados:** Lembre-se que o ambiente de preview e o de produção () usam bancos de dados MongoDB separados. Dados criados em produção não estarão visíveis no preview.
+
+**documents and test reports created in this job**
+Nenhum.
+
+**Last 10 User Messages and any pending HUMAN messages**
+1.  **Usuário (msg 340):** Reportou que os textos padrão não estão preenchendo a data de entrega e a assinatura do usuário. **Status: Em progresso.**
+2.  **Usuário (msg 336):** Reportou que a importação do arquivo outras estava falhando com erro 504, mesmo após a implementação da barra de progresso. **Status: Resolvido (mas precisa de redeploy).**
+3.  **Usuário (msg 316):** Reportou que os 9 atendimentos criados hoje não apareciam no dashboard. **Status: Resolvido (lógica corrigida, mas dados estão em produção e não no preview).**
+4.  **Usuário (msg 298):** Perguntou por que a importação do arquivo outras ainda dava erro 504 e não mostrava a barra de progresso. **Status: Respondido (precisa de redeploy).**
+5.  **Usuário (msg 296):** Perguntou se precisava fazer redeploy para a funcionalidade da barra de progresso. **Status: Respondido (Sim).**
+6.  **Usuário (msg 260):** Aprovou a implementação da importação em background com barra de progresso. **Status: Concluído.**
+7.  **Usuário (msg 238):** Reportou que o arquivo dividido ainda estava dando erro na importação. **Status: Resolvido (agente importou manualmente e depois implementou a barra de progresso).**
+8.  **Usuário (msg 236):** Perguntou se alterar o filtro de meses no backend resolveria o erro 503. **Status: Respondido (Não).**
+9.  **Usuário (msg 232):** Perguntou sobre o filtro de importação e se poderia ser alterado de 6 para 4 meses. **Status: Respondido.**
+10. **Usuário (msg 210):** Concordou que a melhor solução para o erro de importação é dividir o arquivo. **Status: Ação subsequente foi implementar o upload em background.**
+
+**Project Health Check:**
+-   **Broken:** Não. A aplicação está funcional em produção, mas com funcionalidades importantes (importação, dashboard) aguardando um redeploy para serem corrigidas/melhoradas.
+-   **Mocked:** Não.
+
+**3rd Party Integrations**
+-   **Google Sheets ():** Integração ativa com as planilhas Atendimentos 2026_E e Gestão Devoluções 2026_E. As credenciais estão em .
+
+**Testing status**
+-   **Testing agent used after significant changes:** NO
+-   **Troubleshoot agent used after agent stuck in loop:** NO
+-   **Test files created:** []
+-   **Known regressions:** Nenhuma.
+
+**Credentials to test flow:**
+-   **Email (Admin):**  | **Senha:** 
+-   **Email (Standard):**  | **Senha:** 
+
+**What agent forgot to execute**
+O agente não concluiu a Fase 2 da refatoração (migração do código para usar os novos arquivos modulares). Esta tarefa foi pausada intencionalmente para atender a solicitações de funcionalidades e correções de bugs de maior prioridade para o usuário, mas continua sendo a dívida técnica mais crítica do projeto.</analysis>

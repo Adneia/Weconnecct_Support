@@ -316,9 +316,6 @@ const TextosPadroes = () => {
                 disabled={editMode}
                 data-testid="input-categoria"
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                Dica: Use placeholders como [PRODUTO], [ENTREGA], [ASSINATURA], [NOME_CLIENTE]
-              </p>
             </div>
             
             <div>
@@ -331,6 +328,27 @@ const TextosPadroes = () => {
                 className="font-mono text-sm"
                 data-testid="input-texto"
               />
+            </div>
+
+            {/* Placeholders disponíveis */}
+            <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
+              <p className="text-sm font-medium text-blue-800 dark:text-blue-300 mb-2">
+                Placeholders disponíveis (serão substituídos automaticamente):
+              </p>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div><code className="bg-white dark:bg-slate-800 px-1 rounded">[ASSINATURA]</code> → Nome do atendente logado</div>
+                <div><code className="bg-white dark:bg-slate-800 px-1 rounded">[NOME_CLIENTE]</code> → Nome do cliente</div>
+                <div><code className="bg-white dark:bg-slate-800 px-1 rounded">[PRIMEIRO_NOME]</code> → Primeiro nome do cliente</div>
+                <div><code className="bg-white dark:bg-slate-800 px-1 rounded">[ENTREGA]</code> → Número do pedido</div>
+                <div><code className="bg-white dark:bg-slate-800 px-1 rounded">[PRODUTO]</code> → Nome do produto</div>
+                <div><code className="bg-white dark:bg-slate-800 px-1 rounded">[DATA_ULTIMO_PONTO]</code> → Data da última movimentação</div>
+                <div><code className="bg-white dark:bg-slate-800 px-1 rounded">[CÓDIGO_REVERSA]</code> → Código de reversa</div>
+                <div><code className="bg-white dark:bg-slate-800 px-1 rounded">[DATA_EMISSAO]</code> → Data de emissão da reversa</div>
+                <div><code className="bg-white dark:bg-slate-800 px-1 rounded">[DATA_VALIDADE]</code> → Data de validade da reversa</div>
+                <div><code className="bg-white dark:bg-slate-800 px-1 rounded">[NOTA_FISCAL]</code> → Número da nota fiscal</div>
+                <div><code className="bg-white dark:bg-slate-800 px-1 rounded">[CHAVE_ACESSO]</code> → Chave de acesso da NF</div>
+                <div><code className="bg-white dark:bg-slate-800 px-1 rounded">[PARCEIRO]</code> → Nome do canal/parceiro</div>
+              </div>
             </div>
           </div>
 

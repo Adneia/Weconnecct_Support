@@ -1424,27 +1424,81 @@ const NovoAtendimento = () => {
         `${API_URL}/api/textos-padroes/${encodeURIComponent(categoria)}`,
         { headers: getAuthHeader() }
       );
-      // Substituir [ASSINATURA] pelo nome do atendente selecionado
+      // Substituir todos os placeholders disponíveis
       let texto = response.data.texto;
-      if (formData.atendente) {
+      
+      // [ASSINATURA] - nome do atendente logado
+      if (user?.name || formData.atendente) {
         texto = texto.replace(/\[ASSINATURA\]/g, user?.name || formData.atendente);
       }
-      // Substituir [NOME_CLIENTE] pelo nome do cliente
+      
+      // [NOME_CLIENTE] e [NOME] - nome completo do cliente
       if (pedidoErp?.nome_cliente) {
         texto = texto.replace(/\[NOME_CLIENTE\]/g, pedidoErp.nome_cliente);
         texto = texto.replace(/\[NOME\]/g, pedidoErp.nome_cliente);
+        // [PRIMEIRO_NOME] - primeiro nome do cliente
+        const primeiroNome = pedidoErp.nome_cliente.split(' ')[0];
+        texto = texto.replace(/\[PRIMEIRO_NOME\]/g, primeiroNome);
       }
-      // Substituir [PARCEIRO] (usado em Falha de Integração)
+      
+      // [PARCEIRO] - canal de vendas
       if (formData.parceiro) {
         texto = texto.replace(/\[PARCEIRO\]/g, formData.parceiro);
       }
-      // Substituir [PRODUTO] e [ENTREGA]
+      
+      // [PRODUTO] - nome do produto
       if (pedidoErp?.produto) {
         texto = texto.replace(/\[PRODUTO\]/g, pedidoErp.produto);
       }
+      
+      // [ENTREGA] - número do pedido
       if (pedidoErp?.numero_pedido || formData.numero_pedido) {
         texto = texto.replace(/\[ENTREGA\]/g, pedidoErp?.numero_pedido || formData.numero_pedido);
       }
+      
+      // [NOTA_FISCAL] - número da NF (remove .0 se existir)
+      if (pedidoErp?.nota_fiscal) {
+        const nfLimpa = String(pedidoErp.nota_fiscal).split('.')[0];
+        texto = texto.replace(/\[NOTA_FISCAL\]/g, nfLimpa);
+      }
+      
+      // [CHAVE_ACESSO] - chave da nota fiscal
+      if (pedidoErp?.chave_nota) {
+        texto = texto.replace(/\[CHAVE_ACESSO\]/g, pedidoErp.chave_nota);
+      }
+      
+      // [CÓDIGO_RASTREIO] - código de rastreio
+      if (pedidoErp?.codigo_rastreio) {
+        texto = texto.replace(/\[CÓDIGO_RASTREIO\]/g, pedidoErp.codigo_rastreio);
+      }
+      
+      // [DATA_ULTIMO_PONTO] e [DATA_ENTREGA] - data do último status
+      if (pedidoErp?.data_status) {
+        let dataFormatada = pedidoErp.data_status;
+        // Se tiver hora, pegar apenas a data
+        if (dataFormatada.includes(' ')) {
+          dataFormatada = dataFormatada.split(' ')[0];
+        }
+        texto = texto.replace(/\[DATA_ENTREGA\]/g, dataFormatada);
+        texto = texto.replace(/\[DATA_ULTIMO_PONTO\]/g, dataFormatada);
+      }
+      
+      // [CÓDIGO_REVERSA] - código da reversa (se preenchido)
+      if (codigoReversa) {
+        texto = texto.replace(/\[CÓDIGO_REVERSA\]/g, codigoReversa);
+      }
+      
+      // [DATA_EMISSAO] - data de hoje
+      const hoje = new Date();
+      const dataEmissao = hoje.toLocaleDateString('pt-BR');
+      texto = texto.replace(/\[DATA_EMISSAO\]/g, dataEmissao);
+      
+      // [DATA_VALIDADE] - data de vencimento da reversa
+      if (dataVencimentoReversa) {
+        const dataValidade = new Date(dataVencimentoReversa + 'T00:00:00').toLocaleDateString('pt-BR');
+        texto = texto.replace(/\[DATA_VALIDADE\]/g, dataValidade);
+      }
+      
       setTextoPadrao(texto);
       setShowTextoDialog(true);
     } catch (error) {
