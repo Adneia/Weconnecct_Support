@@ -227,7 +227,9 @@ const Dashboard = () => {
                   {visaoGeral?.dias_headers?.map((dia, idx) => (
                     <React.Fragment key={`total-cliente-${dia.data}`}>
                       <TableCell className={`text-center px-1 ${idx % 2 === 0 ? 'bg-yellow-50/30' : 'bg-yellow-50/50'}`}>
-                        <span className="text-sm text-muted-foreground">0</span>
+                        <span className={`text-sm ${visaoGeral?.totais_por_dia?.[dia.data]?.ar > 0 ? 'font-semibold text-yellow-700' : 'text-muted-foreground'}`}>
+                          {visaoGeral?.totais_por_dia?.[dia.data]?.ar || 0}
+                        </span>
                       </TableCell>
                       <TableCell className={`text-center px-1 ${idx % 2 === 0 ? 'bg-orange-50/30' : 'bg-orange-50/50'}`}>
                         <span className="text-sm font-semibold text-orange-700">
@@ -235,19 +237,25 @@ const Dashboard = () => {
                         </span>
                       </TableCell>
                       <TableCell className={`text-center px-1 border-r ${idx % 2 === 0 ? 'bg-emerald-50/30' : 'bg-emerald-50/50'}`}>
-                        <span className="text-sm text-muted-foreground">0</span>
+                        <span className={`text-sm ${visaoGeral?.totais_por_dia?.[dia.data]?.f > 0 ? 'font-semibold text-emerald-700' : 'text-muted-foreground'}`}>
+                          {visaoGeral?.totais_por_dia?.[dia.data]?.f || 0}
+                        </span>
                       </TableCell>
                     </React.Fragment>
                   ))}
                   {/* Total */}
                   <TableCell className="text-center px-1 bg-yellow-100/50">
-                    <span className="font-bold text-yellow-700">0</span>
+                    <span className="font-bold text-yellow-700">
+                      {visaoGeral?.por_canal_dia?.reduce((sum, c) => sum + (c.total?.ar || 0), 0) || 0}
+                    </span>
                   </TableCell>
                   <TableCell className="text-center px-1 bg-orange-100/50">
                     <span className="font-bold text-orange-700">{visaoGeral?.pendentes || 0}</span>
                   </TableCell>
                   <TableCell className="text-center px-1 border-r bg-emerald-100/50">
-                    <span className="font-bold text-emerald-700">0</span>
+                    <span className="font-bold text-emerald-700">
+                      {visaoGeral?.por_canal_dia?.reduce((sum, c) => sum + (c.total?.f || 0), 0) || 0}
+                    </span>
                   </TableCell>
                 </TableRow>
                 {/* Canais individuais */}
@@ -257,7 +265,9 @@ const Dashboard = () => {
                     {visaoGeral?.dias_headers?.map((dia, idx) => (
                       <React.Fragment key={`${item.canal}-${dia.data}`}>
                         <TableCell className={`text-center px-1 ${idx % 2 === 0 ? 'bg-yellow-50/30' : 'bg-yellow-50/50'}`}>
-                          <span className="text-sm text-muted-foreground">0</span>
+                          <span className={`text-sm ${item.dias[dia.data]?.ar > 0 ? 'font-semibold text-yellow-700' : 'text-muted-foreground'}`}>
+                            {item.dias[dia.data]?.ar || 0}
+                          </span>
                         </TableCell>
                         <TableCell className={`text-center px-1 ${idx % 2 === 0 ? 'bg-orange-50/30' : 'bg-orange-50/50'}`}>
                           <span className={`text-sm ${item.dias[dia.data]?.a > 0 ? 'font-semibold text-orange-700' : 'text-muted-foreground'}`}>
@@ -265,13 +275,17 @@ const Dashboard = () => {
                           </span>
                         </TableCell>
                         <TableCell className={`text-center px-1 border-r ${idx % 2 === 0 ? 'bg-emerald-50/30' : 'bg-emerald-50/50'}`}>
-                          <span className="text-sm text-muted-foreground">0</span>
+                          <span className={`text-sm ${item.dias[dia.data]?.f > 0 ? 'font-semibold text-emerald-700' : 'text-muted-foreground'}`}>
+                            {item.dias[dia.data]?.f || 0}
+                          </span>
                         </TableCell>
                       </React.Fragment>
                     ))}
                     {/* Total do canal */}
                     <TableCell className="text-center px-1 bg-yellow-100/30">
-                      <span className="text-sm text-muted-foreground">0</span>
+                      <span className={`text-sm ${item.total?.ar > 0 ? 'font-semibold text-yellow-700' : 'text-muted-foreground'}`}>
+                        {item.total?.ar || 0}
+                      </span>
                     </TableCell>
                     <TableCell className="text-center px-1 bg-orange-100/30">
                       <span className={`text-sm ${item.total?.a > 0 ? 'font-semibold text-orange-700' : 'text-muted-foreground'}`}>
@@ -279,7 +293,9 @@ const Dashboard = () => {
                       </span>
                     </TableCell>
                     <TableCell className="text-center px-1 border-r bg-emerald-100/30">
-                      <span className="text-sm text-muted-foreground">0</span>
+                      <span className={`text-sm ${item.total?.f > 0 ? 'font-semibold text-emerald-700' : 'text-muted-foreground'}`}>
+                        {item.total?.f || 0}
+                      </span>
                     </TableCell>
                   </TableRow>
                 ))}

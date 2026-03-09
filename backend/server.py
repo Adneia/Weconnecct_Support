@@ -3030,11 +3030,13 @@ async def get_dashboard_visao_geral(
             # Se é hoje, zerar os valores (aguardando início das atividades)
             if dia.date() == hoje:
                 canal_data["dias"][dia_key] = {"ar": 0, "a": 0, "f": 0}
-                totais_por_dia[dia_key] = {"ar": 0, "a": 0, "f": 0}
+                if dia_key not in totais_por_dia:
+                    totais_por_dia[dia_key] = {"ar": 0, "a": 0, "f": 0}
                 continue
             
-            dia_inicio = dia.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
-            dia_fim = dia.replace(hour=23, minute=59, second=59, microsecond=999999).isoformat()
+            # Usar regex para buscar datas (funciona com ou sem timezone)
+            dia_str = dia.strftime("%Y-%m-%d")
+            dia_regex = f"^{dia_str}"
             
             # Construir query para todas as variações do canal
             canal_or_conditions = []
@@ -3042,18 +3044,38 @@ async def get_dashboard_visao_geral(
                 canal_or_conditions.append({"parceiro": var})
                 canal_or_conditions.append({"canal_vendas": var})
             
+            # AR = Atendimentos criados/abertos naquele dia
+            ar = await db.chamados.count_documents({
+                "$or": canal_or_conditions,
+                "data_abertura": {"$regex": dia_regex}
+            })
+            
             # A = Em andamento (pendentes) - contagem acumulada até aquele dia
+            # Para pendentes, precisamos de todos até o fim do dia
+            dia_fim = f"{dia_str}T23:59:59"
             a = await db.chamados.count_documents({
                 "$or": canal_or_conditions,
                 "pendente": True,
                 "data_abertura": {"$lte": dia_fim}
             })
             
-            canal_data["dias"][dia_key] = {"ar": 0, "a": a, "f": 0}
+            # F = Atendimentos fechados naquele dia
+            f = await db.chamados.count_documents({
+                "$or": canal_or_conditions,
+                "pendente": False,
+                "data_fechamento": {"$regex": dia_regex}
+            })
+            
+            canal_data["dias"][dia_key] = {"ar": ar, "a": a, "f": f}
+            
+            total_canal["ar"] += ar
+            total_canal["f"] += f
             
             if dia_key not in totais_por_dia:
                 totais_por_dia[dia_key] = {"ar": 0, "a": 0, "f": 0}
+            totais_por_dia[dia_key]["ar"] += ar
             totais_por_dia[dia_key]["a"] += a
+            totais_por_dia[dia_key]["f"] += f
         
         # Pegar o "A" do penúltimo dia (último dia com dados) como total em andamento
         dias_com_dados = [d for d in dias_uteis if d.date() != hoje]
