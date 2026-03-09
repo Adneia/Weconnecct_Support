@@ -1035,6 +1035,7 @@ const NovoAtendimento = () => {
   const [selectedAcompanhamento, setSelectedAcompanhamento] = useState('');
   const [selectedReclameAqui, setSelectedReclameAqui] = useState('');
   const [selectedAssistencia, setSelectedAssistencia] = useState('');
+  const [selectedComprovante, setSelectedComprovante] = useState('');
   const [selectedMotivoPendencia, setSelectedMotivoPendencia] = useState('');
   const [motivoPendencia, setMotivoPendencia] = useState('');
   const [transportadoraDetectada, setTransportadoraDetectada] = useState(null);
@@ -1748,6 +1749,50 @@ const NovoAtendimento = () => {
     setTextoPadrao(texto);
     setSelectedAssistencia(tipo);
     setShowTextoDialog(true);
+  };
+
+  const loadTextoComprovante = async (tipo) => {
+    const textoKey = `Comprovante de Entrega - ${tipo}`;
+    try {
+      const response = await axios.get(
+        `${API_URL}/api/textos-padroes/${encodeURIComponent(textoKey)}`,
+        { headers: getAuthHeader() }
+      );
+      let texto = response.data.texto;
+      
+      // Substituir placeholders
+      if (user?.name || formData.atendente) {
+        texto = texto.replace(/\[ASSINATURA\]/g, user?.name || formData.atendente);
+      }
+      if (pedidoErp?.nome_cliente) {
+        texto = texto.replace(/\[NOME_CLIENTE\]/g, pedidoErp.nome_cliente);
+        const primeiroNome = pedidoErp.nome_cliente.split(' ')[0];
+        texto = texto.replace(/\[PRIMEIRO_NOME\]/g, primeiroNome);
+      }
+      if (pedidoErp?.data_status) {
+        let dataFormatada = pedidoErp.data_status;
+        if (dataFormatada.includes(' ')) {
+          dataFormatada = dataFormatada.split(' ')[0];
+        }
+        texto = texto.replace(/\[DATA_ULTIMO_PONTO\]/g, dataFormatada);
+        texto = texto.replace(/\[DATA_ENTREGA\]/g, dataFormatada);
+      }
+      if (pedidoErp?.produto) {
+        texto = texto.replace(/\[PRODUTO\]/g, pedidoErp.produto);
+      }
+      if (pedidoErp?.numero_pedido || formData.numero_pedido) {
+        texto = texto.replace(/\[ENTREGA\]/g, pedidoErp?.numero_pedido || formData.numero_pedido);
+      }
+      if (formData.solicitacao) {
+        texto = texto.replace(/\[NUMERO_OCORRENCIA\]/g, formData.solicitacao);
+      }
+      
+      setTextoPadrao(texto);
+      setSelectedComprovante(tipo);
+      setShowTextoDialog(true);
+    } catch (error) {
+      toast.error('Erro ao carregar texto padrão');
+    }
   };
 
   const loadTextoMotivoPendencia = (tipo) => {
@@ -3097,6 +3142,54 @@ const NovoAtendimento = () => {
                               onClick={() => loadTextoReclameAqui('Após Avaliação')}
                             >
                               Após Avaliação
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : formData.categoria === 'Comprovante de Entrega' ? (
+                      <div className="space-y-3">
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Textos para Comprovante de Entrega</Label>
+                          <div className="flex flex-wrap gap-2">
+                            <Button 
+                              type="button" 
+                              variant={selectedComprovante === 'Confirmação' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoComprovante('Confirmação')}
+                            >
+                              Confirmação
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant={selectedComprovante === 'Dentro do Prazo' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoComprovante('Dentro do Prazo')}
+                            >
+                              Dentro do Prazo
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant={selectedComprovante === 'Expirado' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoComprovante('Expirado')}
+                            >
+                              Expirado
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant={selectedComprovante === 'Expirado para Encerrar' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoComprovante('Expirado para Encerrar')}
+                            >
+                              Expirado p/ Encerrar
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant={selectedComprovante === 'Email CSU' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoComprovante('Email CSU')}
+                            >
+                              Email CSU
                             </Button>
                           </div>
                         </div>
