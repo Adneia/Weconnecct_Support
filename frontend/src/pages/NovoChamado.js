@@ -287,14 +287,13 @@ Atenciosamente!
 const getCategoriaPorStatus = (statusPedido) => {
   if (!statusPedido) return { categoria: '', motivo: '' };
   
-  // REGRA: Se o status estiver TODO em MAIÚSCULAS, é "Enviado"
-  // Verifica se o status (ignorando números e espaços) está em maiúsculas
-  const apenasLetras = statusPedido.replace(/[^a-zA-ZÀ-ÿ]/g, '');
-  if (apenasLetras.length > 0 && apenasLetras === apenasLetras.toUpperCase()) {
-    return { categoria: 'Falha Transporte', motivo: 'Enviado' };
-  }
-  
   const status = statusPedido.toLowerCase();
+  
+  // PRIMEIRO: Verificar se contém "entregue" (qualquer case)
+  // "ENTREGUE", "Pedido Entregue", "Entregue ao cliente" -> motivo "Entregue"
+  if (/\bentregue\b/.test(status) && !status.includes('transportadora')) {
+    return { categoria: '', motivo: 'Entregue' };
+  }
   
   // Aguardando estoque
   if (status.includes('aguardando estoque') || status.includes('ag. estoque')) {
@@ -307,17 +306,19 @@ const getCategoriaPorStatus = (statusPedido) => {
     return { categoria: 'Falha Produção', motivo: 'Ag. Logística' };
   }
   
-  // Em trânsito, saiu para entrega, transferência, etc (depois de entregue à transportadora)
+  // REGRA: Se o status estiver TODO em MAIÚSCULAS, é "Enviado"
+  // (já excluímos "ENTREGUE" acima)
+  const apenasLetras = statusPedido.replace(/[^a-zA-ZÀ-ÿ]/g, '');
+  if (apenasLetras.length > 0 && apenasLetras === apenasLetras.toUpperCase()) {
+    return { categoria: 'Falha Transporte', motivo: 'Enviado' };
+  }
+  
+  // Em trânsito, saiu para entrega, transferência, etc
   if (status.includes('trânsito') || status.includes('transito') || 
       status.includes('transferencia') || status.includes('transferência') ||
       status.includes('saiu para entrega') || status.includes('em rota') ||
       status.includes('tentativa') || status.includes('aguardando retirada')) {
     return { categoria: 'Falha Transporte', motivo: 'Enviado' };
-  }
-  
-  // Pedido Entregue - verificar palavra exata "entregue" (não "transferencia")
-  if (/\bentregue\b/.test(status) && !status.includes('transportadora')) {
-    return { categoria: '', motivo: '' }; // Deixar aberto para seleção
   }
   
   return { categoria: '', motivo: '' };
