@@ -117,12 +117,23 @@ const ImportarPedidos = () => {
       return;
     }
 
+    // Verificar tamanho do arquivo (max 10MB para evitar timeout do proxy)
+    const maxSizeMB = 10;
+    const fileSizeMB = file.size / (1024 * 1024);
+    
+    if (fileSizeMB > maxSizeMB) {
+      toast.error(`Arquivo muito grande (${fileSizeMB.toFixed(1)}MB). Máximo: ${maxSizeMB}MB. Exporte apenas os pedidos recentes (últimos 7-15 dias).`);
+      return;
+    }
+
     setUploading(true);
     setResult(null);
 
     try {
       const formData = new FormData();
       formData.append('file', file);
+
+      toast.info(`Enviando arquivo (${fileSizeMB.toFixed(1)}MB)... Aguarde.`);
 
       const response = await axios.post(
         `${API_URL}/api/pedidos-erp/import`,
@@ -132,9 +143,15 @@ const ImportarPedidos = () => {
             ...getAuthHeader(),
             'Content-Type': 'multipart/form-data'
           },
-          timeout: 300000,
+          timeout: 120000, // 2 minutos (proxy tem ~60s)
           maxContentLength: Infinity,
-          maxBodyLength: Infinity
+          maxBodyLength: Infinity,
+          onUploadProgress: (progressEvent) => {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            if (percentCompleted < 100) {
+              // Update progress toast
+            }
+          }
         }
       );
 
@@ -157,9 +174,18 @@ const ImportarPedidos = () => {
       }
     } catch (error) {
       console.error('Erro de importação:', error);
-      const errorMessage = error.response?.data?.detail 
-        || error.message 
-        || 'Erro ao importar arquivo';
+      let errorMessage = 'Erro ao importar arquivo';
+      
+      if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        errorMessage = 'Timeout: O arquivo é muito grande. Exporte apenas os pedidos dos últimos 7-15 dias.';
+      } else if (error.response?.status === 503) {
+        errorMessage = 'Servidor ocupado ou timeout. Exporte apenas os pedidos recentes (últimos 7-15 dias).';
+      } else if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
       setResult({ 
         success: false, 
         message: errorMessage
@@ -252,6 +278,12 @@ const ImportarPedidos = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4 text-sm">
+            {/* Alerta sobre tamanho */}
+            <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800">
+              <p className="font-medium">⚠️ Tamanho máximo: 10MB</p>
+              <p className="text-xs mt-1">Para arquivos maiores, exporte apenas os pedidos dos últimos 7-15 dias ou divida em partes menores.</p>
+            </div>
+            
             <p>O sistema reconhece automaticamente o arquivo <strong>Tabelão de Pedidos Vendas</strong> do ERP. Colunas mapeadas:</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
               {[
