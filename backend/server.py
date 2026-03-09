@@ -2907,7 +2907,7 @@ async def process_import_background(import_id: str, df):
     await atualizar_motivos_pendencia_automatico()
 
 @api_router.post("/admin/atualizar-motivos")
-async def atualizar_motivos_endpoint(current_user: dict = Depends(get_admin_user)):
+async def atualizar_motivos_endpoint(current_user: dict = Depends(get_current_user)):
     """Endpoint para forçar atualização dos motivos de pendência"""
     try:
         await atualizar_motivos_pendencia_automatico()
