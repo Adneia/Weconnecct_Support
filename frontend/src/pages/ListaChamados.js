@@ -143,6 +143,8 @@ const ListaAtendimentos = () => {
         'CPF': atd.cpf_cliente || '',
         'Parceiro': atd.parceiro || atd.canal_vendas || '',
         'Categoria': atd.categoria || '',
+        'Motivo Pendência': atd.motivo_pendencia || '',
+        'Status Pedido': atd.status_pedido || '',
         'Motivo': atd.motivo || '',
         'Reversa': atd.codigo_reversa || '',
         'Atendente': atd.atendente || '',
@@ -166,6 +168,8 @@ const ListaAtendimentos = () => {
         { wch: 15 }, // CPF
         { wch: 15 }, // Parceiro
         { wch: 18 }, // Categoria
+        { wch: 15 }, // Motivo Pendência
+        { wch: 20 }, // Status Pedido
         { wch: 30 }, // Motivo
         { wch: 15 }, // Reversa
         { wch: 18 }, // Atendente
@@ -632,9 +636,8 @@ const ListaAtendimentos = () => {
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Entrega</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Cliente</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Parceiro / Solicitação</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Categoria</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Motivo Pend.</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Última Anotação</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50 min-w-[180px]">Última Anotação</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Reversa</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Status Pedido</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Status</TableHead>
@@ -715,28 +718,21 @@ const ListaAtendimentos = () => {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <Badge className={getCategoryBadgeColor(atd.categoria)}>
-                          {atd.categoria}
-                        </Badge>
-                      </TableCell>
                       <TableCell className="text-sm">
                         {atd.motivo_pendencia || '-'}
                       </TableCell>
-                      <TableCell className="text-sm max-w-52">
+                      <TableCell className="text-sm max-w-[200px]">
                         <div className="flex flex-col">
-                          <span className="text-xs">
-                            {dataAnotacao && (
-                              <span className="font-semibold text-blue-600 dark:text-blue-400 mr-1">{dataAnotacao}</span>
-                            )}
-                            {textoAnotacao ? (
-                              <span className="text-muted-foreground truncate" title={textoAnotacao}>
-                                {dataAnotacao ? '- ' : ''}{textoAnotacao}
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground">-</span>
-                            )}
-                          </span>
+                          {dataAnotacao && (
+                            <span className="font-semibold text-blue-600 dark:text-blue-400 text-xs">{dataAnotacao}</span>
+                          )}
+                          {textoAnotacao ? (
+                            <span className="text-muted-foreground text-xs truncate" title={textoAnotacao}>
+                              {textoAnotacao}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">-</span>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell className="text-sm font-mono">
