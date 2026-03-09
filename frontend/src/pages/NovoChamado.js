@@ -425,7 +425,8 @@ Atenciosamente!
 Informamos que o pedido já foi entregue à transportadora. Pedimos, por gentileza, que aguarde o prazo de até 48 horas úteis para que as informações de rastreamento e a previsão de entrega sejam atualizadas no sistema.
 
 Segue rastreio para acompanhamento:
-https://status.ondeestameupedido.com/tracking/41693/[ENTREGA]
+Rastreio: [CÓDIGO_RASTREIO]
+https://totalconecta.totalexpress.com.br/rastreamento
 
 Permanecemos à disposição.
 Atenciosamente,
@@ -465,7 +466,8 @@ const TEXTOS_FALHA_TRANSPORTE = {
 Pedido em processo de entrega, podendo ser entregue a qualquer momento.
 
 Segue rastreio para acompanhamento:
-https://status.ondeestameupedido.com/tracking/41693/[ENTREGA]
+Rastreio: [CÓDIGO_RASTREIO]
+https://totalconecta.totalexpress.com.br/rastreamento
 
 Seguimos a disposição.
 Atenciosamente,
@@ -820,7 +822,8 @@ Atenciosamente,
 Pedido em processo de entrega, podendo ser entregue a qualquer momento. 
 
 Segue rastreio para acompanhamento:
-https://status.ondeestameupedido.com/tracking/41693/[ENTREGA]
+Rastreio: [CÓDIGO_RASTREIO]
+https://totalconecta.totalexpress.com.br/rastreamento
 Previsão de entrega até dia [DATA_PREVISAO]
 
 Seguimos a disposição. 
