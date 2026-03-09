@@ -1,4 +1,32 @@
 from datetime import datetime, timezone, timedelta
+import pandas as pd
+
+
+def parse_date_safe(date_value) -> datetime:
+    """Parse date value to timezone-aware datetime"""
+    if date_value is None:
+        return datetime.now(timezone.utc)
+    
+    if isinstance(date_value, str):
+        try:
+            dt = datetime.fromisoformat(date_value.replace('Z', '+00:00'))
+        except:
+            try:
+                dt = pd.to_datetime(date_value).to_pydatetime()
+            except:
+                dt = datetime.now(timezone.utc)
+    elif hasattr(date_value, 'to_pydatetime'):
+        dt = date_value.to_pydatetime()
+    elif isinstance(date_value, datetime):
+        dt = date_value
+    else:
+        dt = datetime.now(timezone.utc)
+    
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    
+    return dt
+
 
 def calcular_dias_uteis(data_inicio, data_fim=None):
     """Calcula a quantidade de dias úteis entre duas datas"""

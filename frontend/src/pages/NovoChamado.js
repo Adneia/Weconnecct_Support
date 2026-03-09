@@ -2018,8 +2018,14 @@ const NovoAtendimento = () => {
     setLoading(true);
     
     try {
-      // Determinar "Devolvido por": Correios (se tem reversa) ou Transportadora
-      const devolvidoPor = codigoReversa ? 'Correios' : 'Transportadora';
+      // Determinar "Devolvido por": Correios (se tem reversa) ou nome da Transportadora
+      let devolvidoPor = 'Transportadora';
+      if (codigoReversa) {
+        devolvidoPor = 'Correios';
+      } else if (pedidoErp?.transportadora) {
+        // Usar nome da transportadora real
+        devolvidoPor = pedidoErp.transportadora;
+      }
       
       // Registrar na planilha de devoluções via API
       const response = await axios.post(
@@ -2038,7 +2044,7 @@ const NovoAtendimento = () => {
           filial: pedidoErp?.uf_galpao || '',
           // Campos para colunas J, K, L
           atendimento: status,  // Coluna J: Aguardando/Estornado/Reenviado
-          devolvido_por: devolvidoPor,  // Coluna K: Correios ou Transportadora
+          devolvido_por: devolvidoPor,  // Coluna K: Correios ou nome da Transportadora
           status_galpao: 'AGUARDANDO'  // Coluna L
         },
         { headers: getAuthHeader() }

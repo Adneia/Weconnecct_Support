@@ -1,9 +1,25 @@
 # ELO - Sistema de Atendimentos WeConnect
 
-## Status: MVP Funcional + Fluxo de Devoluções Corrigido ✅
-**Última atualização:** 08/03/2026
+## Status: MVP Funcional + Refatoração em Andamento ✅
+**Última atualização:** 09/03/2026
 
 ## Changelog Recente
+- ✅ **09/03/2026:** Refatoração do Backend (Fase 1)
+  - **Estrutura modular criada:**
+    - `/app/backend/routes/chamados.py` - CRUD de atendimentos
+    - `/app/backend/routes/pedidos.py` - Busca e importação de pedidos ERP
+    - `/app/backend/routes/relatorios.py` - Relatórios Ag. Compras e Ag. Logística
+    - `/app/backend/routes/textos.py` - Gestão de textos padrão
+    - `/app/backend/routes/dashboard.py` - Estatísticas e métricas
+    - `/app/backend/routes/devolucoes.py` - Registro de devoluções
+  - **Componentes frontend criados:**
+    - `/app/frontend/src/components/atendimento/constants.js` - Constantes e textos
+    - `/app/frontend/src/components/atendimento/CardPedido.js` - Card do pedido ERP
+    - `/app/frontend/src/components/atendimento/BuscaPedido.js` - Busca de pedidos
+    - `/app/frontend/src/components/atendimento/DialogsAtendimento.js` - Diálogos modais
+  - **Utils atualizados:**
+    - `/app/backend/utils/helpers.py` - Adicionada função parse_date_safe
+
 - ✅ **08/03/2026:** Corrigido fluxo completo de Devoluções
   - **Fluxo implementado:**
     1. Ao mudar motivo para "Em devolução" ou "Devolvido" → Diálogo pergunta "Deseja registrar na planilha?"
@@ -85,16 +101,41 @@
 ```
 /app/
 ├── backend/
-│   ├── server.py          # API FastAPI (monolítico)
-│   ├── google_sheets.py   # Integração Google Sheets
-│   └── credentials.json   # Service Account
+│   ├── server.py              # API FastAPI (ainda monolítico - migração em andamento)
+│   ├── main_modular.py        # NOVO: Entry point para rotas modulares
+│   ├── google_sheets.py       # Integração Google Sheets
+│   ├── credentials.json       # Service Account
+│   ├── routes/                # NOVO: Rotas modulares
+│   │   ├── __init__.py
+│   │   ├── auth.py            # Autenticação JWT
+│   │   ├── chamados.py        # CRUD de atendimentos
+│   │   ├── pedidos.py         # Busca e importação ERP
+│   │   ├── relatorios.py      # Relatórios
+│   │   ├── textos.py          # Textos padrão
+│   │   ├── dashboard.py       # Dashboard stats
+│   │   └── devolucoes.py      # Devoluções
+│   ├── models/                # Modelos Pydantic
+│   │   ├── chamado.py
+│   │   ├── pedido.py
+│   │   └── user.py
+│   └── utils/
+│       ├── auth.py            # JWT helpers
+│       ├── database.py        # MongoDB connection
+│       └── helpers.py         # Funções utilitárias
 └── frontend/
     └── src/
         ├── pages/
-        │   ├── NovoChamado.js    # Formulário de atendimento
+        │   ├── NovoChamado.js    # Formulário de atendimento (em refatoração)
         │   ├── ListaChamados.js  # Lista e filtros
         │   └── Dashboard.js      # Dashboard multi-abas
-        └── components/ui/        # Shadcn/UI
+        └── components/
+            ├── ui/              # Shadcn/UI
+            └── atendimento/     # NOVO: Componentes de atendimento
+                ├── index.js
+                ├── constants.js
+                ├── CardPedido.js
+                ├── BuscaPedido.js
+                └── DialogsAtendimento.js
 ```
 
 ## Credenciais de Teste
@@ -104,11 +145,13 @@
 ## Próximas Tarefas (P0-P3)
 
 ### P0 - Crítico
-- [ ] Refatoração do backend (server.py → estrutura modular)
-- [ ] Refatoração do frontend (NovoChamado.js → componentes menores)
+- [x] Refatoração do backend - Rotas modulares criadas (Fase 1 completa)
+- [x] Refatoração do frontend - Componentes de atendimento criados (Fase 1 completa)
+- [ ] **Fase 2:** Migrar server.py para usar rotas modulares
+- [ ] **Fase 2:** Integrar componentes no NovoChamado.js
 
 ### P1 - Alta Prioridade
-- [ ] Carga da base de atendimentos históricos (Excel)
+- [x] Carga da base de atendimentos históricos (1351 registros)
 - [ ] Fluxo completo de Reversas
 
 ### P2 - Média Prioridade
