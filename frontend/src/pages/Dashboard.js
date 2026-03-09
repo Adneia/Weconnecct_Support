@@ -166,7 +166,7 @@ const Dashboard = () => {
             Atendimentos por Canal - Últimos 10 Dias Úteis
           </CardTitle>
           <CardDescription>
-            AR = Abertos | A = Em Andamento | F = Fechados
+            AR = Aguardando Resposta | A = Aberto | F = Fechado
           </CardDescription>
         </CardHeader>
         <CardContent>

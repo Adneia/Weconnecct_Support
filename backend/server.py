@@ -2982,9 +2982,24 @@ async def get_dashboard_visao_geral(
             dias_uteis.insert(0, dia_atual)  # Inserir no início para ordem crescente
         dia_atual -= timedelta(days=1)
     
-    # Buscar todos os canais
-    canais_unicos = await db.chamados.distinct("parceiro")
-    canais_unicos = [c for c in canais_unicos if c]  # Remover None/vazio
+    # Lista fixa de canais na ordem desejada (igual ao Excel)
+    # Cada entrada pode ter variações do nome que serão agrupadas
+    CANAIS_CONFIG = [
+        {"nome": "LL Loyalty", "variacoes": ["LL Loyalty", "LL Loyalt"]},
+        {"nome": "Sicredi", "variacoes": ["Sicredi", "SICREDI"]},
+        {"nome": "CSU", "variacoes": ["CSU"]},
+        {"nome": "Nicequest", "variacoes": ["Nicequest", "NiceQuest"]},
+        {"nome": "Global Rewards", "variacoes": ["Global Rewards", "GRS"]},
+        {"nome": "LTM", "variacoes": ["LTM"]},
+        {"nome": "Camicado", "variacoes": ["Camicado"]},
+        {"nome": "Coopera", "variacoes": ["Coopera"]},
+        {"nome": "Livelo", "variacoes": ["Livelo"]},
+        {"nome": "Tudo Azul", "variacoes": ["Tudo Azul"]},
+        {"nome": "Senff", "variacoes": ["Senff", "SENFF"]},
+        {"nome": "ShopHub", "variacoes": ["ShopHub", "SHOPHUB"]},
+        {"nome": "Bradesco", "variacoes": ["Bradesco"]},
+        {"nome": "Mercado Livre", "variacoes": ["Mercado Livre"]},
+    ]
     
     # Para cada canal, contar AR/A/F por dia
     por_canal_dia = []
@@ -2994,30 +3009,40 @@ async def get_dashboard_visao_geral(
         dia_key = dia.strftime("%d/%m")
         totais_por_dia[dia_key] = {"ar": 0, "a": 0, "f": 0}
     
-    for canal in canais_unicos:
-        canal_data = {"canal": canal, "dias": {}}
+    # Processar cada canal na ordem fixa
+    for canal_config in CANAIS_CONFIG:
+        canal_nome = canal_config["nome"]
+        variacoes = canal_config["variacoes"]
+        
+        canal_data = {"canal": canal_nome, "dias": {}}
         total_canal = {"ar": 0, "a": 0, "f": 0}
         
         for dia in dias_uteis:
             dia_inicio = dia.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
             dia_fim = dia.replace(hour=23, minute=59, second=59, microsecond=999999).isoformat()
             
+            # Construir query para todas as variações do canal
+            canal_or_conditions = []
+            for var in variacoes:
+                canal_or_conditions.append({"parceiro": var})
+                canal_or_conditions.append({"canal_vendas": var})
+            
             # AR = Abertos naquele dia
             ar = await db.chamados.count_documents({
-                "$or": [{"parceiro": canal}, {"canal_vendas": canal}],
+                "$or": canal_or_conditions,
                 "data_abertura": {"$gte": dia_inicio, "$lte": dia_fim}
             })
             
             # A = Em andamento (pendentes) - contagem acumulada até aquele dia
             a = await db.chamados.count_documents({
-                "$or": [{"parceiro": canal}, {"canal_vendas": canal}],
+                "$or": canal_or_conditions,
                 "pendente": True,
                 "data_abertura": {"$lte": dia_fim}
             })
             
             # F = Fechados naquele dia
             f = await db.chamados.count_documents({
-                "$or": [{"parceiro": canal}, {"canal_vendas": canal}],
+                "$or": canal_or_conditions,
                 "data_fechamento": {"$gte": dia_inicio, "$lte": dia_fim}
             })
             
@@ -3034,13 +3059,9 @@ async def get_dashboard_visao_geral(
         ultimo_dia_key = dias_uteis[-1].strftime("%d/%m")
         total_canal["a"] = canal_data["dias"][ultimo_dia_key]["a"]
         
-        # Só adicionar se tiver algum atendimento
-        if total_canal["ar"] > 0 or total_canal["a"] > 0 or total_canal["f"] > 0:
-            canal_data["total"] = total_canal
-            por_canal_dia.append(canal_data)
-    
-    # Ordenar por total de abertos (decrescente)
-    por_canal_dia.sort(key=lambda x: x["total"]["ar"] + x["total"]["a"], reverse=True)
+        # Adicionar canal mesmo se tiver zeros (para manter a estrutura)
+        canal_data["total"] = total_canal
+        por_canal_dia.append(canal_data)
     
     # Formatar cabeçalhos dos dias (com dia da semana)
     dias_headers = []
