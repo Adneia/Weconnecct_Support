@@ -3136,13 +3136,6 @@ async def get_dashboard_visao_geral(
         for dia in dias_uteis:
             dia_key = dia.strftime("%d/%m")
             
-            # Se é hoje, zerar os valores (aguardando início das atividades)
-            if dia.date() == hoje:
-                canal_data["dias"][dia_key] = {"ar": 0, "a": 0, "f": 0}
-                if dia_key not in totais_por_dia:
-                    totais_por_dia[dia_key] = {"ar": 0, "a": 0, "f": 0}
-                continue
-            
             # Usar regex para buscar datas (funciona com ou sem timezone)
             dia_str = dia.strftime("%Y-%m-%d")
             dia_regex = f"^{dia_str}"
@@ -3159,14 +3152,22 @@ async def get_dashboard_visao_geral(
                 "data_abertura": {"$regex": dia_regex}
             })
             
-            # A = Em andamento (pendentes) - contagem acumulada até aquele dia
-            # Para pendentes, precisamos de todos até o fim do dia
-            dia_fim = f"{dia_str}T23:59:59"
-            a = await db.chamados.count_documents({
-                "$or": canal_or_conditions,
-                "pendente": True,
-                "data_abertura": {"$lte": dia_fim}
-            })
+            # Para o dia de HOJE: A = total de pendentes ATUAIS (em tempo real)
+            # Para dias anteriores: A = pendentes acumulados até o fim daquele dia
+            if dia.date() == hoje:
+                # Hoje: contar todos os pendentes atuais
+                a = await db.chamados.count_documents({
+                    "$or": canal_or_conditions,
+                    "pendente": True
+                })
+            else:
+                # Dias anteriores: pendentes até o fim do dia
+                dia_fim = f"{dia_str}T23:59:59"
+                a = await db.chamados.count_documents({
+                    "$or": canal_or_conditions,
+                    "pendente": True,
+                    "data_abertura": {"$lte": dia_fim}
+                })
             
             # F = Atendimentos fechados naquele dia
             f = await db.chamados.count_documents({
@@ -3186,11 +3187,9 @@ async def get_dashboard_visao_geral(
             totais_por_dia[dia_key]["a"] += a
             totais_por_dia[dia_key]["f"] += f
         
-        # Pegar o "A" do penúltimo dia (último dia com dados) como total em andamento
-        dias_com_dados = [d for d in dias_uteis if d.date() != hoje]
-        if dias_com_dados:
-            ultimo_dia_dados = dias_com_dados[-1].strftime("%d/%m")
-            total_canal["a"] = canal_data["dias"].get(ultimo_dia_dados, {}).get("a", 0)
+        # Total "A" = pendentes atuais do canal (último dia = hoje)
+        ultimo_dia_key = dias_uteis[-1].strftime("%d/%m")
+        total_canal["a"] = canal_data["dias"].get(ultimo_dia_key, {}).get("a", 0)
         
         # Adicionar canal mesmo se tiver zeros (para manter a estrutura)
         canal_data["total"] = total_canal
