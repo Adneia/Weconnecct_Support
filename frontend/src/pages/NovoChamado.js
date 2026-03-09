@@ -300,16 +300,19 @@ const getCategoriaPorStatus = (statusPedido) => {
     return { categoria: 'Falha Produção', motivo: 'Ag. Logística' };
   }
   
-  // Pedido Entregue - deixar em aberto
-  if (status.includes('entregue') && !status.includes('transportadora')) {
-    return { categoria: '', motivo: '' }; // Deixar aberto para seleção
-  }
-  
-  // Em trânsito, saiu para entrega, etc (depois de entregue à transportadora)
+  // Em trânsito, saiu para entrega, transferência, etc (depois de entregue à transportadora)
+  // IMPORTANTE: Verificar isso ANTES de "entregue" para evitar falso positivo com "transferencia"
   if (status.includes('trânsito') || status.includes('transito') || 
+      status.includes('transferencia') || status.includes('transferência') ||
       status.includes('saiu para entrega') || status.includes('em rota') ||
       status.includes('tentativa') || status.includes('aguardando retirada')) {
     return { categoria: 'Falha Transporte', motivo: 'Enviado' };
+  }
+  
+  // Pedido Entregue - verificar palavra exata "entregue" (não "transferencia")
+  // Usa regex para verificar se é a palavra "entregue" isolada
+  if (/\bentregue\b/.test(status) && !status.includes('transportadora')) {
+    return { categoria: '', motivo: '' }; // Deixar aberto para seleção
   }
   
   return { categoria: '', motivo: '' };
