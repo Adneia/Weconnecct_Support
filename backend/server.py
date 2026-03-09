@@ -1194,6 +1194,78 @@ Na ausência de manifestação dentro do prazo informado, seguiremos com o encer
 
 Permanecemos à disposição.
 Atenciosamente,
+[ASSINATURA]""",
+
+    "Comprovante de Entrega - Confirmação": """Prezado(a) Sr(a). [PRIMEIRO_NOME]
+
+Estamos entrando em contato para confirmar o recebimento do seu pedido: [PRODUTO] ([ENTREGA]). Poderia, por gentileza, nos informar se o produto já foi entregue?
+
+1 - Sim
+2 - Não
+
+Aguardamos sua resposta.
+
+Atenciosamente,
+Equipe de Atendimento Weconnect""",
+
+    "Falha Fornecedor - 1ª Reversa": """Olá,
+
+Sentimos muito pelo ocorrido, poderia confirmar com o cliente se após a devolução seguiremos com reenvio ou cancelamento?
+
+Referente à solicitação, segue os dados para realizar o retorno do produto em no máximo 10 dias.
+
+Autorização de Postagem em Agência
+
+Dados da Emissão:
+Objeto: [CÓDIGO_REVERSA]
+Emitido em: [DATA_EMISSAO]
+Data de Validade: [DATA_VALIDADE]
+Remetente autorizado: [NOME_CLIENTE]
+
+- Para utilizá-la, o consumidor deve se dirigir a uma Agência Própria ou Franqueada dos Correios, levando consigo, obrigatoriamente, o Código de Autorização e o objeto para postagem.
+
+DESTINATÁRIO:
+WECONNECT COMERCIO E SERVICOS LTDA
+
+*** Orientações importantes ***:
+* O produto deve ser devolvido na embalagem original e sem avaria (dentro de uma outra caixa de papelão OU papel pardo para manter a integridade do produto);
+* Sem indícios de uso, sem violação do lacre original do fabricante;
+* Coloque a nota fiscal dentro de um envelope plástico adesivo e cole-o na parte externa do pacote. Este tipo de envelope deve estar disponível em qualquer agência dos Correios;
+* Acompanhado também do comprovante de endereço do cliente, que deve estar legível;
+* Informe que o produto tem 7 dias para dar entrada em nosso estoque para que possamos prosseguir com a tratativa.
+
+Seguimos à disposição.
+Atenciosamente,
+[ASSINATURA]""",
+
+    "Falha Fornecedor - 2ª Reversa": """Olá,
+
+Referente à solicitação, segue os dados para realizar a segunda e última tentativa de retorno do produto em no máximo 7 dias.
+
+Autorização de Postagem em Agência
+
+Dados da Emissão:
+Objeto: [CÓDIGO_REVERSA]
+Emitido em: [DATA_EMISSAO]
+Data de Validade: [DATA_VALIDADE]
+Remetente autorizado: [NOME_CLIENTE]
+
+- Para utilizá-la, o consumidor deve se dirigir a uma Agência Própria ou Franqueada dos Correios, levando consigo, obrigatoriamente, o Código de Autorização e o objeto para postagem.
+
+DESTINATÁRIO:
+WECONNECT COMERCIO E SERVICOS LTDA
+
+*** Orientações importantes ***:
+* O produto deve ser devolvido na embalagem original e sem avaria (dentro de uma outra caixa de papelão OU papel pardo para manter a integridade do produto);
+* Sem indícios de uso, sem violação do lacre original do fabricante;
+* Coloque a nota fiscal dentro de um envelope plástico adesivo e cole-o na parte externa do pacote. Este tipo de envelope deve estar disponível em qualquer agência dos Correios;
+* Acompanhado também do comprovante de endereço do cliente, que deve estar legível;
+* Informe que o produto tem 7 dias para dar entrada em nosso estoque para que possamos prosseguir com a tratativa.
+
+⚠️ ATENÇÃO: Esta é a SEGUNDA e ÚLTIMA tentativa!
+
+Seguimos à disposição.
+Atenciosamente,
 [ASSINATURA]"""
 }
 
