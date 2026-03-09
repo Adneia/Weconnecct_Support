@@ -335,11 +335,50 @@ const ListaAtendimentos = () => {
     return colors[categoria] || 'bg-slate-100 text-slate-700';
   };
 
+  // Função para calcular o próximo dia útil
+  const getProximoDiaUtil = () => {
+    const hoje = new Date();
+    const proximoDia = new Date(hoje);
+    proximoDia.setDate(proximoDia.getDate() + 1);
+    
+    // Se cair no sábado (6), pula para segunda
+    if (proximoDia.getDay() === 6) {
+      proximoDia.setDate(proximoDia.getDate() + 2);
+    }
+    // Se cair no domingo (0), pula para segunda
+    else if (proximoDia.getDay() === 0) {
+      proximoDia.setDate(proximoDia.getDate() + 1);
+    }
+    
+    return proximoDia.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+  };
+
   // Stats
   const totalPendentes = atendimentos.filter(a => a.pendente).length;
   const totalResolvidos = atendimentos.filter(a => !a.pendente).length;
   const totalRetornar = atendimentos.filter(a => a.retornar_chamado).length;
   const totalVerificarAdneia = atendimentos.filter(a => a.verificar_adneia).length;
+  
+  // Calcular criados e fechados hoje
+  const hoje = new Date();
+  const hojeStr = hoje.toISOString().split('T')[0]; // YYYY-MM-DD
+  
+  const criadosHoje = atendimentos.filter(a => {
+    if (!a.data_abertura) return false;
+    const dataAbertura = a.data_abertura.split('T')[0];
+    return dataAbertura === hojeStr;
+  }).length;
+  
+  const fechadosHoje = atendimentos.filter(a => {
+    if (!a.data_fechamento || a.pendente) return false;
+    const dataFechamento = a.data_fechamento.split('T')[0];
+    return dataFechamento === hojeStr;
+  }).length;
+  
+  // Aberto para amanhã = Pendentes + Criados Hoje - Fechados Hoje
+  // Na verdade, é só o total de pendentes pois já reflete o saldo
+  const abertoParaAmanha = totalPendentes;
+  const proximoDiaUtil = getProximoDiaUtil();
 
   if (loading) {
     return (
@@ -440,14 +479,14 @@ const ListaAtendimentos = () => {
           </CardContent>
         </Card>
         
-        <Card className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setFilters({ pendente: '', categoria: '', atendente: '', retornar_chamado: '', verificar_adneia: '' })}>
+        <Card className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setFilters(f => ({ ...f, pendente: 'true', retornar_chamado: '', verificar_adneia: '' }))}>
           <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-2 rounded-md bg-blue-100 dark:bg-blue-900/30">
-              <FileText className="h-5 w-5 text-blue-600" />
+            <div className="p-2 rounded-md bg-indigo-100 dark:bg-indigo-900/30">
+              <Clock className="h-5 w-5 text-indigo-600" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{atendimentos.length}</p>
-              <p className="text-sm text-muted-foreground">Total</p>
+              <p className="text-2xl font-bold">{abertoParaAmanha}</p>
+              <p className="text-sm text-muted-foreground">Aberto p/ {proximoDiaUtil}</p>
             </div>
           </CardContent>
         </Card>
