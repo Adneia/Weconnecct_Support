@@ -287,6 +287,13 @@ Atenciosamente!
 const getCategoriaPorStatus = (statusPedido) => {
   if (!statusPedido) return { categoria: '', motivo: '' };
   
+  // REGRA: Se o status estiver TODO em MAIÚSCULAS, é "Enviado"
+  // Verifica se o status (ignorando números e espaços) está em maiúsculas
+  const apenasLetras = statusPedido.replace(/[^a-zA-ZÀ-ÿ]/g, '');
+  if (apenasLetras.length > 0 && apenasLetras === apenasLetras.toUpperCase()) {
+    return { categoria: 'Falha Transporte', motivo: 'Enviado' };
+  }
+  
   const status = statusPedido.toLowerCase();
   
   // Aguardando estoque
@@ -301,7 +308,6 @@ const getCategoriaPorStatus = (statusPedido) => {
   }
   
   // Em trânsito, saiu para entrega, transferência, etc (depois de entregue à transportadora)
-  // IMPORTANTE: Verificar isso ANTES de "entregue" para evitar falso positivo com "transferencia"
   if (status.includes('trânsito') || status.includes('transito') || 
       status.includes('transferencia') || status.includes('transferência') ||
       status.includes('saiu para entrega') || status.includes('em rota') ||
@@ -310,7 +316,6 @@ const getCategoriaPorStatus = (statusPedido) => {
   }
   
   // Pedido Entregue - verificar palavra exata "entregue" (não "transferencia")
-  // Usa regex para verificar se é a palavra "entregue" isolada
   if (/\bentregue\b/.test(status) && !status.includes('transportadora')) {
     return { categoria: '', motivo: '' }; // Deixar aberto para seleção
   }
