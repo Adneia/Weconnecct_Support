@@ -2985,6 +2985,7 @@ async def get_dashboard_visao_geral(
     # Lista fixa de canais na ordem desejada (igual ao Excel)
     # Cada entrada pode ter variações do nome que serão agrupadas
     CANAIS_CONFIG = [
+        {"nome": "Mercado Livre", "variacoes": ["Mercado Livre"]},
         {"nome": "LL Loyalty", "variacoes": ["LL Loyalty", "LL Loyalt"]},
         {"nome": "Sicredi", "variacoes": ["Sicredi", "SICREDI"]},
         {"nome": "CSU", "variacoes": ["CSU"]},
@@ -2998,7 +2999,6 @@ async def get_dashboard_visao_geral(
         {"nome": "Senff", "variacoes": ["Senff", "SENFF"]},
         {"nome": "ShopHub", "variacoes": ["ShopHub", "SHOPHUB"]},
         {"nome": "Bradesco", "variacoes": ["Bradesco"]},
-        {"nome": "Mercado Livre", "variacoes": ["Mercado Livre"]},
     ]
     
     # Para cada canal, contar AR/A/F por dia
