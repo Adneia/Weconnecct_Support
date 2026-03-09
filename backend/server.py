@@ -1208,63 +1208,65 @@ Aguardamos sua resposta.
 Atenciosamente,
 Equipe de Atendimento Weconnect""",
 
-    "Falha Fornecedor - 1ª Reversa": """Olá,
+    "Falha Fornecedor - 1ª Reversa": """Olá, Boa tarde.
 
 Sentimos muito pelo ocorrido, poderia confirmar com o cliente se após a devolução seguiremos com reenvio ou cancelamento?
 
-Referente à solicitação, segue os dados para realizar o retorno do produto em no máximo 10 dias.
+Referente a solicitação, segue os dados para realizar o retorno do produto em no máximo 10 dias.
 
 Autorização de Postagem em Agência
 
 Dados da Emissão:
+
 Objeto: [CÓDIGO_REVERSA]
 Emitido em: [DATA_EMISSAO]
 Data de Validade: [DATA_VALIDADE]
 Remetente autorizado: [NOME_CLIENTE]
 
-- Para utilizá-la, o consumidor deve se dirigir a uma Agência Própria ou Franqueada dos Correios, levando consigo, obrigatoriamente, o Código de Autorização e o objeto para postagem.
+- Para utilizá-la, o consumidor dever se dirigir a uma Agência Própria ou Franqueada dos Correios, levando consigo, obrigatoriamente, o Código de Autorização e o objeto para postagem.
 
 DESTINATÁRIO:
-WECONNECT COMERCIO E SERVICOS LTDA
+WECONNECT COMERCIO E SERVICOS LTDA 
 
-*** Orientações importantes ***:
-* O produto deve ser devolvido na embalagem original e sem avaria (dentro de uma outra caixa de papelão OU papel pardo para manter a integridade do produto);
-* Sem indícios de uso, sem violação do lacre original do fabricante;
-* Coloque a nota fiscal dentro de um envelope plástico adesivo e cole-o na parte externa do pacote. Este tipo de envelope deve estar disponível em qualquer agência dos Correios;
-* Acompanhado também do comprovante de endereço do cliente, que deve estar legível;
-* Informe que o produto tem 7 dias para dar entrada em nosso estoque para que possamos prosseguir com a tratativa.
+*** Orientações importantes ***: 
 
-Seguimos à disposição.
+* O produto deve ser devolvido na embalagem original e sem avaria (dentro de uma outra caixa de papelão OU papel pardo para manter a integridade do produto); 
+* Sem indícios de uso, sem violação do lacre original do fabricante; 
+* Coloque a nota fiscal dentro de um envelope plástico adesivo e cole-o na parte externa do pacote. Este tipo de envelope deve estar disponível em qualquer agência dos Correios; 
+* Acompanhado também dos acessórios/peças e manual do item. 
+* O estorno somente será autorizado após as avaliações citadas acima. As informações do destinatário serão preenchidas na agência dos Correios de acordo com Código de Postagem. 
+
+Seguimos a disposição.
 Atenciosamente,
 [ASSINATURA]""",
 
-    "Falha Fornecedor - 2ª Reversa": """Olá,
+    "Falha Fornecedor - 2ª Reversa": """Olá, Boa tarde.
 
-Referente à solicitação, segue os dados para realizar a segunda e última tentativa de retorno do produto em no máximo 7 dias.
+Referente a solicitação, segue os dados para realizar a segunda e ultima tentativa de retorno do produto em no máximo 7 dias.
 
 Autorização de Postagem em Agência
 
 Dados da Emissão:
+
 Objeto: [CÓDIGO_REVERSA]
 Emitido em: [DATA_EMISSAO]
 Data de Validade: [DATA_VALIDADE]
 Remetente autorizado: [NOME_CLIENTE]
 
-- Para utilizá-la, o consumidor deve se dirigir a uma Agência Própria ou Franqueada dos Correios, levando consigo, obrigatoriamente, o Código de Autorização e o objeto para postagem.
+- Para utilizá-la, o consumidor dever se dirigir a uma Agência Própria ou Franqueada dos Correios, levando consigo, obrigatoriamente, o Código de Autorização e o objeto para postagem.
 
 DESTINATÁRIO:
-WECONNECT COMERCIO E SERVICOS LTDA
+WECONNECT COMERCIO E SERVICOS LTDA 
 
-*** Orientações importantes ***:
-* O produto deve ser devolvido na embalagem original e sem avaria (dentro de uma outra caixa de papelão OU papel pardo para manter a integridade do produto);
-* Sem indícios de uso, sem violação do lacre original do fabricante;
-* Coloque a nota fiscal dentro de um envelope plástico adesivo e cole-o na parte externa do pacote. Este tipo de envelope deve estar disponível em qualquer agência dos Correios;
-* Acompanhado também do comprovante de endereço do cliente, que deve estar legível;
-* Informe que o produto tem 7 dias para dar entrada em nosso estoque para que possamos prosseguir com a tratativa.
+*** Orientações importantes ***: 
 
-⚠️ ATENÇÃO: Esta é a SEGUNDA e ÚLTIMA tentativa!
+* O produto deve ser devolvido na embalagem original e sem avaria (dentro de uma outra caixa de papelão OU papel pardo para manter a integridade do produto); 
+* Sem indícios de uso, sem violação do lacre original do fabricante; 
+* Coloque a nota fiscal dentro de um envelope plástico adesivo e cole-o na parte externa do pacote. Este tipo de envelope deve estar disponível em qualquer agência dos Correios; 
+* Acompanhado também dos acessórios/peças e manual do item. 
+* O estorno somente será autorizado após as avaliações citadas acima. As informações do destinatário serão preenchidas na agência dos Correios de acordo com Código de Postagem. 
 
-Seguimos à disposição.
+Seguimos a disposição.
 Atenciosamente,
 [ASSINATURA]""",
 

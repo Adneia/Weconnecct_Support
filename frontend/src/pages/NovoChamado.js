@@ -1111,6 +1111,7 @@ const NovoAtendimento = () => {
   const [selectedAvaria, setSelectedAvaria] = useState('');
   const [selectedFalhaProducao, setSelectedFalhaProducao] = useState('');
   const [selectedFalhaTransporte, setSelectedFalhaTransporte] = useState('');
+  const [selectedFalhaFornecedor, setSelectedFalhaFornecedor] = useState('');
   const [selectedArrependimento, setSelectedArrependimento] = useState('');
   const [selectedAcompanhamento, setSelectedAcompanhamento] = useState('');
   const [selectedReclameAqui, setSelectedReclameAqui] = useState('');
@@ -1697,6 +1698,44 @@ const NovoAtendimento = () => {
       return 'Rastreio - Correios';
     }
     return null;
+  };
+
+  const loadTextoFalhaFornecedor = async (tipo) => {
+    const textoKey = `Falha Fornecedor - ${tipo}`;
+    try {
+      const response = await axios.get(
+        `${API_URL}/api/textos-padroes/${encodeURIComponent(textoKey)}`,
+        { headers: getAuthHeader() }
+      );
+      let texto = response.data.texto;
+      
+      // Substituir placeholders
+      if (user?.name || formData.atendente) {
+        texto = texto.replace(/\[ASSINATURA\]/g, user?.name || formData.atendente);
+      }
+      if (pedidoErp?.nome_cliente) {
+        texto = texto.replace(/\[NOME_CLIENTE\]/g, pedidoErp.nome_cliente);
+      }
+      if (codigoReversa) {
+        texto = texto.replace(/\[CÓDIGO_REVERSA\]/g, codigoReversa);
+      }
+      // Data de emissão (hoje)
+      const hoje = new Date();
+      const dataEmissao = hoje.toLocaleDateString('pt-BR');
+      texto = texto.replace(/\[DATA_EMISSAO\]/g, dataEmissao);
+      
+      // Data de vencimento da reversa
+      if (dataVencimentoReversa) {
+        const dataValidade = new Date(dataVencimentoReversa + 'T00:00:00').toLocaleDateString('pt-BR');
+        texto = texto.replace(/\[DATA_VALIDADE\]/g, dataValidade);
+      }
+      
+      setTextoPadrao(texto);
+      setSelectedFalhaFornecedor(tipo);
+      setShowTextoDialog(true);
+    } catch (error) {
+      toast.error('Erro ao carregar texto padrão');
+    }
   };
 
   const loadTextoArrependimento = (tipo) => {
@@ -2946,6 +2985,30 @@ const NovoAtendimento = () => {
                                 CSU - Email
                               </Button>
                             )}
+                          </div>
+                        </div>
+                      </div>
+                    ) : formData.categoria === 'Falha Fornecedor' ? (
+                      <div className="space-y-3">
+                        <div className="space-y-2">
+                          <Label className="text-sm font-medium">Reversa</Label>
+                          <div className="flex flex-wrap gap-2">
+                            <Button 
+                              type="button" 
+                              variant={selectedFalhaFornecedor === '1ª Reversa' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoFalhaFornecedor('1ª Reversa')}
+                            >
+                              1ª Reversa
+                            </Button>
+                            <Button 
+                              type="button" 
+                              variant={selectedFalhaFornecedor === '2ª Reversa' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => loadTextoFalhaFornecedor('2ª Reversa')}
+                            >
+                              2ª Reversa
+                            </Button>
                           </div>
                         </div>
                       </div>
