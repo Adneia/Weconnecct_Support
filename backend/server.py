@@ -1298,6 +1298,45 @@ Estamos seguindo com o encerramento do pedido como entregue.
 
 Seguimos a disposição, caso haja qualquer necessidade dentro dos prazo de atuação.
 Atenciosamente!
+[ASSINATURA]""",
+
+    "Entregue - Encerramento": """Olá,
+
+Poderia confirmar se podemos proceder com o encerramento do chamado?
+
+Seguimos a disposição.
+
+Atenciosamente,
+
+[ASSINATURA]""",
+
+    "Entregue - Prazo Expirado": """Olá,
+
+O código de postagem está expirado e não houve postagem do produto. Podemos seguir com o encerramento do atendimento?
+
+Seguimos à disposição.
+
+Atenciosamente,
+
+[ASSINATURA]""",
+
+    "Entregue - Próximo de Vencer": """Olá,
+
+Objeto não postado até o momento. Por favor orientar o cliente em relação ao prazo que expira em [DATA_VALIDADE].
+
+Seguimos a disposição.
+
+Atenciosamente!
+
+[ASSINATURA]""",
+
+    "Entregue - Encerrado": """Olá, Bom dia.
+
+Estamos seguindo com o encerramento do pedido como entregue.
+
+Seguimos a disposição, caso haja qualquer necessidade dentro dos prazo de atuação.
+
+Atenciosamente!
 [ASSINATURA]"""
 }
 

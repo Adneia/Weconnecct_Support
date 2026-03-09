@@ -48,7 +48,6 @@ const CATEGORIAS = [
   "Arrependimento",
   "Acompanhamento",
   "Comprovante de Entrega",
-  "Impossibilidade Entrega",
   "Reclame Aqui",
   "Assistência Técnica"
 ];
@@ -59,6 +58,7 @@ const ATENDENTES = ["Letícia Martelo", "Adnéia Campos"];
 const MOTIVOS_PENDENCIA = [
   "Ag. Compras",
   "Ag. Logística", 
+  "Ag. Cliente",
   "Enviado",
   "Ag. Bseller",
   "Ag. Barrar",
@@ -199,6 +199,86 @@ Recebemos o pedido em nosso galpão e estamos providenciando o envio de um novo 
 Estamos à disposição para qualquer dúvida.
 
 Atenciosamente,
+
+[ASSINATURA]`,
+
+  "Aguardando - Encerramento": `Olá, 
+
+Poderia confirmar se podemos proceder com o encerramento do chamado?
+
+Seguimos a disposição.
+
+Atenciosamente, 
+
+[ASSINATURA]`,
+
+  "Aguardando - Prazo Expirado": `Olá, 
+
+O código de postagem está expirado e não houve postagem do produto. Podemos seguir com o encerramento do atendimento?
+
+Seguimos à disposição.
+
+Atenciosamente, 
+
+[ASSINATURA]`,
+
+  "Aguardando - Próximo de Vencer": `Olá,
+
+Objeto não postado até o momento. Por favor orientar o cliente em relação ao prazo que expira em [DATA_VALIDADE].
+
+Seguimos a disposição.
+
+Atenciosamente!
+
+[ASSINATURA]`,
+
+  "Aguardando - Encerrado": `Olá, Bom dia.
+
+Estamos seguindo com o encerramento do pedido como entregue.
+
+Seguimos a disposição, caso haja qualquer necessidade dentro dos prazo de atuação.
+
+Atenciosamente!
+
+[ASSINATURA]`,
+
+  "Entregue - Encerramento": `Olá,
+
+Poderia confirmar se podemos proceder com o encerramento do chamado?
+
+Seguimos a disposição.
+
+Atenciosamente,
+
+[ASSINATURA]`,
+
+  "Entregue - Prazo Expirado": `Olá,
+
+O código de postagem está expirado e não houve postagem do produto. Podemos seguir com o encerramento do atendimento?
+
+Seguimos à disposição.
+
+Atenciosamente,
+
+[ASSINATURA]`,
+
+  "Entregue - Próximo de Vencer": `Olá,
+
+Objeto não postado até o momento. Por favor orientar o cliente em relação ao prazo que expira em [DATA_VALIDADE].
+
+Seguimos a disposição.
+
+Atenciosamente!
+
+[ASSINATURA]`,
+
+  "Entregue - Encerrado": `Olá, Bom dia.
+
+Estamos seguindo com o encerramento do pedido como entregue.
+
+Seguimos a disposição, caso haja qualquer necessidade dentro dos prazo de atuação.
+
+Atenciosamente!
 
 [ASSINATURA]`
 };
@@ -1813,6 +1893,11 @@ const NovoAtendimento = () => {
     }
     if (codigoReversa) {
       texto = texto.replace(/\[CÓDIGO_REVERSA\]/g, codigoReversa);
+    }
+    // [DATA_VALIDADE] - data de vencimento da reversa
+    if (dataVencimentoReversa) {
+      const dataValidade = new Date(dataVencimentoReversa + 'T00:00:00').toLocaleDateString('pt-BR');
+      texto = texto.replace(/\[DATA_VALIDADE\]/g, dataValidade);
     }
     setTextoPadrao(texto);
     setSelectedMotivoPendencia(tipo);
@@ -3501,6 +3586,86 @@ const NovoAtendimento = () => {
                           onClick={() => loadTextoMotivoPendencia('Devolvido - Reenvio')}
                         >
                           Reenvio
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {motivoPendencia === 'Aguardando' && (
+                    <div className="mt-3 p-3 rounded-lg bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800 space-y-2">
+                      <Label className="text-sm font-medium text-yellow-800 dark:text-yellow-200">Textos Padrão - Aguardando</Label>
+                      <div className="flex flex-wrap gap-2">
+                        <Button 
+                          type="button" 
+                          variant={selectedMotivoPendencia === 'Aguardando - Encerramento' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => loadTextoMotivoPendencia('Aguardando - Encerramento')}
+                        >
+                          Encerramento
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant={selectedMotivoPendencia === 'Aguardando - Prazo Expirado' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => loadTextoMotivoPendencia('Aguardando - Prazo Expirado')}
+                        >
+                          Prazo Expirado
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant={selectedMotivoPendencia === 'Aguardando - Próximo de Vencer' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => loadTextoMotivoPendencia('Aguardando - Próximo de Vencer')}
+                        >
+                          Próximo de Vencer
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant={selectedMotivoPendencia === 'Aguardando - Encerrado' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => loadTextoMotivoPendencia('Aguardando - Encerrado')}
+                        >
+                          Encerrado
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {motivoPendencia === 'Entregue' && (
+                    <div className="mt-3 p-3 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 space-y-2">
+                      <Label className="text-sm font-medium text-green-800 dark:text-green-200">Textos Padrão - Entregue</Label>
+                      <div className="flex flex-wrap gap-2">
+                        <Button 
+                          type="button" 
+                          variant={selectedMotivoPendencia === 'Entregue - Encerramento' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => loadTextoMotivoPendencia('Entregue - Encerramento')}
+                        >
+                          Encerramento
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant={selectedMotivoPendencia === 'Entregue - Prazo Expirado' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => loadTextoMotivoPendencia('Entregue - Prazo Expirado')}
+                        >
+                          Prazo Expirado
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant={selectedMotivoPendencia === 'Entregue - Próximo de Vencer' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => loadTextoMotivoPendencia('Entregue - Próximo de Vencer')}
+                        >
+                          Próximo de Vencer
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant={selectedMotivoPendencia === 'Entregue - Encerrado' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => loadTextoMotivoPendencia('Entregue - Encerrado')}
+                        >
+                          Encerrado
                         </Button>
                       </div>
                     </div>
