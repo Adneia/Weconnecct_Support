@@ -282,12 +282,12 @@ class GoogleSheetsClient:
         except Exception as e:
             logger.error(f"Erro ao aplicar formatação verde: {e}")
     
-    def update_atendimento(self, id_atendimento: str, updates: Dict[str, Any]) -> bool:
+    def update_atendimento(self, numero_pedido: str, updates: Dict[str, Any]) -> bool:
         """
         Update an existing atendimento in the Google Sheet
         
         Args:
-            id_atendimento: The ATD-XXXX-XXX identifier
+            numero_pedido: O número do pedido (coluna C - Entrega)
             updates: Dictionary with fields to update
             
         Returns:
@@ -300,23 +300,19 @@ class GoogleSheetsClient:
         try:
             worksheet = self._get_atendimentos_worksheet()
             
-            # Como removemos a coluna ID, vamos buscar pela Entrega (coluna C, índice 3)
-            # Primeiro, tentamos encontrar pelo id_atendimento armazenado em algum lugar
-            # Se não encontrar, logamos aviso
-            # Por enquanto, vamos manter compatibilidade buscando em todas as células
+            # Buscar pela coluna C (Entrega) que contém o numero_pedido
             cell = None
             try:
-                # Tenta buscar na coluna C (Entrega)
                 all_values = worksheet.get_all_values()
                 for i, row in enumerate(all_values):
-                    if len(row) > 2 and row[2] == id_atendimento:  # Coluna C = Entrega
+                    if len(row) > 2 and row[2] == numero_pedido:  # Coluna C = Entrega
                         cell = type('obj', (object,), {'row': i + 1})()
                         break
             except:
                 pass
             
             if not cell:
-                logger.warning(f"Atendimento {id_atendimento} not found in Google Sheets")
+                logger.warning(f"Atendimento com numero_pedido {numero_pedido} not found in Google Sheets")
                 return False
             
             row_num = cell.row
@@ -327,6 +323,7 @@ class GoogleSheetsClient:
             # M=DT_Encerramento, N=Reversa, O=Anotações, P=Status_Pedido, Q=Nota, R=Chave_Acesso, S=Filial
             field_to_col = {
                 'parceiro': 2,            # B
+                'numero_pedido': 3,       # C - Entrega (NOVO!)
                 'solicitacao': 4,         # D
                 'categoria': 7,           # G
                 'motivo': 8,              # H

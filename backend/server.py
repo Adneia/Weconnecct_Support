@@ -1953,10 +1953,10 @@ async def get_chamado(chamado_id: str, current_user: dict = Depends(get_current_
     
     return chamado
 
-def sync_update_to_google_sheets(id_atendimento: str, updates: dict, chamado_completo: dict = None, pedido_info: dict = None):
+def sync_update_to_google_sheets(numero_pedido: str, updates: dict, chamado_completo: dict = None, pedido_info: dict = None):
     """Background task to sync atendimento updates to Google Sheets"""
     try:
-        sheets_client.update_atendimento(id_atendimento, updates)
+        sheets_client.update_atendimento(numero_pedido, updates)
         
         # Se mudou para "Em devolução" ou "Devolvido", sincroniza com planilha de Devoluções
         motivo_pendencia = updates.get('motivo_pendencia', '')
@@ -2007,7 +2007,8 @@ async def update_chamado(
         
         # Sync to Google Sheets in background
         id_atendimento = existing.get('id_atendimento')
-        if id_atendimento:
+        numero_pedido_antigo = existing.get('numero_pedido')  # Para buscar na planilha
+        if id_atendimento and numero_pedido_antigo:
             # Se é devolução, buscar pedido para sincronizar com planilha de devoluções
             chamado_completo = None
             pedido_info = None
@@ -2021,7 +2022,7 @@ async def update_chamado(
                 if numero_pedido:
                     pedido_info = await db.pedidos_erp.find_one({"numero_pedido": numero_pedido}, {"_id": 0})
             
-            background_tasks.add_task(sync_update_to_google_sheets, id_atendimento, update_data, chamado_completo, pedido_info)
+            background_tasks.add_task(sync_update_to_google_sheets, numero_pedido_antigo, update_data, chamado_completo, pedido_info)
     
     return {"message": "Chamado atualizado com sucesso", "google_sheets_sync": "queued"}
 
