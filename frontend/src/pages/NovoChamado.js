@@ -2018,13 +2018,32 @@ const NovoAtendimento = () => {
     setLoading(true);
     
     try {
-      // Determinar "Devolvido por": Correios (se tem reversa) ou nome da Transportadora
-      let devolvidoPor = 'Transportadora';
+      // Determinar "Devolvido por": Correios (se tem reversa) ou nome da Transportadora específica
+      let devolvidoPor = '';
       if (codigoReversa) {
         devolvidoPor = 'Correios';
-      } else if (pedidoErp?.transportadora) {
-        // Usar nome da transportadora real
-        devolvidoPor = pedidoErp.transportadora;
+      } else {
+        // Buscar nome da transportadora do pedido ERP ou do atendimento
+        const transportadora = pedidoErp?.transportadora || atendimentoOriginal?.transportadora || '';
+        
+        // Normalizar nome da transportadora
+        if (transportadora) {
+          const t = transportadora.toLowerCase();
+          if (t.includes('total') || t.includes('tex')) {
+            devolvidoPor = 'Total Express';
+          } else if (t.includes('j&t') || t.includes('jt') || t.includes('j t') || t.includes('j e t')) {
+            devolvidoPor = 'J&T';
+          } else if (t.includes('cb') || t.includes('cb log')) {
+            devolvidoPor = 'CB';
+          } else if (t.includes('asap') || t.includes('logistica e solucoes') || t.includes('logística e soluções')) {
+            devolvidoPor = 'ASAP Log';
+          } else {
+            // Usar nome original se não reconhecer
+            devolvidoPor = transportadora;
+          }
+        } else {
+          devolvidoPor = 'Transportadora';
+        }
       }
       
       // Registrar na planilha de devoluções via API
