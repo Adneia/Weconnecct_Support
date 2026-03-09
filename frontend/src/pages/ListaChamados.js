@@ -614,10 +614,23 @@ const ListaAtendimentos = () => {
                     
                     // Extrair última anotação (primeira linha do campo anotacoes)
                     const ultimaAnotacao = atd.anotacoes ? atd.anotacoes.split('\n')[0] : '-';
-                    // Extrair data da anotação se estiver no formato [DD/MM/YYYY]
-                    const matchData = ultimaAnotacao.match(/\[(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)\]/);
-                    const dataAnotacao = matchData ? matchData[1] : '';
-                    const textoAnotacao = ultimaAnotacao.replace(/\[\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\]\s*/, '');
+                    // Extrair data da anotação - suporta formatos:
+                    // [DD/MM/YYYY] texto, [DD/MM] texto, DD/MM - texto, DD/MM/YYYY - texto
+                    let dataAnotacao = '';
+                    let textoAnotacao = ultimaAnotacao;
+                    
+                    // Formato com colchetes: [09/03/2026] ou [9/3]
+                    const matchColchetes = ultimaAnotacao.match(/^\[(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)\]\s*(.*)$/);
+                    // Formato sem colchetes: 09/03 - texto ou 9/3 - texto
+                    const matchSemColchetes = ultimaAnotacao.match(/^(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)\s*[-–]\s*(.*)$/);
+                    
+                    if (matchColchetes) {
+                      dataAnotacao = matchColchetes[1];
+                      textoAnotacao = matchColchetes[2] || '';
+                    } else if (matchSemColchetes) {
+                      dataAnotacao = matchSemColchetes[1];
+                      textoAnotacao = matchSemColchetes[2] || '';
+                    }
                     
                     return (
                     <TableRow
@@ -671,12 +684,20 @@ const ListaAtendimentos = () => {
                       <TableCell className="text-sm">
                         {atd.motivo_pendencia || '-'}
                       </TableCell>
-                      <TableCell className="text-sm max-w-48">
-                        <div>
-                          {dataAnotacao && (
-                            <p className="text-xs text-muted-foreground font-medium">{dataAnotacao}</p>
-                          )}
-                          <p className="truncate text-xs" title={textoAnotacao}>{textoAnotacao || '-'}</p>
+                      <TableCell className="text-sm max-w-52">
+                        <div className="flex flex-col">
+                          <span className="text-xs">
+                            {dataAnotacao && (
+                              <span className="font-semibold text-blue-600 dark:text-blue-400 mr-1">{dataAnotacao}</span>
+                            )}
+                            {textoAnotacao ? (
+                              <span className="text-muted-foreground truncate" title={textoAnotacao}>
+                                {dataAnotacao ? '- ' : ''}{textoAnotacao}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </span>
                         </div>
                       </TableCell>
                       <TableCell className="text-sm font-mono">
