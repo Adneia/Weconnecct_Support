@@ -2285,33 +2285,69 @@ async def import_pedidos(
     try:
         if filename.endswith('.csv'):
             df = pd.read_csv(io.BytesIO(content))
-            df_fornecedores = None
+            is_outras = False
         elif filename.endswith(('.xlsx', '.xls')):
-            # Tentar ler a aba principal (Tabelão ou primeira aba)
             excel_file = pd.ExcelFile(io.BytesIO(content))
             sheet_names = excel_file.sheet_names
             logger.info(f"Abas encontradas: {sheet_names}")
             
-            # Ler aba principal (Tabelão ou primeira)
+            # Detectar se é arquivo "outras" (Fornecedores + Estoque, sem Tabelão)
+            is_outras = 'Fornecedores' in sheet_names and 'Tabelão' not in sheet_names
+            
+            if is_outras:
+                # Arquivo de Fornecedores e Estoque - processar de forma especial
+                logger.info("Arquivo detectado como 'outras' (Fornecedores + Estoque)")
+                
+                results = {
+                    "fornecedores": 0,
+                    "estoque_sigeq425": 0,
+                    "estoque_sigeq230": 0
+                }
+                
+                # Processar Fornecedores (pequeno, síncrono)
+                if 'Fornecedores' in sheet_names:
+                    df_forn = pd.read_excel(excel_file, sheet_name='Fornecedores')
+                    await import_fornecedores(df_forn)
+                    results["fornecedores"] = len(df_forn)
+                    logger.info(f"Fornecedores importados: {len(df_forn)}")
+                
+                # Processar SIGEQ425 em background (grande)
+                if 'SIGEQ425' in sheet_names:
+                    df_sigeq425 = pd.read_excel(excel_file, sheet_name='SIGEQ425')
+                    results["estoque_sigeq425"] = len(df_sigeq425)
+                    logger.info(f"SIGEQ425 será processado em background: {len(df_sigeq425)} linhas")
+                    background_tasks.add_task(import_estoque_background, df_sigeq425, 'SIGEQ425')
+                
+                # Processar SIGEQ230 em background (grande)
+                if 'SIGEQ230' in sheet_names:
+                    df_sigeq230 = pd.read_excel(excel_file, sheet_name='SIGEQ230')
+                    results["estoque_sigeq230"] = len(df_sigeq230)
+                    logger.info(f"SIGEQ230 será processado em background: {len(df_sigeq230)} linhas")
+                    background_tasks.add_task(import_estoque_background, df_sigeq230, 'SIGEQ230')
+                
+                return {
+                    "message": f"Importação iniciada! Fornecedores: {results['fornecedores']}, Estoque SIGEQ425: {results['estoque_sigeq425']} (background), Estoque SIGEQ230: {results['estoque_sigeq230']} (background)",
+                    "status": "processing",
+                    "results": results
+                }
+            
+            # Arquivo normal de pedidos (Tabelão)
             if 'Tabelão' in sheet_names:
                 df = pd.read_excel(excel_file, sheet_name='Tabelão')
             else:
                 df = pd.read_excel(excel_file, sheet_name=0)
             
-            # Tentar ler aba Fornecedores se existir
-            df_fornecedores = None
+            # Processar Fornecedores se existir (junto com Tabelão)
             if 'Fornecedores' in sheet_names:
                 df_fornecedores = pd.read_excel(excel_file, sheet_name='Fornecedores')
                 logger.info(f"Aba Fornecedores encontrada: {len(df_fornecedores)} registros")
-                # Importar fornecedores para o banco
                 await import_fornecedores(df_fornecedores)
             
-            # Tentar ler aba SIGEQ425 (estoque) se existir
+            # Processar SIGEQ425 em background se existir
             if 'SIGEQ425' in sheet_names:
                 df_sigeq = pd.read_excel(excel_file, sheet_name='SIGEQ425')
-                logger.info(f"Aba SIGEQ425 encontrada: {len(df_sigeq)} registros de estoque")
-                # Importar dados de estoque para o banco
-                await import_estoque_sigeq(df_sigeq)
+                logger.info(f"Aba SIGEQ425 encontrada: {len(df_sigeq)} registros - processando em background")
+                background_tasks.add_task(import_estoque_background, df_sigeq, 'SIGEQ425')
         else:
             raise HTTPException(status_code=400, detail="Formato de arquivo não suportado. Use CSV ou Excel.")
         
@@ -2447,6 +2483,65 @@ async def import_estoque_sigeq(df):
         logger.info(f"Estoque SIGEQ importado: {imported} novos, {updated} atualizados")
     except Exception as e:
         logger.error(f"Erro ao importar estoque SIGEQ: {e}")
+
+
+# Função para importar estoque em background (para arquivos grandes)
+async def import_estoque_background(df, sheet_name: str):
+    """Importa dados de estoque em background"""
+    try:
+        logger.info(f"[Background] Iniciando importação de estoque {sheet_name}: {len(df)} linhas")
+        
+        # Normalizar nomes das colunas
+        df.columns = df.columns.str.strip()
+        
+        imported = 0
+        updated = 0
+        errors = 0
+        
+        for idx, row in df.iterrows():
+            try:
+                id_item = str(row.get('ID do item', '')).strip()
+                if not id_item or id_item == 'nan':
+                    continue
+                
+                # Remover .0 de IDs numéricos
+                if id_item.endswith('.0'):
+                    id_item = id_item[:-2]
+                
+                estoque_data = {
+                    "id_item": id_item,
+                    "fornecedor": str(row.get('Nome do fornecedor', '')).strip() if pd.notna(row.get('Nome do fornecedor')) else '',
+                    "descricao": str(row.get('Descrição do item', '')).strip() if pd.notna(row.get('Descrição do item')) else '',
+                    "codigo_fornecedor": str(row.get('Código fornecedor', '')).strip() if pd.notna(row.get('Código fornecedor')) else '',
+                    "qt_reserva": int(row.get('Qt. Res', 0)) if pd.notna(row.get('Qt. Res')) else 0,
+                    "disp_venda": int(row.get('Disp. Venda', 0)) if pd.notna(row.get('Disp. Venda')) else 0,
+                    "qt_arquivo": int(row.get('Qt. Arquivo', 0)) if pd.notna(row.get('Qt. Arquivo')) else 0,
+                    "source": sheet_name,
+                    "ultima_atualizacao": datetime.now(timezone.utc).isoformat()
+                }
+                
+                existing = await db.estoque_sigeq.find_one({"id_item": id_item})
+                if existing:
+                    await db.estoque_sigeq.update_one({"id_item": id_item}, {"$set": estoque_data})
+                    updated += 1
+                else:
+                    await db.estoque_sigeq.insert_one(estoque_data)
+                    imported += 1
+                
+                # Log de progresso a cada 5000 registros
+                if (idx + 1) % 5000 == 0:
+                    logger.info(f"[Background] {sheet_name}: {idx + 1} linhas processadas...")
+                    
+            except Exception as e:
+                errors += 1
+                continue
+        
+        logger.info(f"[Background] Estoque {sheet_name} concluído: {imported} novos, {updated} atualizados, {errors} erros")
+    except Exception as e:
+        logger.error(f"[Background] Erro ao importar estoque {sheet_name}: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+
 
 # Endpoint para buscar estoque por ID do item
 @api_router.get("/estoque/{id_item}")
