@@ -2318,8 +2318,8 @@ async def import_pedidos(
         total_rows = len(df)
         logger.info(f"Arquivo parseado com sucesso: {total_rows} linhas")
         
-        # Para arquivos grandes (>1000 linhas) ou arquivos pesados (>5MB), processar em background
-        if total_rows > 1000 or file_size_mb > 5:
+        # Para arquivos com mais de 500 linhas, processar em background
+        if total_rows > 500:
             import_id = str(uuid.uuid4())
             
             # Criar registro de importação
@@ -2329,6 +2329,8 @@ async def import_pedidos(
                 "total_rows": total_rows,
                 "file_size_mb": round(file_size_mb, 2),
                 "status": "processing",
+                "processed": 0,
+                "progress": 0,
                 "imported": 0,
                 "updated": 0,
                 "skipped_old": 0,
@@ -2341,7 +2343,7 @@ async def import_pedidos(
             background_tasks.add_task(process_import_background, import_id, df)
             
             return {
-                "message": f"Importação iniciada em background. {total_rows} linhas serão processadas.",
+                "message": f"Importação iniciada! {total_rows} linhas serão processadas em background.",
                 "import_id": import_id,
                 "status": "processing",
                 "total_rows": total_rows
@@ -2530,19 +2532,22 @@ async def process_import_background(import_id: str, df):
     # Normalize column names
     df.columns = df.columns.str.strip().str.lower()
     original_columns = list(df.columns)
+    total_rows = len(df)
     
     # Calcular data limite (6 meses atrás)
     data_limite = datetime.now(timezone.utc) - timedelta(days=180)
-    logger.info(f"[{import_id}] Iniciando processamento em background: {len(df)} linhas")
+    logger.info(f"[{import_id}] Iniciando processamento em background: {total_rows} linhas")
     
     imported = 0
     updated = 0
     errors = 0
     skipped_old = 0
+    processed = 0
     
     for idx, row in df.iterrows():
         try:
             pedido_data = extract_pedido_data(row, column_mapping, original_columns)
+            processed += 1
             
             if not pedido_data.get('numero_pedido'):
                 continue
@@ -2568,18 +2573,21 @@ async def process_import_background(import_id: str, df):
                 await db.pedidos_erp.insert_one(pedido_dict)
                 imported += 1
             
-            # Atualizar progresso a cada 1000 registros
-            if (idx + 1) % 1000 == 0:
+            # Atualizar progresso a cada 200 registros (mais frequente)
+            if processed % 200 == 0:
+                progress = round((processed / total_rows) * 100, 1)
                 await db.import_jobs.update_one(
                     {"import_id": import_id},
                     {"$set": {
+                        "processed": processed,
+                        "progress": progress,
                         "imported": imported,
                         "updated": updated,
                         "skipped_old": skipped_old,
                         "errors": errors
                     }}
                 )
-                logger.info(f"[{import_id}] Progresso: {idx + 1} linhas processadas")
+                logger.info(f"[{import_id}] Progresso: {progress}% ({processed}/{total_rows})")
                 
         except Exception as e:
             logger.error(f"[{import_id}] Erro na linha {idx}: {str(e)}")
@@ -2591,6 +2599,8 @@ async def process_import_background(import_id: str, df):
         {"import_id": import_id},
         {"$set": {
             "status": "completed",
+            "processed": total_rows,
+            "progress": 100,
             "imported": imported,
             "updated": updated,
             "skipped_old": skipped_old,

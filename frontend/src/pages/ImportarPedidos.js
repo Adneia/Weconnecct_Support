@@ -209,17 +209,23 @@ const ImportarPedidos = () => {
         if (data.status === 'completed') {
           setResult({ 
             success: true, 
-            message: `Importação concluída: ${data.imported} novos, ${data.updated} atualizados, ${data.skipped_old} ignorados (>6 meses), ${data.errors} erros`
+            message: `Importação concluída: ${data.imported} novos, ${data.updated} atualizados, ${data.skipped_old || 0} ignorados (>6 meses), ${data.errors} erros`,
+            progress: 100,
+            isComplete: true
           });
           toast.success('Importação concluída!');
           setUploading(false);
           return true; // Para o polling
         } else {
           // Ainda processando - atualizar progresso
-          const processed = data.imported + data.updated + data.skipped_old + data.errors;
+          const progress = data.progress || Math.round((data.processed / data.total_rows) * 100) || 0;
           setResult({ 
             success: true, 
-            message: `Processando... ${processed} de ${data.total_rows} linhas (${data.imported} novos, ${data.updated} atualizados)`,
+            message: `Processando... ${data.processed || 0} de ${data.total_rows} linhas`,
+            details: `${data.imported || 0} novos, ${data.updated || 0} atualizados`,
+            progress: progress,
+            totalRows: data.total_rows,
+            processed: data.processed || 0,
             isBackground: true
           });
           return false; // Continua polling
@@ -236,7 +242,7 @@ const ImportarPedidos = () => {
       if (completed) {
         clearInterval(interval);
       }
-    }, 3000);
+    }, 2000); // Verificar a cada 2 segundos
   };
 
   const clearFile = () => {
@@ -422,20 +428,50 @@ const ImportarPedidos = () => {
         </CardContent>
       </Card>
 
-      {/* Result */}
+      {/* Result / Progress */}
       {result && (
         <Card className={result.success ? 'border-emerald-200 dark:border-emerald-800' : 'border-red-200 dark:border-red-800'} data-testid="import-result">
-          <CardContent className="p-6 flex items-center gap-4">
-            {result.success ? (
-              <CheckCircle className="h-8 w-8 text-emerald-600" />
-            ) : (
-              <AlertCircle className="h-8 w-8 text-red-600" />
-            )}
-            <div>
-              <p className={`font-medium ${result.success ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'}`}>
-                {result.success ? 'Importação Concluída' : 'Erro na Importação'}
-              </p>
-              <p className="text-sm text-muted-foreground">{result.message}</p>
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4">
+              {result.isBackground && !result.isComplete ? (
+                <Loader2 className="h-8 w-8 text-blue-600 animate-spin flex-shrink-0" />
+              ) : result.success ? (
+                <CheckCircle className="h-8 w-8 text-emerald-600 flex-shrink-0" />
+              ) : (
+                <AlertCircle className="h-8 w-8 text-red-600 flex-shrink-0" />
+              )}
+              <div className="flex-1 space-y-3">
+                <div>
+                  <p className={`font-medium ${
+                    result.isBackground && !result.isComplete 
+                      ? 'text-blue-700 dark:text-blue-400' 
+                      : result.success 
+                        ? 'text-emerald-700 dark:text-emerald-400' 
+                        : 'text-red-700 dark:text-red-400'
+                  }`}>
+                    {result.isBackground && !result.isComplete 
+                      ? 'Importando em Background...' 
+                      : result.success 
+                        ? 'Importação Concluída' 
+                        : 'Erro na Importação'}
+                  </p>
+                  <p className="text-sm text-muted-foreground">{result.message}</p>
+                  {result.details && (
+                    <p className="text-xs text-muted-foreground mt-1">{result.details}</p>
+                  )}
+                </div>
+                
+                {/* Barra de Progresso */}
+                {result.isBackground && result.progress !== undefined && (
+                  <div className="space-y-2">
+                    <Progress value={result.progress} className="h-3" />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>{result.processed || 0} de {result.totalRows || '?'} linhas</span>
+                      <span className="font-medium">{result.progress}%</span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
