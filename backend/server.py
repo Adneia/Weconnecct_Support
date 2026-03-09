@@ -2966,8 +2966,9 @@ async def atualizar_motivos_pendencia_automatico():
         
         # Regra 3 e 4: Para status "Enviado"
         elif motivo_atual == 'Enviado':
-            # Regra 3: Enviado → Entregue (quando status = "Entregue ao cliente")
-            if status_pedido and 'entregue' in status_pedido.lower():
+            status_lower = status_pedido.lower() if status_pedido else ''
+            # Regra 3: Enviado → Entregue (quando status = "Entregue ao cliente" - NÃO maiúsculo)
+            if status_pedido and 'entregue' in status_lower and not is_status_maiusculo(status_pedido):
                 novo_motivo = 'Entregue'
                 atualizacoes['enviado_para_entregue'] += 1
             
@@ -2977,6 +2978,16 @@ async def atualizar_motivos_pendencia_automatico():
                 if dias_sem_mudanca >= 3:
                     novo_motivo = 'Ag. Transportadora'
                     atualizacoes['enviado_para_ag_transportadora'] += 1
+        
+        # NOVA REGRA: Correção de motivos incorretos
+        # Se status está em MAIÚSCULAS (exceto ENTREGUE), o motivo deveria ser "Enviado"
+        # Isso corrige casos onde o motivo foi definido incorretamente
+        elif motivo_atual in ['Entregue', 'Ag. Transportadora', 'Ag. Parceiro']:
+            status_lower = status_pedido.lower() if status_pedido else ''
+            # Se status está em maiúsculas E NÃO contém "entregue" (ou está em maiúsculo tipo SAIDA FILIAL)
+            if is_status_maiusculo(status_pedido) and 'entregue' not in status_lower:
+                novo_motivo = 'Enviado'
+                atualizacoes['correcao_para_enviado'] = atualizacoes.get('correcao_para_enviado', 0) + 1
         
         # Aplicar atualização se necessário
         if novo_motivo:
