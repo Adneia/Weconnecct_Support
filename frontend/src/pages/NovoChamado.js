@@ -1499,6 +1499,11 @@ const NovoAtendimento = () => {
         texto = texto.replace(/\[DATA_VALIDADE\]/g, dataValidade);
       }
       
+      // [NUMERO_OCORRENCIA] - número da solicitação/ocorrência do parceiro
+      if (formData.solicitacao) {
+        texto = texto.replace(/\[NUMERO_OCORRENCIA\]/g, formData.solicitacao);
+      }
+      
       setTextoPadrao(texto);
       setShowTextoDialog(true);
     } catch (error) {

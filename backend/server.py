@@ -1142,6 +1142,58 @@ Estamos à disposição para qualquer dúvida.
 
 Atenciosamente,
 
+[ASSINATURA]""",
+
+    "Comprovante de Entrega - Dentro do Prazo": """Olá, 
+
+Informamos que o pedido foi entregue em [DATA_ULTIMO_PONTO]. Por favor confirmar entrega junto ao cliente.
+
+Ressaltamos que o prazo para contestação da entrega ou solicitação de acareação é de até 15 dias corridos, contados da data da entrega. Caso haja qualquer divergência, pedimos que nos informe dentro desse período para que possamos realizar as devidas análises.
+
+Na ausência de manifestação dentro do prazo informado, seguiremos com o encerramento do chamado.
+
+Podemos encerrar o atendimento?
+
+Permanecemos à disposição.
+Atenciosamente,
+[ASSINATURA]""",
+
+    "Comprovante de Entrega - Expirado": """Olá, 
+
+Informamos que o pedido foi entregue em [DATA_ULTIMO_PONTO]. Encaminhamos em anexo o comprovante de entrega para sua conferência.
+
+Ressaltamos que o prazo para contestação da entrega ou solicitação de acareação é de até 15 dias corridos, contados a partir da data da entrega. Dessa forma, informamos que o prazo para solicitação de acareação já se encontra expirado.
+
+Diante disso, prosseguiremos com o encerramento do chamado.
+
+Permanecemos à disposição.
+Atenciosamente,
+[ASSINATURA]""",
+
+    "Comprovante de Entrega - Expirado para Encerrar": """Olá,
+
+Informamos que o pedido foi entregue em [DATA_ULTIMO_PONTO]. Encaminhamos em anexo o comprovante de entrega para sua conferência.
+
+Ressaltamos que o prazo para contestação da entrega ou solicitação de acareação é de até 15 dias corridos, contados a partir da data da entrega. Dessa forma, daremos andamento à solicitação de acareação junto à transportadora e, assim que obtivermos um retorno, entraremos em contato.
+
+Caso o cliente confirme a entrega com base no comprovante encaminhado, pedimos a gentileza de nos informar para que possamos prosseguir com o encerramento do chamado.
+
+Permanecemos à disposição para quaisquer esclarecimentos.
+Atenciosamente,
+[ASSINATURA]""",
+
+    "Comprovante de Entrega - Email CSU": """Olá, 
+
+Informamos que o pedido foi entregue em [DATA_ULTIMO_PONTO]. Por favor confirmar entrega junto ao cliente e seguir com o encerramento do chamado. Comprovante enviado via e-mail.
+
+Assunto: Ocorrência: [NUMERO_OCORRENCIA]
+
+Ressaltamos que o prazo para contestação da entrega ou solicitação de acareação é de até 15 dias corridos, contados da data da entrega. Caso haja qualquer divergência, pedimos que nos informe dentro desse período para que possamos realizar as devidas análises.
+
+Na ausência de manifestação dentro do prazo informado, seguiremos com o encerramento do chamado.
+
+Permanecemos à disposição.
+Atenciosamente,
 [ASSINATURA]"""
 }
 
