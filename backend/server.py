@@ -2318,8 +2318,8 @@ async def import_pedidos(
         total_rows = len(df)
         logger.info(f"Arquivo parseado com sucesso: {total_rows} linhas")
         
-        # Para arquivos grandes (>5000 linhas), processar em background
-        if total_rows > 5000:
+        # Para arquivos grandes (>1000 linhas) ou arquivos pesados (>5MB), processar em background
+        if total_rows > 1000 or file_size_mb > 5:
             import_id = str(uuid.uuid4())
             
             # Criar registro de importação
@@ -2327,6 +2327,7 @@ async def import_pedidos(
                 "import_id": import_id,
                 "filename": filename,
                 "total_rows": total_rows,
+                "file_size_mb": round(file_size_mb, 2),
                 "status": "processing",
                 "imported": 0,
                 "updated": 0,
@@ -2351,6 +2352,9 @@ async def import_pedidos(
         return result
     
     except Exception as e:
+        logger.error(f"Erro ao processar arquivo: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         raise HTTPException(status_code=400, detail=f"Erro ao processar arquivo: {str(e)}")
 
 # Função para importar tabela de fornecedores com dias extras
