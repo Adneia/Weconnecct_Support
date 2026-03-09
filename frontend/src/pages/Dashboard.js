@@ -187,9 +187,16 @@ const Dashboard = () => {
                       </div>
                     </TableHead>
                   ))}
-                  <TableHead colSpan={3} className="text-center border-r bg-blue-50 dark:bg-blue-900/30">
+                  <TableHead colSpan={1} className="text-center border-r bg-indigo-50 dark:bg-indigo-900/30">
                     <div className="flex flex-col items-center py-1">
-                      <span className="font-semibold text-sm">Total</span>
+                      <span className="font-semibold text-sm">{(() => {
+                        const hoje = new Date();
+                        const proximoDia = new Date(hoje);
+                        proximoDia.setDate(proximoDia.getDate() + 1);
+                        if (proximoDia.getDay() === 6) proximoDia.setDate(proximoDia.getDate() + 2);
+                        else if (proximoDia.getDay() === 0) proximoDia.setDate(proximoDia.getDate() + 1);
+                        return proximoDia.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+                      })()}</span>
                     </div>
                   </TableHead>
                 </TableRow>
@@ -208,15 +215,9 @@ const Dashboard = () => {
                       </TableHead>
                     </React.Fragment>
                   ))}
-                  {/* Total header */}
-                  <TableHead className="text-center w-10 text-xs px-1 bg-yellow-100">
-                    <span className="text-yellow-700 font-semibold">AR</span>
-                  </TableHead>
-                  <TableHead className="text-center w-10 text-xs px-1 bg-orange-100">
-                    <span className="text-orange-700 font-semibold">A</span>
-                  </TableHead>
-                  <TableHead className="text-center w-10 text-xs px-1 border-r bg-emerald-100">
-                    <span className="text-emerald-700 font-semibold">F</span>
+                  {/* Próximo dia útil - apenas A (Aberto) */}
+                  <TableHead className="text-center w-10 text-xs px-1 bg-indigo-100 border-r">
+                    <span className="text-indigo-700 font-semibold">A</span>
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -243,19 +244,9 @@ const Dashboard = () => {
                       </TableCell>
                     </React.Fragment>
                   ))}
-                  {/* Total */}
-                  <TableCell className="text-center px-1 bg-yellow-100/50">
-                    <span className="font-bold text-yellow-700">
-                      {visaoGeral?.por_canal_dia?.reduce((sum, c) => sum + (c.total?.ar || 0), 0) || 0}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-center px-1 bg-orange-100/50">
-                    <span className="font-bold text-orange-700">{visaoGeral?.pendentes || 0}</span>
-                  </TableCell>
-                  <TableCell className="text-center px-1 border-r bg-emerald-100/50">
-                    <span className="font-bold text-emerald-700">
-                      {visaoGeral?.por_canal_dia?.reduce((sum, c) => sum + (c.total?.f || 0), 0) || 0}
-                    </span>
+                  {/* Próximo dia útil - apenas A (cálculo: último A do último dia) */}
+                  <TableCell className="text-center px-1 bg-indigo-100/50 border-r">
+                    <span className="font-bold text-indigo-700">{visaoGeral?.pendentes || 0}</span>
                   </TableCell>
                 </TableRow>
                 {/* Canais individuais */}
@@ -281,27 +272,17 @@ const Dashboard = () => {
                         </TableCell>
                       </React.Fragment>
                     ))}
-                    {/* Total do canal */}
-                    <TableCell className="text-center px-1 bg-yellow-100/30">
-                      <span className={`text-sm ${item.total?.ar > 0 ? 'font-semibold text-yellow-700' : 'text-muted-foreground'}`}>
-                        {item.total?.ar || 0}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-center px-1 bg-orange-100/30">
-                      <span className={`text-sm ${item.total?.a > 0 ? 'font-semibold text-orange-700' : 'text-muted-foreground'}`}>
+                    {/* Próximo dia útil - apenas A (pendentes do canal) */}
+                    <TableCell className="text-center px-1 bg-indigo-100/30 border-r">
+                      <span className={`text-sm ${item.total?.a > 0 ? 'font-semibold text-indigo-700' : 'text-muted-foreground'}`}>
                         {item.total?.a || 0}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-center px-1 border-r bg-emerald-100/30">
-                      <span className={`text-sm ${item.total?.f > 0 ? 'font-semibold text-emerald-700' : 'text-muted-foreground'}`}>
-                        {item.total?.f || 0}
                       </span>
                     </TableCell>
                   </TableRow>
                 ))}
                 {(!visaoGeral?.por_canal_dia || visaoGeral.por_canal_dia.length === 0) && (
                   <TableRow>
-                    <TableCell colSpan={(visaoGeral?.dias_headers?.length || 5) * 3 + 4} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={(visaoGeral?.dias_headers?.length || 5) * 3 + 2} className="text-center text-muted-foreground py-8">
                       Nenhum dado disponível
                     </TableCell>
                   </TableRow>
