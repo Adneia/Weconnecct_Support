@@ -2973,14 +2973,21 @@ async def get_dashboard_visao_geral(
     # Base Emergent
     total_pedidos = await db.pedidos_erp.count_documents({})
     
-    # Últimos 10 dias úteis (Segunda a Sexta)
+    # Dias úteis do mês de março (02/03 a hoje)
+    # Hoje fica zerado esperando início das atividades
     dias_uteis = []
     dia_atual = now
-    while len(dias_uteis) < 10:
+    hoje = now.date()
+    
+    # Começar do dia 2 de março de 2026
+    dia_inicio = datetime(2026, 3, 2, tzinfo=timezone.utc)
+    dia_iter = dia_inicio
+    
+    while dia_iter.date() <= hoje:
         # Pegar apenas dias úteis (0=Seg, 4=Sex)
-        if dia_atual.weekday() < 5:  # Segunda a Sexta
-            dias_uteis.insert(0, dia_atual)  # Inserir no início para ordem crescente
-        dia_atual -= timedelta(days=1)
+        if dia_iter.weekday() < 5:  # Segunda a Sexta
+            dias_uteis.append(dia_iter)
+        dia_iter += timedelta(days=1)
     
     # Lista fixa de canais na ordem desejada (igual ao Excel)
     # Cada entrada pode ter variações do nome que serão agrupadas
@@ -3018,6 +3025,14 @@ async def get_dashboard_visao_geral(
         total_canal = {"ar": 0, "a": 0, "f": 0}
         
         for dia in dias_uteis:
+            dia_key = dia.strftime("%d/%m")
+            
+            # Se é hoje, zerar os valores (aguardando início das atividades)
+            if dia.date() == hoje:
+                canal_data["dias"][dia_key] = {"ar": 0, "a": 0, "f": 0}
+                totais_por_dia[dia_key] = {"ar": 0, "a": 0, "f": 0}
+                continue
+            
             dia_inicio = dia.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
             dia_fim = dia.replace(hour=23, minute=59, second=59, microsecond=999999).isoformat()
             
@@ -3027,12 +3042,6 @@ async def get_dashboard_visao_geral(
                 canal_or_conditions.append({"parceiro": var})
                 canal_or_conditions.append({"canal_vendas": var})
             
-            # AR = Abertos naquele dia
-            ar = await db.chamados.count_documents({
-                "$or": canal_or_conditions,
-                "data_abertura": {"$gte": dia_inicio, "$lte": dia_fim}
-            })
-            
             # A = Em andamento (pendentes) - contagem acumulada até aquele dia
             a = await db.chamados.count_documents({
                 "$or": canal_or_conditions,
@@ -3040,24 +3049,17 @@ async def get_dashboard_visao_geral(
                 "data_abertura": {"$lte": dia_fim}
             })
             
-            # F = Fechados naquele dia
-            f = await db.chamados.count_documents({
-                "$or": canal_or_conditions,
-                "data_fechamento": {"$gte": dia_inicio, "$lte": dia_fim}
-            })
+            canal_data["dias"][dia_key] = {"ar": 0, "a": a, "f": 0}
             
-            dia_key = dia.strftime("%d/%m")
-            canal_data["dias"][dia_key] = {"ar": ar, "a": a, "f": f}
-            
-            total_canal["ar"] += ar
-            total_canal["f"] += f
-            totais_por_dia[dia_key]["ar"] += ar
+            if dia_key not in totais_por_dia:
+                totais_por_dia[dia_key] = {"ar": 0, "a": 0, "f": 0}
             totais_por_dia[dia_key]["a"] += a
-            totais_por_dia[dia_key]["f"] += f
         
-        # Pegar o "A" do último dia como total em andamento
-        ultimo_dia_key = dias_uteis[-1].strftime("%d/%m")
-        total_canal["a"] = canal_data["dias"][ultimo_dia_key]["a"]
+        # Pegar o "A" do penúltimo dia (último dia com dados) como total em andamento
+        dias_com_dados = [d for d in dias_uteis if d.date() != hoje]
+        if dias_com_dados:
+            ultimo_dia_dados = dias_com_dados[-1].strftime("%d/%m")
+            total_canal["a"] = canal_data["dias"].get(ultimo_dia_dados, {}).get("a", 0)
         
         # Adicionar canal mesmo se tiver zeros (para manter a estrutura)
         canal_data["total"] = total_canal
