@@ -595,9 +595,9 @@ const ListaAtendimentos = () => {
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Parceiro / Solicitação</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Categoria</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Motivo Pend.</TableHead>
+                  <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Última Anotação</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Reversa</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Status Pedido</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Últ. Status</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Status</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Dias</TableHead>
                 </TableRow>
@@ -612,15 +612,40 @@ const ListaAtendimentos = () => {
                       ? `/chamados/editar/${atd.id}?filter=${activeFilter}`
                       : `/chamados/editar/${atd.id}`;
                     
+                    // Extrair última anotação (primeira linha do campo anotacoes)
+                    const ultimaAnotacao = atd.anotacoes ? atd.anotacoes.split('\n')[0] : '-';
+                    // Extrair data da anotação se estiver no formato [DD/MM/YYYY]
+                    const matchData = ultimaAnotacao.match(/\[(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)\]/);
+                    const dataAnotacao = matchData ? matchData[1] : '';
+                    const textoAnotacao = ultimaAnotacao.replace(/\[\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\]\s*/, '');
+                    
                     return (
                     <TableRow
                       key={atd.id}
                       className="cursor-pointer hover:bg-muted/50 transition-colors"
                       onClick={() => navigate(editUrl)}
+                      onContextMenu={(e) => {
+                        // Permite abrir em nova aba com botão direito
+                        // Não previne o comportamento padrão, então Ctrl+Click e botão direito funcionam
+                      }}
                       data-testid={`row-${atd.id}`}
                     >
+                      {/* Coluna Entrega - com link para abrir em nova aba */}
                       <TableCell className="font-medium">
-                        {atd.numero_pedido}
+                        <a 
+                          href={editUrl}
+                          onClick={(e) => {
+                            // Click normal navega pela SPA
+                            if (!e.ctrlKey && !e.metaKey && e.button === 0) {
+                              e.preventDefault();
+                              navigate(editUrl);
+                            }
+                            // Ctrl+Click ou botão do meio abre em nova aba (comportamento padrão do link)
+                          }}
+                          className="hover:underline text-primary"
+                        >
+                          {atd.numero_pedido}
+                        </a>
                       </TableCell>
                       <TableCell className="text-sm">
                         <div>
@@ -646,14 +671,19 @@ const ListaAtendimentos = () => {
                       <TableCell className="text-sm">
                         {atd.motivo_pendencia || '-'}
                       </TableCell>
+                      <TableCell className="text-sm max-w-48">
+                        <div>
+                          {dataAnotacao && (
+                            <p className="text-xs text-muted-foreground font-medium">{dataAnotacao}</p>
+                          )}
+                          <p className="truncate text-xs" title={textoAnotacao}>{textoAnotacao || '-'}</p>
+                        </div>
+                      </TableCell>
                       <TableCell className="text-sm font-mono">
                         {atd.codigo_reversa || '-'}
                       </TableCell>
                       <TableCell className="text-sm">
                         {atd.status_pedido || '-'}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {atd.data_ultimo_status ? atd.data_ultimo_status.split(' ')[0] : '-'}
                       </TableCell>
                       <TableCell>
                         {atd.retornar_chamado && (
