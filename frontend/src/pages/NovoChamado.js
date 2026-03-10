@@ -70,7 +70,8 @@ const MOTIVOS_PENDENCIA = [
   "Entregue",
   "Estornado",
   "Atendido",
-  "Devolvido"
+  "Devolvido",
+  "Encerrado"
 ];
 
 // Motivos que permitem encerrar o atendimento

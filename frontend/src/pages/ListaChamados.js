@@ -45,6 +45,7 @@ const CATEGORIAS = [
 const MOTIVOS_PENDENCIA = [
   "Ag. Compras",
   "Ag. Logística", 
+  "Ag. Cliente",
   "Enviado",
   "Ag. Bseller",
   "Ag. Barrar",
@@ -55,10 +56,10 @@ const MOTIVOS_PENDENCIA = [
   "Ag. Transportadora - Asap",
   "Ag. Transportadora - J&T",
   "Ag. Transportadora - Total",
-  "Ag. Transportadora - (verificar)",
   "Entregue",
   "Estornado",
-  "Atendido"
+  "Atendido",
+  "Encerrado"
 ];
 
 const ATENDENTES = ["Letícia Martelo", "Adnéia Campos"];
