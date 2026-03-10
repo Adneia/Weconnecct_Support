@@ -2992,6 +2992,36 @@ async def atualizar_motivos_endpoint(current_user: dict = Depends(get_current_us
         logger.error(f"Erro ao atualizar motivos: {e}")
         return {"success": False, "message": str(e)}
 
+@api_router.post("/admin/padronizar-parceiros")
+async def padronizar_parceiros_endpoint(current_user: dict = Depends(get_current_user)):
+    """Endpoint para padronizar nomes de parceiros (ex: Nicequest -> NiceQuest)"""
+    try:
+        # Mapeamento de padronização (minúsculo -> correto)
+        padronizacao = {
+            "nicequest": "NiceQuest",
+            # Adicionar outros parceiros que precisem de padronização aqui
+        }
+        
+        total_atualizado = 0
+        for nome_errado, nome_correto in padronizacao.items():
+            # Atualizar no campo parceiro
+            result1 = await db.chamados.update_many(
+                {"parceiro": {"$regex": f"^{nome_errado}$", "$options": "i"}},
+                {"$set": {"parceiro": nome_correto}}
+            )
+            # Atualizar no campo canal_vendas
+            result2 = await db.chamados.update_many(
+                {"canal_vendas": {"$regex": f"^{nome_errado}$", "$options": "i"}},
+                {"$set": {"canal_vendas": nome_correto}}
+            )
+            total_atualizado += result1.modified_count + result2.modified_count
+            logger.info(f"Padronizado '{nome_errado}' -> '{nome_correto}': {result1.modified_count + result2.modified_count} registros")
+        
+        return {"success": True, "message": f"Parceiros padronizados: {total_atualizado} registros atualizados"}
+    except Exception as e:
+        logger.error(f"Erro ao padronizar parceiros: {e}")
+        return {"success": False, "message": str(e)}
+
 async def atualizar_motivos_pendencia_automatico():
     """
     Atualiza automaticamente os motivos de pendência dos chamados
@@ -4104,6 +4134,19 @@ async def get_dashboard_filtros(current_user: dict = Depends(get_current_user)):
     ]
     canais = await db.chamados.aggregate(pipeline_canais).to_list(100)
     
+    # Normalizar parceiros duplicados (case-insensitive)
+    canais_normalizados = {}
+    for c in canais:
+        if c['_id']:
+            # Usar a primeira letra maiúscula como padrão
+            key = c['_id'].lower()
+            if key not in canais_normalizados:
+                # Padronizar nomes específicos
+                if key == 'nicequest':
+                    canais_normalizados[key] = 'NiceQuest'
+                else:
+                    canais_normalizados[key] = c['_id']
+    
     # Fornecedores únicos
     pipeline_forn = [
         {"$group": {"_id": "$codigo_fornecedor"}},
@@ -4112,7 +4155,7 @@ async def get_dashboard_filtros(current_user: dict = Depends(get_current_user)):
     fornecedores = await db.chamados.aggregate(pipeline_forn).to_list(100)
     
     return {
-        "canais": [c['_id'] for c in canais if c['_id']],
+        "canais": sorted(canais_normalizados.values()),
         "fornecedores": [f['_id'] for f in fornecedores if f['_id']]
     }
 
