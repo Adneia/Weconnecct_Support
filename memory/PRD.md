@@ -4,24 +4,23 @@
 **Última atualização:** 10/03/2026
 
 ## Changelog Recente
-- ✅ **10/03/2026:** Melhorias de UX na Lista de Atendimentos
-  - **Cópia de dados individual:** Cada célula da tabela agora é copiável ao clicar
-    - Células mostram um pequeno ícone de clipboard
-    - Ao clicar, o conteúdo é copiado para a área de transferência
+- ✅ **10/03/2026:** Melhorias de UX na Lista de Atendimentos (v2)
+  - **Cópia de dados individual:** Cada célula da tabela é copiável ao clicar
+    - Hover destaca a célula em azul claro
     - Toast de confirmação "X copiado!"
-  - **Navegação por solicitação:** Apenas a coluna "Solicitação" (link azul) abre o atendimento
+    - **SEM ícones de clipboard** - visualização limpa
+    - **Solicitação também é copiável** (não mais link)
+  - **Nova coluna de ação:** Ícone "abrir" (ExternalLink) na primeira coluna
     - Click normal: navega pela SPA
     - Ctrl+Click ou botão direito: abre em nova aba
-  - **Notificação de importação:** Admin recebe notificação quando a importação de base é concluída
-    - Título: "📦 Base importada - X pedidos"
-    - Resumo: novos, atualizados, ignorados, erros
-  - **Correção de chamados sem pedido ERP:** Atendimentos onde o pedido não existe na base ERP agora abrem corretamente
-    - Card amarelo com aviso "⚠️ Pedido não encontrado na base ERP"
-    - Informações básicas do atendimento são exibidas
-    - Seção de classificação aparece para edição
+  - **Persistência de filtros:** Filtros são salvos no localStorage
+    - Ao voltar de um atendimento, filtros são mantidos
+    - Busca e filtros avançados são restaurados automaticamente
+  - **Notificação de importação:** Admin recebe notificação quando importação concluída
+  - **Correção de chamados sem pedido ERP:** Atendimentos abrem corretamente
   - Arquivos modificados:
-    - `/app/backend/server.py`: Notificação de importação (linhas 2941-2965)
-    - `/app/frontend/src/pages/ListaChamados.js`: Células copiáveis, navegação por solicitação
+    - `/app/frontend/src/pages/ListaChamados.js`: Células copiáveis, coluna de ação, persistência de filtros
+    - `/app/backend/server.py`: Notificação de importação
     - `/app/frontend/src/pages/NovoChamado.js`: Correção para isEditMode sem pedidoErp
 
 - ✅ **09/03/2026:** Refatoração do Backend (Fase 1)

@@ -31,7 +31,7 @@ import {
   DialogTitle,
 } from '../components/ui/dialog';
 import { toast } from 'sonner';
-import { Search, Plus, Filter, X, Clock, CheckCircle, AlertCircle, FileText, RotateCcw, Download, FileSpreadsheet, CheckSquare, Clipboard } from 'lucide-react';
+import { Search, Plus, Filter, X, Clock, CheckCircle, AlertCircle, FileText, RotateCcw, Download, FileSpreadsheet, CheckSquare, ExternalLink } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
@@ -86,7 +86,47 @@ const ListaAtendimentos = () => {
   const location = useLocation();
   const { getAuthHeader } = useAuth();
   
-  // Ler filtro da URL ao carregar
+  // Chave para localStorage dos filtros
+  const FILTERS_STORAGE_KEY = 'elo_atendimentos_filters';
+  
+  // Flag para indicar se já carregou os filtros do localStorage
+  const [filtersLoaded, setFiltersLoaded] = useState(false);
+  
+  // Restaurar filtros do localStorage ao carregar
+  useEffect(() => {
+    const savedFilters = localStorage.getItem(FILTERS_STORAGE_KEY);
+    if (savedFilters) {
+      try {
+        const parsed = JSON.parse(savedFilters);
+        setFilters(parsed.filters || {
+          pendente: '',
+          categoria: '',
+          retornar_chamado: '',
+          verificar_adneia: '',
+          motivo_pendencia: '',
+          parceiro: ''
+        });
+        setGlobalFilter(parsed.globalFilter || '');
+        setSearchType(parsed.searchType || 'todos');
+      } catch (e) {
+        console.error('Erro ao restaurar filtros:', e);
+      }
+    }
+    setFiltersLoaded(true);
+  }, []);
+  
+  // Salvar filtros no localStorage quando mudarem (após carregamento inicial)
+  useEffect(() => {
+    if (!filtersLoaded) return;
+    const filtersToSave = {
+      filters,
+      globalFilter,
+      searchType
+    };
+    localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(filtersToSave));
+  }, [filters, globalFilter, searchType, filtersLoaded]);
+  
+  // Ler filtro da URL ao carregar (tem prioridade sobre localStorage)
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
     const filterParam = searchParams.get('filter');
@@ -97,9 +137,12 @@ const ListaAtendimentos = () => {
     }
   }, [location.search]);
 
+  // Buscar dados apenas quando filtros carregados
   useEffect(() => {
-    fetchData();
-  }, [filters]);
+    if (filtersLoaded) {
+      fetchData();
+    }
+  }, [filters, globalFilter, searchType, filtersLoaded]);
 
   const fetchData = async () => {
     try {
@@ -801,6 +844,7 @@ const ListaAtendimentos = () => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50 w-8"></TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Entrega</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Cliente</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Parceiro / Solicitação</TableHead>
@@ -848,16 +892,29 @@ const ListaAtendimentos = () => {
                       className="hover:bg-muted/50 transition-colors"
                       data-testid={`row-${atd.id}`}
                     >
+                      {/* Coluna Abrir - botão para abrir atendimento */}
+                      <TableCell className="p-1">
+                        <a 
+                          href={editUrl}
+                          onClick={(e) => {
+                            if (!e.ctrlKey && !e.metaKey && e.button === 0) {
+                              e.preventDefault();
+                              navigate(editUrl);
+                            }
+                          }}
+                          className="p-1.5 rounded hover:bg-primary/10 inline-flex items-center justify-center"
+                          title="Abrir atendimento (Ctrl+Click abre em nova aba)"
+                        >
+                          <ExternalLink className="h-4 w-4 text-primary" />
+                        </a>
+                      </TableCell>
                       {/* Coluna Entrega - copiável ao clicar */}
                       <TableCell 
                         className="font-medium cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950/30"
                         onClick={(e) => copyText(atd.numero_pedido, 'Entrega', e)}
                         title="Clique para copiar"
                       >
-                        <div className="flex items-center gap-1">
-                          <span>{atd.numero_pedido}</span>
-                          <Clipboard className="h-3 w-3 text-muted-foreground opacity-40" />
-                        </div>
+                        {atd.numero_pedido}
                       </TableCell>
                       {/* Coluna Cliente - copiável ao clicar */}
                       <TableCell 
@@ -865,43 +922,31 @@ const ListaAtendimentos = () => {
                         onClick={(e) => copyText(`${atd.nome_cliente || ''}\n${atd.cpf_cliente || ''}`.trim(), 'Cliente', e)}
                         title="Clique para copiar"
                       >
-                        <div className="flex items-center gap-1">
-                          <div>
-                            <p className="font-medium truncate max-w-32">{atd.nome_cliente || '-'}</p>
-                            {atd.cpf_cliente && (
-                              <p className="text-xs text-muted-foreground">{atd.cpf_cliente}</p>
-                            )}
-                          </div>
-                          <Clipboard className="h-3 w-3 text-muted-foreground opacity-40 flex-shrink-0" />
+                        <div>
+                          <p className="font-medium truncate max-w-32">{atd.nome_cliente || '-'}</p>
+                          {atd.cpf_cliente && (
+                            <p className="text-xs text-muted-foreground">{atd.cpf_cliente}</p>
+                          )}
                         </div>
                       </TableCell>
-                      {/* Coluna Parceiro/Solicitação - SOLICITAÇÃO é clicável para abrir atendimento */}
+                      {/* Coluna Parceiro/Solicitação - ambos copiáveis */}
                       <TableCell className="text-sm">
                         <div className="space-y-1">
                           <p 
-                            className="cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950/30 px-1 -mx-1 rounded flex items-center gap-1"
+                            className="cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950/30 px-1 -mx-1 rounded"
                             onClick={(e) => copyText(atd.parceiro || atd.canal_vendas, 'Parceiro', e)}
                             title="Clique para copiar parceiro"
                           >
                             {atd.parceiro || atd.canal_vendas || '-'}
-                            <Clipboard className="h-3 w-3 text-muted-foreground opacity-40" />
                           </p>
                           {atd.solicitacao && (
-                            <a 
-                              href={editUrl}
-                              onClick={(e) => {
-                                // Click normal navega pela SPA
-                                if (!e.ctrlKey && !e.metaKey && e.button === 0) {
-                                  e.preventDefault();
-                                  navigate(editUrl);
-                                }
-                                // Ctrl+Click ou botão do meio abre em nova aba
-                              }}
-                              className="text-xs text-primary hover:underline font-medium block"
-                              title="Clique para abrir atendimento (Ctrl+Click abre em nova aba)"
+                            <p 
+                              className="text-xs text-primary cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950/30 px-1 -mx-1 rounded"
+                              onClick={(e) => copyText(atd.solicitacao, 'Solicitação', e)}
+                              title="Clique para copiar solicitação"
                             >
                               {atd.solicitacao}
-                            </a>
+                            </p>
                           )}
                         </div>
                       </TableCell>
@@ -911,10 +956,7 @@ const ListaAtendimentos = () => {
                         onClick={(e) => copyText(atd.motivo_pendencia, 'Motivo', e)}
                         title="Clique para copiar"
                       >
-                        <div className="flex items-center gap-1">
-                          <span>{atd.motivo_pendencia || '-'}</span>
-                          {atd.motivo_pendencia && <Clipboard className="h-3 w-3 text-muted-foreground opacity-40" />}
-                        </div>
+                        {atd.motivo_pendencia || '-'}
                       </TableCell>
                       {/* Coluna Última Anotação - copiável */}
                       <TableCell 
@@ -941,10 +983,7 @@ const ListaAtendimentos = () => {
                         onClick={(e) => copyText(atd.codigo_reversa, 'Reversa', e)}
                         title="Clique para copiar"
                       >
-                        <div className="flex items-center gap-1">
-                          <span>{atd.codigo_reversa || '-'}</span>
-                          {atd.codigo_reversa && <Clipboard className="h-3 w-3 text-muted-foreground opacity-40" />}
-                        </div>
+                        {atd.codigo_reversa || '-'}
                       </TableCell>
                       {/* Coluna Status Pedido - copiável */}
                       <TableCell 
@@ -952,10 +991,7 @@ const ListaAtendimentos = () => {
                         onClick={(e) => copyText(atd.status_pedido, 'Status', e)}
                         title="Clique para copiar"
                       >
-                        <div className="flex items-center gap-1">
-                          <span>{atd.status_pedido || '-'}</span>
-                          {atd.status_pedido && <Clipboard className="h-3 w-3 text-muted-foreground opacity-40" />}
-                        </div>
+                        {atd.status_pedido || '-'}
                       </TableCell>
                       {/* Coluna Status do Atendimento */}
                       <TableCell>
@@ -989,7 +1025,7 @@ const ListaAtendimentos = () => {
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={10} className="h-32 text-center text-muted-foreground">
+                    <TableCell colSpan={11} className="h-32 text-center text-muted-foreground">
                       Nenhum atendimento encontrado
                     </TableCell>
                   </TableRow>
