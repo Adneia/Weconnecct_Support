@@ -148,7 +148,6 @@ CATEGORIAS_EMERGENT = [
     "Divergência de Produto",
     "Arrependimento",
     "Acompanhamento",
-    "Reclame Aqui",
     "Assistência Técnica",
     "Falha de Integração"
 ]
