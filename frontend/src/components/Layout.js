@@ -18,6 +18,13 @@ import {
   PopoverTrigger,
 } from './ui/popover';
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog';
+import {
   LayoutDashboard,
   Plus,
   List,
@@ -54,6 +61,7 @@ export const Layout = ({ children }) => {
   const navigate = useNavigate();
   const { user, logout, getAuthHeader } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const [notificacaoSelecionada, setNotificacaoSelecionada] = useState(null);
   
   // Buscar notificações ao carregar
   useEffect(() => {
@@ -330,7 +338,10 @@ export const Layout = ({ children }) => {
                         className={`p-3 border-b hover:bg-muted/50 cursor-pointer transition-colors ${
                           !notif.lida ? 'bg-blue-50 dark:bg-blue-950/20' : ''
                         }`}
-                        onClick={() => !notif.lida && marcarComoLida(notif.id)}
+                        onClick={() => {
+                          if (!notif.lida) marcarComoLida(notif.id);
+                          setNotificacaoSelecionada(notif);
+                        }}
                       >
                         <div className="flex items-start gap-2">
                           {!notif.lida && (
@@ -338,8 +349,8 @@ export const Layout = ({ children }) => {
                           )}
                           <div className="flex-1 min-w-0">
                             <p className="font-medium text-sm truncate">{notif.titulo}</p>
-                            <p className="text-xs text-muted-foreground mt-1 whitespace-pre-line line-clamp-3">
-                              {notif.mensagem}
+                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                              {notif.mensagem?.split('\n')[0]}
                             </p>
                             <p className="text-xs text-muted-foreground mt-2">
                               {new Date(notif.data_criacao).toLocaleString('pt-BR')}
@@ -352,6 +363,47 @@ export const Layout = ({ children }) => {
                 </div>
               </PopoverContent>
             </Popover>
+
+            {/* Modal de Notificação Detalhada */}
+            <Dialog open={!!notificacaoSelecionada} onOpenChange={(open) => !open && setNotificacaoSelecionada(null)}>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle className="text-lg">
+                    {notificacaoSelecionada?.titulo}
+                  </DialogTitle>
+                  <DialogDescription>
+                    {notificacaoSelecionada?.data_criacao && new Date(notificacaoSelecionada.data_criacao).toLocaleString('pt-BR')}
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                  <p className="whitespace-pre-line text-sm">
+                    {notificacaoSelecionada?.mensagem}
+                  </p>
+                  
+                  {/* Mostrar canais sem atividade de forma destacada */}
+                  {notificacaoSelecionada?.dados_extras?.canais_sem_atividade?.length > 0 && (
+                    <div className="mt-4 p-4 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                      <p className="font-semibold text-amber-800 dark:text-amber-200 mb-2">
+                        ⚠️ Canais sem atividade ({notificacaoSelecionada.dados_extras.canais_sem_atividade.length}):
+                      </p>
+                      <ul className="list-disc list-inside space-y-1">
+                        {notificacaoSelecionada.dados_extras.canais_sem_atividade.map((canal, idx) => (
+                          <li key={idx} className="text-amber-700 dark:text-amber-300 text-sm">{canal}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  
+                  {notificacaoSelecionada?.dados_extras?.canais_sem_atividade?.length === 0 && (
+                    <div className="mt-4 p-4 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
+                      <p className="font-semibold text-green-800 dark:text-green-200">
+                        ✅ Todos os canais tiveram atividade!
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
 
             <Button
               variant="ghost"
