@@ -1,9 +1,29 @@
 # ELO - Sistema de Atendimentos WeConnect
 
 ## Status: MVP Funcional + Refatoração em Andamento ✅
-**Última atualização:** 09/03/2026
+**Última atualização:** 10/03/2026
 
 ## Changelog Recente
+- ✅ **10/03/2026:** Melhorias de UX na Lista de Atendimentos
+  - **Cópia de dados individual:** Cada célula da tabela agora é copiável ao clicar
+    - Células mostram um pequeno ícone de clipboard
+    - Ao clicar, o conteúdo é copiado para a área de transferência
+    - Toast de confirmação "X copiado!"
+  - **Navegação por solicitação:** Apenas a coluna "Solicitação" (link azul) abre o atendimento
+    - Click normal: navega pela SPA
+    - Ctrl+Click ou botão direito: abre em nova aba
+  - **Notificação de importação:** Admin recebe notificação quando a importação de base é concluída
+    - Título: "📦 Base importada - X pedidos"
+    - Resumo: novos, atualizados, ignorados, erros
+  - **Correção de chamados sem pedido ERP:** Atendimentos onde o pedido não existe na base ERP agora abrem corretamente
+    - Card amarelo com aviso "⚠️ Pedido não encontrado na base ERP"
+    - Informações básicas do atendimento são exibidas
+    - Seção de classificação aparece para edição
+  - Arquivos modificados:
+    - `/app/backend/server.py`: Notificação de importação (linhas 2941-2965)
+    - `/app/frontend/src/pages/ListaChamados.js`: Células copiáveis, navegação por solicitação
+    - `/app/frontend/src/pages/NovoChamado.js`: Correção para isEditMode sem pedidoErp
+
 - ✅ **09/03/2026:** Refatoração do Backend (Fase 1)
   - **Estrutura modular criada:**
     - `/app/backend/routes/chamados.py` - CRUD de atendimentos

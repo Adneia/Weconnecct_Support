@@ -404,11 +404,15 @@ const ListaAtendimentos = () => {
     });
   };
 
-  // Função para copiar apenas a entrega
-  const copyEntrega = (numero_pedido, e) => {
-    e.stopPropagation();
-    navigator.clipboard.writeText(numero_pedido).then(() => {
-      toast.success('Entrega copiada!');
+  // Função para copiar um texto específico
+  const copyText = (text, label, e) => {
+    if (e) e.stopPropagation();
+    if (!text || text === '-') {
+      toast.info('Nada para copiar');
+      return;
+    }
+    navigator.clipboard.writeText(text).then(() => {
+      toast.success(`${label} copiado!`);
     }).catch(() => {
       toast.error('Erro ao copiar');
     });
@@ -841,61 +845,83 @@ const ListaAtendimentos = () => {
                     return (
                     <TableRow
                       key={atd.id}
-                      className="cursor-pointer hover:bg-muted/50 transition-colors"
-                      onClick={() => navigate(editUrl)}
-                      onContextMenu={(e) => {
-                        // Permite abrir em nova aba com botão direito
-                        // Não previne o comportamento padrão, então Ctrl+Click e botão direito funcionam
-                      }}
+                      className="hover:bg-muted/50 transition-colors"
                       data-testid={`row-${atd.id}`}
                     >
-                      {/* Coluna Entrega - com link para abrir em nova aba e botão de copiar */}
-                      <TableCell className="font-medium">
+                      {/* Coluna Entrega - copiável ao clicar */}
+                      <TableCell 
+                        className="font-medium cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                        onClick={(e) => copyText(atd.numero_pedido, 'Entrega', e)}
+                        title="Clique para copiar"
+                      >
                         <div className="flex items-center gap-1">
-                          <a 
-                            href={editUrl}
-                            onClick={(e) => {
-                              // Click normal navega pela SPA
-                              if (!e.ctrlKey && !e.metaKey && e.button === 0) {
-                                e.preventDefault();
-                                navigate(editUrl);
-                              }
-                              // Ctrl+Click ou botão do meio abre em nova aba (comportamento padrão do link)
-                            }}
-                            className="hover:underline text-primary"
-                          >
-                            {atd.numero_pedido}
-                          </a>
-                          <button
-                            onClick={(e) => copyRowData(atd, e)}
-                            className="p-1 hover:bg-muted rounded opacity-50 hover:opacity-100 transition-opacity"
-                            title="Copiar dados do atendimento"
-                            data-testid={`copy-btn-${atd.id}`}
-                          >
-                            <Clipboard className="h-3.5 w-3.5 text-muted-foreground" />
-                          </button>
+                          <span>{atd.numero_pedido}</span>
+                          <Clipboard className="h-3 w-3 text-muted-foreground opacity-40" />
                         </div>
                       </TableCell>
-                      <TableCell className="text-sm">
-                        <div>
-                          <p className="font-medium truncate max-w-32">{atd.nome_cliente || '-'}</p>
-                          {atd.cpf_cliente && (
-                            <p className="text-xs text-muted-foreground">{atd.cpf_cliente}</p>
-                          )}
+                      {/* Coluna Cliente - copiável ao clicar */}
+                      <TableCell 
+                        className="text-sm cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                        onClick={(e) => copyText(`${atd.nome_cliente || ''}\n${atd.cpf_cliente || ''}`.trim(), 'Cliente', e)}
+                        title="Clique para copiar"
+                      >
+                        <div className="flex items-center gap-1">
+                          <div>
+                            <p className="font-medium truncate max-w-32">{atd.nome_cliente || '-'}</p>
+                            {atd.cpf_cliente && (
+                              <p className="text-xs text-muted-foreground">{atd.cpf_cliente}</p>
+                            )}
+                          </div>
+                          <Clipboard className="h-3 w-3 text-muted-foreground opacity-40 flex-shrink-0" />
                         </div>
                       </TableCell>
+                      {/* Coluna Parceiro/Solicitação - SOLICITAÇÃO é clicável para abrir atendimento */}
                       <TableCell className="text-sm">
-                        <div>
-                          <p>{atd.parceiro || atd.canal_vendas || '-'}</p>
+                        <div className="space-y-1">
+                          <p 
+                            className="cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950/30 px-1 -mx-1 rounded flex items-center gap-1"
+                            onClick={(e) => copyText(atd.parceiro || atd.canal_vendas, 'Parceiro', e)}
+                            title="Clique para copiar parceiro"
+                          >
+                            {atd.parceiro || atd.canal_vendas || '-'}
+                            <Clipboard className="h-3 w-3 text-muted-foreground opacity-40" />
+                          </p>
                           {atd.solicitacao && (
-                            <p className="text-xs text-muted-foreground">{atd.solicitacao}</p>
+                            <a 
+                              href={editUrl}
+                              onClick={(e) => {
+                                // Click normal navega pela SPA
+                                if (!e.ctrlKey && !e.metaKey && e.button === 0) {
+                                  e.preventDefault();
+                                  navigate(editUrl);
+                                }
+                                // Ctrl+Click ou botão do meio abre em nova aba
+                              }}
+                              className="text-xs text-primary hover:underline font-medium block"
+                              title="Clique para abrir atendimento (Ctrl+Click abre em nova aba)"
+                            >
+                              {atd.solicitacao}
+                            </a>
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="text-sm">
-                        {atd.motivo_pendencia || '-'}
+                      {/* Coluna Motivo Pendência - copiável */}
+                      <TableCell 
+                        className="text-sm cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                        onClick={(e) => copyText(atd.motivo_pendencia, 'Motivo', e)}
+                        title="Clique para copiar"
+                      >
+                        <div className="flex items-center gap-1">
+                          <span>{atd.motivo_pendencia || '-'}</span>
+                          {atd.motivo_pendencia && <Clipboard className="h-3 w-3 text-muted-foreground opacity-40" />}
+                        </div>
                       </TableCell>
-                      <TableCell className="text-sm max-w-[200px]">
+                      {/* Coluna Última Anotação - copiável */}
+                      <TableCell 
+                        className="text-sm max-w-[200px] cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                        onClick={(e) => copyText(atd.anotacoes ? atd.anotacoes.split('\n')[0] : '', 'Anotação', e)}
+                        title="Clique para copiar última anotação"
+                      >
                         <div className="flex flex-col">
                           {dataAnotacao && (
                             <span className="font-semibold text-blue-600 dark:text-blue-400 text-xs">{dataAnotacao}</span>
@@ -909,12 +935,29 @@ const ListaAtendimentos = () => {
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="text-sm font-mono">
-                        {atd.codigo_reversa || '-'}
+                      {/* Coluna Reversa - copiável */}
+                      <TableCell 
+                        className="text-sm font-mono cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                        onClick={(e) => copyText(atd.codigo_reversa, 'Reversa', e)}
+                        title="Clique para copiar"
+                      >
+                        <div className="flex items-center gap-1">
+                          <span>{atd.codigo_reversa || '-'}</span>
+                          {atd.codigo_reversa && <Clipboard className="h-3 w-3 text-muted-foreground opacity-40" />}
+                        </div>
                       </TableCell>
-                      <TableCell className="text-sm">
-                        {atd.status_pedido || '-'}
+                      {/* Coluna Status Pedido - copiável */}
+                      <TableCell 
+                        className="text-sm cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                        onClick={(e) => copyText(atd.status_pedido, 'Status', e)}
+                        title="Clique para copiar"
+                      >
+                        <div className="flex items-center gap-1">
+                          <span>{atd.status_pedido || '-'}</span>
+                          {atd.status_pedido && <Clipboard className="h-3 w-3 text-muted-foreground opacity-40" />}
+                        </div>
                       </TableCell>
+                      {/* Coluna Status do Atendimento */}
                       <TableCell>
                         {atd.retornar_chamado && (
                           <Badge className="bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400 mr-1">
@@ -937,6 +980,7 @@ const ListaAtendimentos = () => {
                           </Badge>
                         )}
                       </TableCell>
+                      {/* Coluna Dias */}
                       <TableCell className={`text-sm ${atd.dias_aberto > 3 ? 'text-orange-600 font-medium' : ''}`}>
                         {atd.dias_aberto}
                       </TableCell>
