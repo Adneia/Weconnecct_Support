@@ -37,11 +37,9 @@ const API_URL = process.env.REACT_APP_BACKEND_URL;
 const CATEGORIAS = [
   "Falha Produção",
   "Falha Compras",
-  "Falha de Compras", 
   "Falha Transporte",
   "Falha Fornecedor",
   "Falha Integração",
-  "Falha de Integração",
   "Falha Parceiro",
   "Falha Cadastro",
   "Produto com Avaria",
@@ -297,7 +295,7 @@ const getCategoriaPorStatus = (statusPedido) => {
   
   // Aguardando estoque
   if (status.includes('aguardando estoque') || status.includes('ag. estoque')) {
-    return { categoria: 'Falha de Compras', motivo: 'Ag. Compras' };
+    return { categoria: 'Falha Compras', motivo: 'Ag. Compras' };
   }
   
   // NF emitida, NF Aprovada, Entregue à transportadora
@@ -2833,15 +2831,15 @@ const NovoAtendimento = () => {
                           </Button>
                         </div>
                       </div>
-                    ) : formData.categoria === 'Falha de Compras' ? (
+                    ) : formData.categoria === 'Falha Compras' ? (
                       <div className="space-y-2">
-                        <Label className="text-sm font-medium">Textos Padrão - Falha de Compras</Label>
+                        <Label className="text-sm font-medium">Textos Padrão - Falha Compras</Label>
                         <div className="flex flex-wrap gap-2">
                           <Button 
                             type="button" 
                             variant="outline" 
                             size="sm"
-                            onClick={() => loadTextoPadrao('Falha de Compras')}
+                            onClick={() => loadTextoPadrao('Falha Compras')}
                           >
                             <MessageSquare className="h-4 w-4 mr-2" />
                             Em Preparação
@@ -2850,7 +2848,7 @@ const NovoAtendimento = () => {
                             type="button" 
                             variant="outline" 
                             size="sm"
-                            onClick={() => loadTextoPadrao('Falha de Compras - Em Separação')}
+                            onClick={() => loadTextoPadrao('Falha Compras - Em Separação')}
                           >
                             <MessageSquare className="h-4 w-4 mr-2" />
                             Em Separação
@@ -2859,7 +2857,7 @@ const NovoAtendimento = () => {
                             type="button" 
                             variant="outline" 
                             size="sm"
-                            onClick={() => loadTextoPadrao('Falha de Compras - Cancelamento sem Estoque')}
+                            onClick={() => loadTextoPadrao('Falha Compras - Cancelamento sem Estoque')}
                           >
                             <MessageSquare className="h-4 w-4 mr-2" />
                             Cancelamento sem Estoque
@@ -2868,7 +2866,7 @@ const NovoAtendimento = () => {
                             type="button" 
                             variant="outline" 
                             size="sm"
-                            onClick={() => loadTextoPadrao('Falha de Compras - Cancelado')}
+                            onClick={() => loadTextoPadrao('Falha Compras - Cancelado')}
                           >
                             <MessageSquare className="h-4 w-4 mr-2" />
                             Cancelado
@@ -3745,6 +3743,78 @@ const NovoAtendimento = () => {
                           onClick={() => loadTextoMotivoPendencia('Entregue - Encerrado')}
                         >
                           Encerrado
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {motivoPendencia === 'Ag. Logística' && (
+                    <div className="mt-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 space-y-2">
+                      <Label className="text-sm font-medium text-blue-800 dark:text-blue-200">Textos Padrão - Ag. Logística (Falha Produção)</Label>
+                      <div className="flex flex-wrap gap-2">
+                        <Button 
+                          type="button" 
+                          variant={selectedMotivoPendencia === 'Falha Produção' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => loadTextoPadrao('Falha Produção')}
+                        >
+                          Sem Rastreio
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant={selectedMotivoPendencia === 'Falha Produção - Correios' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => loadTextoPadrao('Falha Produção - Correios')}
+                        >
+                          Rastreio Correios
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant={selectedMotivoPendencia === 'Falha Produção - Total Express' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => loadTextoPadrao('Falha Produção - Total Express')}
+                        >
+                          Rastreio Total Express
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {motivoPendencia === 'Ag. Compras' && (
+                    <div className="mt-3 p-3 rounded-lg bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 space-y-2">
+                      <Label className="text-sm font-medium text-purple-800 dark:text-purple-200">Textos Padrão - Ag. Compras (Falha Compras)</Label>
+                      <div className="flex flex-wrap gap-2">
+                        <Button 
+                          type="button" 
+                          variant={selectedMotivoPendencia === 'Falha Compras' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => loadTextoPadrao('Falha Compras')}
+                        >
+                          Em Preparação
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant={selectedMotivoPendencia === 'Falha Compras - Em Separação' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => loadTextoPadrao('Falha Compras - Em Separação')}
+                        >
+                          Em Separação
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant={selectedMotivoPendencia === 'Falha Compras - Cancelamento sem Estoque' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => loadTextoPadrao('Falha Compras - Cancelamento sem Estoque')}
+                        >
+                          Cancelamento sem Estoque
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant={selectedMotivoPendencia === 'Falha Compras - Cancelado' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => loadTextoPadrao('Falha Compras - Cancelado')}
+                        >
+                          Cancelado
                         </Button>
                       </div>
                     </div>

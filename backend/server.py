@@ -142,7 +142,7 @@ class ChangePasswordRequest(BaseModel):
 #             Divergência de Produto, Arrependimento, Dúvida, Reclamação, Assistência Técnica
 CATEGORIAS_EMERGENT = [
     "Falha Produção",
-    "Falha de Compras", 
+    "Falha Compras", 
     "Falha Transporte",
     "Produto com Avaria",
     "Divergência de Produto",
@@ -520,7 +520,7 @@ Seguimos a disposição.
 Atenciosamente,
 [ASSINATURA]""",
     
-    "Falha de Compras": """Olá,
+    "Falha Compras": """Olá,
 
 Identificamos uma falha operacional, a qual, está sendo resolvida. O pedido encontra-se em preparação. Assim que possível, disponibilizaremos o link para rastreio e previsão de entrega.
 
@@ -528,7 +528,7 @@ Seguimos a disposição.
 Atenciosamente!
 [ASSINATURA]""",
 
-    "Falha de Compras - Em Separação": """Olá,
+    "Falha Compras - Em Separação": """Olá,
 
 Identificamos uma falha operacional, a qual, está sendo resolvida. O pedido encontra-se em separação para transportadora. Assim que possível, disponibilizaremos o link para rastreio e previsão de entrega.
 
@@ -536,7 +536,7 @@ Seguimos a disposição.
 Atenciosamente!
 [ASSINATURA]""",
 
-    "Falha de Compras - Cancelamento sem Estoque": """Olá,
+    "Falha Compras - Cancelamento sem Estoque": """Olá,
 
 Infelizmente, durante a preparação do item "[PRODUTO]" ([ENTREGA]), identificamos uma avaria, o que nos levou a optar pelo cancelamento devido à indisponibilidade para reposição.
 
@@ -546,7 +546,7 @@ Atenciosamente,
 
 [ASSINATURA]""",
 
-    "Falha de Compras - Cancelado": """Olá,
+    "Falha Compras - Cancelado": """Olá,
 
 Pedido cancelado, por favor seguir com o estorno ao cliente e encerramento do chamado.
 
@@ -3561,7 +3561,7 @@ async def get_dashboard_visao_geral(
         {"nome": "LL Loyalty", "variacoes": ["LL Loyalty", "LL Loyalt"]},
         {"nome": "Sicredi", "variacoes": ["Sicredi", "SICREDI"]},
         {"nome": "CSU", "variacoes": ["CSU"]},
-        {"nome": "Nicequest", "variacoes": ["Nicequest", "NiceQuest"]},
+        {"nome": "Nicequest", "variacoes": ["Nicequest", "NiceQuest", "NICEQUEST"]},
         {"nome": "GRS", "variacoes": ["Global Rewards", "GRS"]},
         {"nome": "LTM", "variacoes": ["LTM"]},
         {"nome": "Camicado", "variacoes": ["Camicado"]},
