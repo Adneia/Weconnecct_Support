@@ -2040,6 +2040,11 @@ async def update_chamado(
     # Check if pendente changed to False (encerramento)
     if 'pendente' in update_data and not update_data['pendente'] and existing.get('pendente', True):
         update_data['data_fechamento'] = datetime.now(timezone.utc).isoformat()
+        # Limpar motivo_pendencia se ainda tem um motivo não-finalizador
+        motivos_finalizadores = ["Entregue", "Estornado", "Atendido", "Em devolução", "Devolvido", "Encerrado"]
+        motivo_atual = update_data.get('motivo_pendencia') or existing.get('motivo_pendencia', '')
+        if motivo_atual and motivo_atual not in motivos_finalizadores:
+            update_data['motivo_pendencia'] = "Encerrado"
     
     if update_data:
         await db.chamados.update_one({"id": chamado_id}, {"$set": update_data})

@@ -75,7 +75,7 @@ const MOTIVOS_PENDENCIA = [
 ];
 
 // Motivos que permitem encerrar o atendimento
-const MOTIVOS_FINALIZADORES = ["Entregue", "Estornado", "Atendido", "Em devolução", "Devolvido"];
+const MOTIVOS_FINALIZADORES = ["Entregue", "Estornado", "Atendido", "Em devolução", "Devolvido", "Encerrado"];
 
 // Textos para Motivo da Pendência
 const TEXTOS_MOTIVO_PENDENCIA = {

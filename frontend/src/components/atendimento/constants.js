@@ -40,7 +40,7 @@ export const MOTIVOS_PENDENCIA = [
   "Devolvido"
 ];
 
-export const MOTIVOS_FINALIZADORES = ["Entregue", "Estornado", "Atendido", "Em devolução", "Devolvido"];
+export const MOTIVOS_FINALIZADORES = ["Entregue", "Estornado", "Atendido", "Em devolução", "Devolvido", "Encerrado"];
 
 // Textos de Motivo da Pendência
 export const TEXTOS_MOTIVO_PENDENCIA = {
