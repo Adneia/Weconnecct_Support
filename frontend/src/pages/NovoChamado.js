@@ -2646,8 +2646,51 @@ const NovoAtendimento = () => {
           </Card>
         )}
 
+        {/* Dados do Atendimento (quando não há pedido ERP mas está em modo edição) */}
+        {!pedidoErp && isEditMode && atendimentoOriginal && (
+          <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/30 dark:bg-amber-950/20" data-testid="atendimento-info">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Package className="h-5 w-5 text-amber-600" />
+                Atendimento #{atendimentoOriginal.id_atendimento || formData.numero_pedido}
+              </CardTitle>
+              <CardDescription className="text-xs text-amber-600">
+                ⚠️ Pedido não encontrado na base ERP
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+                {atendimentoOriginal.numero_pedido && (
+                  <div>
+                    <span className="text-muted-foreground">Entrega:</span>
+                    <p className="font-medium">{atendimentoOriginal.numero_pedido}</p>
+                  </div>
+                )}
+                {atendimentoOriginal.nome_cliente && (
+                  <div>
+                    <span className="text-muted-foreground">Cliente:</span>
+                    <p className="font-medium">{atendimentoOriginal.nome_cliente}</p>
+                  </div>
+                )}
+                {atendimentoOriginal.parceiro && (
+                  <div>
+                    <span className="text-muted-foreground">Parceiro:</span>
+                    <p className="font-medium">{atendimentoOriginal.parceiro}</p>
+                  </div>
+                )}
+                {atendimentoOriginal.categoria && (
+                  <div>
+                    <span className="text-muted-foreground">Categoria:</span>
+                    <p className="font-medium">{atendimentoOriginal.categoria}</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Classificação */}
-        {(pedidoErp || modoFalhaIntegracao) && (
+        {(pedidoErp || modoFalhaIntegracao || isEditMode) && (
           <>
             <Card>
               <CardHeader className="pb-3">

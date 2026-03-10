@@ -2938,6 +2938,32 @@ async def process_import_background(import_id: str, df):
     )
     logger.info(f"[{import_id}] Importação concluída: {imported} novos, {updated} atualizados, {skipped_old} ignorados, {errors} erros")
     
+    # Criar notificação para Adneia sobre a importação concluída
+    try:
+        data_hora = datetime.now(timezone.utc).strftime("%d/%m/%Y às %H:%M")
+        notificacao_importacao = {
+            "id": str(uuid.uuid4()),
+            "tipo": "importacao_base",
+            "titulo": f"📦 Base importada - {imported + updated} pedidos",
+            "mensagem": f"A base de pedidos foi importada com sucesso em {data_hora}.\n\n📊 Resumo:\n   • {imported} novos pedidos\n   • {updated} pedidos atualizados\n   • {skipped_old} ignorados (antigos)\n   • {errors} erros",
+            "destinatario_email": "adneia@weconnect360.com.br",
+            "dados_extras": {
+                "import_id": import_id,
+                "imported": imported,
+                "updated": updated,
+                "skipped_old": skipped_old,
+                "errors": errors,
+                "total_rows": total_rows
+            },
+            "data_criacao": datetime.now(timezone.utc),
+            "lida": False,
+            "criado_por_nome": "Sistema"
+        }
+        await db.notificacoes.insert_one(notificacao_importacao)
+        logger.info(f"[{import_id}] Notificação de importação criada para admin")
+    except Exception as notif_error:
+        logger.error(f"[{import_id}] Erro ao criar notificação de importação: {notif_error}")
+    
     # Executar atualização automática de motivos de pendência
     await atualizar_motivos_pendencia_automatico()
 

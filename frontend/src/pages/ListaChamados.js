@@ -31,7 +31,7 @@ import {
   DialogTitle,
 } from '../components/ui/dialog';
 import { toast } from 'sonner';
-import { Search, Plus, Filter, X, Clock, CheckCircle, AlertCircle, FileText, RotateCcw, Download, FileSpreadsheet, CheckSquare } from 'lucide-react';
+import { Search, Plus, Filter, X, Clock, CheckCircle, AlertCircle, FileText, RotateCcw, Download, FileSpreadsheet, CheckSquare, Clipboard } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
@@ -379,6 +379,39 @@ const ListaAtendimentos = () => {
       console.error('Erro ao exportar relatório:', error);
       toast.error('Erro ao gerar relatório Ag. Logística');
     }
+  };
+
+  // Função para copiar dados da linha
+  const copyRowData = (atd, e) => {
+    e.stopPropagation(); // Não navegar ao clicar no botão
+    
+    const dadosParaCopiar = [
+      `Entrega: ${atd.numero_pedido || '-'}`,
+      `Cliente: ${atd.nome_cliente || '-'}`,
+      `CPF: ${atd.cpf_cliente || '-'}`,
+      `Parceiro: ${atd.parceiro || atd.canal_vendas || '-'}`,
+      `Solicitação: ${atd.solicitacao || '-'}`,
+      `Motivo Pendência: ${atd.motivo_pendencia || '-'}`,
+      `Status Pedido: ${atd.status_pedido || '-'}`,
+      `Reversa: ${atd.codigo_reversa || '-'}`,
+      `Categoria: ${atd.categoria || '-'}`,
+    ].join('\n');
+    
+    navigator.clipboard.writeText(dadosParaCopiar).then(() => {
+      toast.success('Dados copiados!');
+    }).catch(() => {
+      toast.error('Erro ao copiar dados');
+    });
+  };
+
+  // Função para copiar apenas a entrega
+  const copyEntrega = (numero_pedido, e) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(numero_pedido).then(() => {
+      toast.success('Entrega copiada!');
+    }).catch(() => {
+      toast.error('Erro ao copiar');
+    });
   };
 
   const getCategoryBadgeColor = (categoria) => {
@@ -816,22 +849,32 @@ const ListaAtendimentos = () => {
                       }}
                       data-testid={`row-${atd.id}`}
                     >
-                      {/* Coluna Entrega - com link para abrir em nova aba */}
+                      {/* Coluna Entrega - com link para abrir em nova aba e botão de copiar */}
                       <TableCell className="font-medium">
-                        <a 
-                          href={editUrl}
-                          onClick={(e) => {
-                            // Click normal navega pela SPA
-                            if (!e.ctrlKey && !e.metaKey && e.button === 0) {
-                              e.preventDefault();
-                              navigate(editUrl);
-                            }
-                            // Ctrl+Click ou botão do meio abre em nova aba (comportamento padrão do link)
-                          }}
-                          className="hover:underline text-primary"
-                        >
-                          {atd.numero_pedido}
-                        </a>
+                        <div className="flex items-center gap-1">
+                          <a 
+                            href={editUrl}
+                            onClick={(e) => {
+                              // Click normal navega pela SPA
+                              if (!e.ctrlKey && !e.metaKey && e.button === 0) {
+                                e.preventDefault();
+                                navigate(editUrl);
+                              }
+                              // Ctrl+Click ou botão do meio abre em nova aba (comportamento padrão do link)
+                            }}
+                            className="hover:underline text-primary"
+                          >
+                            {atd.numero_pedido}
+                          </a>
+                          <button
+                            onClick={(e) => copyRowData(atd, e)}
+                            className="p-1 hover:bg-muted rounded opacity-50 hover:opacity-100 transition-opacity"
+                            title="Copiar dados do atendimento"
+                            data-testid={`copy-btn-${atd.id}`}
+                          >
+                            <Clipboard className="h-3.5 w-3.5 text-muted-foreground" />
+                          </button>
+                        </div>
                       </TableCell>
                       <TableCell className="text-sm">
                         <div>
