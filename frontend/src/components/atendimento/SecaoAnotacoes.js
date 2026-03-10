@@ -1,0 +1,299 @@
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Label } from '../ui/label';
+import { Textarea } from '../ui/textarea';
+import { Badge } from '../ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/select';
+import { Plus } from 'lucide-react';
+import { MOTIVOS_PENDENCIA, MOTIVOS_FINALIZADORES } from './constants';
+
+const MotivoPendenciaTextos = ({ motivoPendencia, selectedMotivoPendencia, onLoadTextoMotivoPendencia, onLoadTextoPadrao }) => {
+  if (motivoPendencia === 'Ag. Confirmação de Entrega') {
+    return (
+      <div className="mt-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 space-y-2">
+        <Label className="text-sm font-medium text-amber-800 dark:text-amber-200">Textos Padrão - Confirmação de Entrega</Label>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant={selectedMotivoPendencia === 'Ag. Confirmação de Entrega' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Confirmação de Entrega')}>Solicitar Confirmação</Button>
+          <Button type="button" variant={selectedMotivoPendencia === 'Ag. Confirmação - Extravio' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Confirmação - Extravio')}>Extravio</Button>
+          <Button type="button" variant={selectedMotivoPendencia === 'Ag. Confirmação - Reenvio' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Confirmação - Reenvio')}>Reenvio</Button>
+          <Button type="button" variant={selectedMotivoPendencia === 'Ag. Confirmação - Confirmado' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Confirmação - Confirmado')}>Confirmado</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (motivoPendencia === 'Ag. Parceiro') {
+    return (
+      <div className="mt-3 p-3 rounded-lg bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 space-y-2">
+        <Label className="text-sm font-medium text-purple-800 dark:text-purple-200">Textos Padrão - Ag. Parceiro</Label>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant={selectedMotivoPendencia === 'Ag. Parceiro - Estorno' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Parceiro - Estorno')}>Estorno</Button>
+          <Button type="button" variant={selectedMotivoPendencia === 'Ag. Parceiro - Confirmação Encerramento' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Parceiro - Confirmação Encerramento')}>Confirmação Encerramento</Button>
+          <Button type="button" variant={selectedMotivoPendencia === 'Ag. Parceiro - Encerramento' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Parceiro - Encerramento')}>Encerramento</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (motivoPendencia === 'Em devolução') {
+    return (
+      <div className="mt-3 p-3 rounded-lg bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 space-y-2">
+        <Label className="text-sm font-medium text-rose-800 dark:text-rose-200">Textos Padrão - Em Devolução</Label>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant={selectedMotivoPendencia === 'Em devolução - Ag. Devolução' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Em devolução - Ag. Devolução')}>Ag. Devolução</Button>
+          <Button type="button" variant={selectedMotivoPendencia === 'Em devolução - Liberar Estorno' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Em devolução - Liberar Estorno')}>Liberar Estorno</Button>
+          <Button type="button" variant={selectedMotivoPendencia === 'Em devolução - Confirmar Reenvio' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Em devolução - Confirmar Reenvio')}>Confirmar Reenvio</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (motivoPendencia === 'Devolvido') {
+    return (
+      <div className="mt-3 p-3 rounded-lg bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 space-y-2">
+        <Label className="text-sm font-medium text-purple-800 dark:text-purple-200">Textos Padrão - Devolvido</Label>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant={selectedMotivoPendencia === 'Devolvido - Problema Transportadora' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Devolvido - Problema Transportadora')}>Problema Transportadora</Button>
+          <Button type="button" variant={selectedMotivoPendencia === 'Devolvido - Cancelamento e Estorno' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Devolvido - Cancelamento e Estorno')}>Cancelamento e Estorno</Button>
+          <Button type="button" variant={selectedMotivoPendencia === 'Devolvido - Reenvio' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Devolvido - Reenvio')}>Reenvio</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (motivoPendencia === 'Aguardando') {
+    return (
+      <div className="mt-3 p-3 rounded-lg bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800 space-y-2">
+        <Label className="text-sm font-medium text-yellow-800 dark:text-yellow-200">Textos Padrão - Aguardando</Label>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant={selectedMotivoPendencia === 'Aguardando - Encerramento' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Aguardando - Encerramento')}>Encerramento</Button>
+          <Button type="button" variant={selectedMotivoPendencia === 'Aguardando - Prazo Expirado' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Aguardando - Prazo Expirado')}>Prazo Expirado</Button>
+          <Button type="button" variant={selectedMotivoPendencia === 'Aguardando - Próximo de Vencer' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Aguardando - Próximo de Vencer')}>Próximo de Vencer</Button>
+          <Button type="button" variant={selectedMotivoPendencia === 'Aguardando - Encerrado' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Aguardando - Encerrado')}>Encerrado</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (motivoPendencia === 'Entregue') {
+    return (
+      <div className="mt-3 p-3 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 space-y-2">
+        <Label className="text-sm font-medium text-green-800 dark:text-green-200">Textos Padrão - Entregue</Label>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant={selectedMotivoPendencia === 'Entregue - Confirmação' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Entregue - Confirmação')}>Confirmação</Button>
+          <Button type="button" variant={selectedMotivoPendencia === 'Entregue - Encerramento' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Entregue - Encerramento')}>Encerramento</Button>
+          <Button type="button" variant={selectedMotivoPendencia === 'Entregue - Prazo Expirado' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Entregue - Prazo Expirado')}>Prazo Expirado</Button>
+          <Button type="button" variant={selectedMotivoPendencia === 'Entregue - Próximo de Vencer' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Entregue - Próximo de Vencer')}>Próximo de Vencer</Button>
+          <Button type="button" variant={selectedMotivoPendencia === 'Entregue - Encerrado' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Entregue - Encerrado')}>Encerrado</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (motivoPendencia === 'Ag. Logística') {
+    return (
+      <div className="mt-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 space-y-2">
+        <Label className="text-sm font-medium text-blue-800 dark:text-blue-200">Textos Padrão - Ag. Logística (Falha Produção)</Label>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant={selectedMotivoPendencia === 'Falha Produção' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoPadrao('Falha Produção')}>Sem Rastreio</Button>
+          <Button type="button" variant={selectedMotivoPendencia === 'Falha Produção - Correios' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoPadrao('Falha Produção - Correios')}>Rastreio Correios</Button>
+          <Button type="button" variant={selectedMotivoPendencia === 'Falha Produção - Total Express' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoPadrao('Falha Produção - Total Express')}>Rastreio Total Express</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (motivoPendencia === 'Ag. Compras') {
+    return (
+      <div className="mt-3 p-3 rounded-lg bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 space-y-2">
+        <Label className="text-sm font-medium text-purple-800 dark:text-purple-200">Textos Padrão - Ag. Compras (Falha Compras)</Label>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant={selectedMotivoPendencia === 'Falha Compras' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoPadrao('Falha Compras')}>Em Preparação</Button>
+          <Button type="button" variant={selectedMotivoPendencia === 'Falha Compras - Em Separação' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoPadrao('Falha Compras - Em Separação')}>Em Separação</Button>
+          <Button type="button" variant={selectedMotivoPendencia === 'Falha Compras - Cancelamento sem Estoque' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoPadrao('Falha Compras - Cancelamento sem Estoque')}>Cancelamento sem Estoque</Button>
+          <Button type="button" variant={selectedMotivoPendencia === 'Falha Compras - Cancelado' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoPadrao('Falha Compras - Cancelado')}>Cancelado</Button>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+};
+
+const SecaoAnotacoes = ({
+  formData,
+  onChangeField,
+  isEditMode,
+  fieldErrors,
+  onFieldErrorClear,
+  motivoPendencia,
+  onMotivoPendenciaChange,
+  codigoReversa,
+  onCodigoReversaChange,
+  dataVencimentoReversa,
+  onDataVencimentoReversaChange,
+  retornarChamado,
+  onRetornarChamadoChange,
+  verificarAdneia,
+  onVerificarAdneiaChange,
+  pedidoErp,
+  selectedMotivoPendencia,
+  onLoadTextoMotivoPendencia,
+  onLoadTextoPadrao,
+}) => {
+  const addObservacao = (texto) => {
+    if (!texto.trim()) return;
+    const hoje = new Date().toLocaleDateString('pt-BR');
+    const novaEntrada = `[${hoje}] ${texto.trim()}`;
+    const anotacoesAtuais = formData.anotacoes;
+    const novasAnotacoes = anotacoesAtuais
+      ? `${novaEntrada}\n\n${anotacoesAtuais}`
+      : novaEntrada;
+    onChangeField('anotacoes', novasAnotacoes);
+    if (fieldErrors.anotacoes) onFieldErrorClear('anotacoes');
+  };
+
+  return (
+    <Card className={fieldErrors.anotacoes ? 'border-red-500' : ''} data-testid="secao-anotacoes">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg">
+          3. Anotações {!isEditMode && <span className="text-red-500">*</span>}
+        </CardTitle>
+        <CardDescription>
+          {fieldErrors.anotacoes
+            ? <span className="text-red-500">É obrigatório adicionar uma anotação para salvar o atendimento</span>
+            : isEditMode
+              ? 'Registre o histórico e observações do atendimento (opcional na edição)'
+              : 'Registre o histórico e observações do atendimento'
+          }
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {/* Dados da Reversa */}
+        <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 space-y-3">
+          <Label className="text-sm font-medium text-blue-800 dark:text-blue-200">Dados da Reversa</Label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <Label className="text-xs text-muted-foreground">Número da Reversa</Label>
+              <Input value={codigoReversa} onChange={(e) => onCodigoReversaChange(e.target.value)} placeholder="Digite o código da reversa" className="mt-1" data-testid="input-numero-reversa" />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">Data de Vencimento</Label>
+              <Input type="date" value={dataVencimentoReversa} onChange={(e) => onDataVencimentoReversaChange(e.target.value)} className="mt-1" data-testid="input-data-vencimento-reversa" />
+            </div>
+          </div>
+        </div>
+
+        {/* Motivo da Pendência */}
+        <div>
+          <Label className={fieldErrors.motivoPendencia ? 'text-red-600' : ''}>
+            Motivo da Pendência <span className="text-red-500">*</span>
+          </Label>
+          <Select value={motivoPendencia} onValueChange={onMotivoPendenciaChange}>
+            <SelectTrigger data-testid="select-motivo-pendencia" className={fieldErrors.motivoPendencia ? 'border-red-500 focus:ring-red-500' : ''}>
+              <SelectValue placeholder="Selecione o motivo" />
+            </SelectTrigger>
+            <SelectContent>
+              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Motivos de Acompanhamento</div>
+              {MOTIVOS_PENDENCIA.filter(m => !MOTIVOS_FINALIZADORES.includes(m)).map(m => (
+                <SelectItem key={m} value={m}>{m}</SelectItem>
+              ))}
+              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground border-t mt-2 pt-2">Motivos Finalizadores</div>
+              {MOTIVOS_FINALIZADORES.map(m => (
+                <SelectItem key={m} value={m} className="text-emerald-700 dark:text-emerald-400">✓ {m}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {pedidoErp?.status_pedido && (
+            <p className="text-xs text-muted-foreground mt-1">Status atual: {pedidoErp.status_pedido}</p>
+          )}
+
+          <MotivoPendenciaTextos
+            motivoPendencia={motivoPendencia}
+            selectedMotivoPendencia={selectedMotivoPendencia}
+            onLoadTextoMotivoPendencia={onLoadTextoMotivoPendencia}
+            onLoadTextoPadrao={onLoadTextoPadrao}
+          />
+        </div>
+
+        {/* Campo para nova observação */}
+        <div className="space-y-3">
+          <Label className={fieldErrors.anotacoes ? 'text-red-600' : ''}>
+            Anotações <span className="text-red-500">*</span>
+          </Label>
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <Textarea
+                id="nova-observacao"
+                placeholder="Digite uma nova observação..."
+                rows={2}
+                data-testid="textarea-nova-observacao"
+                className={fieldErrors.anotacoes && !formData.anotacoes ? 'border-red-500 focus:ring-red-500' : ''}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    const input = e.target;
+                    addObservacao(input.value);
+                    input.value = '';
+                  }
+                }}
+              />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="self-end"
+              onClick={() => {
+                const input = document.getElementById('nova-observacao');
+                addObservacao(input.value);
+                input.value = '';
+              }}
+              data-testid="btn-adicionar-observacao"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Adicionar
+            </Button>
+          </div>
+
+          {/* Histórico de anotações */}
+          {formData.anotacoes && (
+            <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-900/50 border">
+              <Label className="text-xs text-muted-foreground mb-2 block">Histórico de Observações</Label>
+              <div className="text-sm whitespace-pre-wrap font-mono text-slate-700 dark:text-slate-300">{formData.anotacoes}</div>
+            </div>
+          )}
+          <input type="hidden" value={formData.anotacoes} />
+        </div>
+
+        {/* Checkboxes */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="flex items-center justify-between p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+            <div className="flex items-center gap-3">
+              <input type="checkbox" id="retornar-chamado" checked={retornarChamado} onChange={(e) => onRetornarChamadoChange(e.target.checked)} className="w-5 h-5 rounded border-amber-400 text-amber-600 focus:ring-amber-500" data-testid="checkbox-retornar" />
+              <Label htmlFor="retornar-chamado" className="text-amber-800 dark:text-amber-200 font-medium cursor-pointer">Retornar Chamado</Label>
+            </div>
+            {retornarChamado && <Badge variant="outline" className="bg-amber-100 text-amber-800 border-amber-300">Aguardando</Badge>}
+          </div>
+
+          <div className="flex items-center justify-between p-3 rounded-lg bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800">
+            <div className="flex items-center gap-3">
+              <input type="checkbox" id="verificar-adneia" checked={verificarAdneia} onChange={(e) => onVerificarAdneiaChange(e.target.checked)} className="w-5 h-5 rounded border-purple-400 text-purple-600 focus:ring-purple-500" data-testid="checkbox-verificar-adneia" />
+              <Label htmlFor="verificar-adneia" className="text-purple-800 dark:text-purple-200 font-medium cursor-pointer">Verificar</Label>
+            </div>
+            {verificarAdneia && <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-300">Aguardando</Badge>}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+export default SecaoAnotacoes;

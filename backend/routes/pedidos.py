@@ -18,6 +18,118 @@ router = APIRouter(prefix="/api")
 
 # ============== BUSCAR PEDIDOS ==============
 
+@router.get("/pedidos-erp/buscar/cpf/{cpf}")
+async def buscar_pedido_por_cpf(cpf: str, current_user: dict = Depends(get_current_user)):
+    """Search pedidos by CPF (supports both formatted and unformatted)"""
+    # Remove formatting from CPF
+    cpf_limpo = cpf.replace(".", "").replace("-", "").strip()
+    
+    pedidos = await db.pedidos_erp.find({
+        "$or": [
+            {"cpf_cliente": {"$regex": cpf_limpo, "$options": "i"}},
+            {"cpf_cliente": {"$regex": cpf, "$options": "i"}}
+        ]
+    }, {"_id": 0}).sort("data_status", -1).to_list(50)
+    
+    # Add galpao info to each pedido
+    for p in pedidos:
+        galpao_info = get_galpao_from_serie(p.get('serie_nf', ''), p.get('chave_nota', ''))
+        p['galpao'] = galpao_info.get('galpao', '')
+        p['uf_galpao'] = galpao_info.get('uf_galpao', '')
+    
+    return pedidos
+
+
+@router.get("/pedidos-erp/buscar/nome/{nome}")
+async def buscar_pedido_por_nome(nome: str, current_user: dict = Depends(get_current_user)):
+    """Search pedidos by customer name"""
+    pedidos = await db.pedidos_erp.find({
+        "nome_cliente": {"$regex": nome, "$options": "i"}
+    }, {"_id": 0}).sort("data_status", -1).to_list(50)
+    
+    for p in pedidos:
+        galpao_info = get_galpao_from_serie(p.get('serie_nf', ''), p.get('chave_nota', ''))
+        p['galpao'] = galpao_info.get('galpao', '')
+        p['uf_galpao'] = galpao_info.get('uf_galpao', '')
+    
+    return pedidos
+
+
+@router.get("/pedidos-erp/buscar/pedido/{pedido}")
+async def buscar_pedido_por_numero_pedido(pedido: str, current_user: dict = Depends(get_current_user)):
+    """Search pedidos by pedido number (partial match)"""
+    pedidos = await db.pedidos_erp.find({
+        "$or": [
+            {"numero_pedido": {"$regex": pedido, "$options": "i"}},
+            {"codigo_pedido": {"$regex": pedido, "$options": "i"}}
+        ]
+    }, {"_id": 0}).sort("data_status", -1).to_list(50)
+    
+    for p in pedidos:
+        galpao_info = get_galpao_from_serie(p.get('serie_nf', ''), p.get('chave_nota', ''))
+        p['galpao'] = galpao_info.get('galpao', '')
+        p['uf_galpao'] = galpao_info.get('uf_galpao', '')
+    
+    return pedidos
+
+
+@router.get("/pedidos-erp/buscar/galpao/{galpao}/nota/{nota}")
+async def buscar_pedido_por_galpao_nota(galpao: str, nota: str, current_user: dict = Depends(get_current_user)):
+    """Search pedidos by galpao and nota fiscal"""
+    query = {}
+    nota_str = nota.strip()
+    
+    # Map galpao to serie_nf
+    if galpao.upper() == "SC":
+        query["serie_nf"] = "1"
+    elif galpao.upper() == "SP":
+        query["serie_nf"] = "6"
+    elif galpao.upper() == "ES":
+        query["serie_nf"] = "2"
+    else:
+        query["serie_nf"] = galpao
+    
+    query["$or"] = [
+        {"nota_fiscal": nota_str},
+        {"nota_fiscal": nota_str + ".0"},
+        {"nota_fiscal": {"$regex": f"^{nota_str}", "$options": "i"}}
+    ]
+    
+    pedidos = await db.pedidos_erp.find(query, {"_id": 0}).to_list(50)
+    
+    # If no results with serie_nf filter, try just nota
+    if not pedidos:
+        query_nota = {"$or": [
+            {"nota_fiscal": nota_str},
+            {"nota_fiscal": nota_str + ".0"},
+            {"nota_fiscal": {"$regex": f"^{nota_str}", "$options": "i"}}
+        ]}
+        pedidos = await db.pedidos_erp.find(query_nota, {"_id": 0}).to_list(50)
+    
+    for p in pedidos:
+        galpao_info = get_galpao_from_serie(p.get('serie_nf', ''), p.get('chave_nota', ''))
+        p['galpao'] = galpao_info.get('galpao', '')
+        p['uf_galpao'] = galpao_info.get('uf_galpao', '')
+    
+    return pedidos
+
+
+@router.get("/pedidos-erp/{numero_pedido}")
+async def get_pedido_by_entrega(numero_pedido: str, current_user: dict = Depends(get_current_user)):
+    """Get single pedido by numero_pedido (entrega)"""
+    pedido = await db.pedidos_erp.find_one({"numero_pedido": numero_pedido}, {"_id": 0})
+    
+    if not pedido:
+        raise HTTPException(status_code=404, detail="Pedido não encontrado")
+    
+    # Add galpao info
+    galpao_info = get_galpao_from_serie(pedido.get('serie_nf', ''), pedido.get('chave_nota', ''))
+    pedido['galpao'] = galpao_info.get('galpao', '')
+    pedido['uf_galpao'] = galpao_info.get('uf_galpao', '')
+    
+    return pedido
+
+
 @router.get("/pedidos-erp/buscar")
 async def buscar_pedido_erp(
     numero_pedido: Optional[str] = None,

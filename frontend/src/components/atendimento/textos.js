@@ -1,49 +1,8 @@
 /**
- * Constantes e textos padrão para atendimentos
+ * Textos template para atendimentos - fonte de verdade
+ * Extraído do NovoChamado.js durante a refatoração
  */
 
-export const CATEGORIAS = [
-  "Falha Produção",
-  "Falha Compras",
-  "Falha Transporte",
-  "Falha Fornecedor",
-  "Falha Integração",
-  "Falha Parceiro",
-  "Falha Cadastro",
-  "Produto com Avaria",
-  "Arrependimento",
-  "Acompanhamento",
-  "Comprovante de Entrega",
-  "Assistência Técnica"
-];
-
-export const ATENDENTES = ["Letícia Martelo", "Adnéia Campos"];
-
-export const MOTIVOS_PENDENCIA = [
-  "Ag. Compras",
-  "Ag. Logística", 
-  "Ag. Cliente",
-  "Enviado",
-  "Ag. Bseller",
-  "Ag. Barrar",
-  "Aguardando",
-  "Em devolução",
-  "Ag. Confirmação de Entrega",
-  "Ag. Parceiro",
-  "Ag. Transportadora - Asap",
-  "Ag. Transportadora - J&T",
-  "Ag. Transportadora - Total",
-  // --- Motivos que finalizam o atendimento ---
-  "Entregue",
-  "Estornado",
-  "Atendido",
-  "Devolvido",
-  "Encerrado"
-];
-
-export const MOTIVOS_FINALIZADORES = ["Entregue", "Estornado", "Atendido", "Em devolução", "Devolvido", "Encerrado"];
-
-// Textos de Motivo da Pendência
 export const TEXTOS_MOTIVO_PENDENCIA = {
   "Ag. Confirmação de Entrega": `Prezado(a) Sr(a). [PRIMEIRO_NOME]
 
@@ -166,10 +125,162 @@ Estamos à disposição para qualquer dúvida.
 
 Atenciosamente,
 
-[ASSINATURA]`
+[ASSINATURA]`,
+
+  "Aguardando - Encerramento": `Olá, 
+
+Poderia confirmar se podemos proceder com o encerramento do chamado?
+
+Seguimos a disposição.
+
+Atenciosamente, 
+
+[ASSINATURA]`,
+
+  "Aguardando - Prazo Expirado": `Olá, 
+
+O código de postagem está expirado e não houve postagem do produto. Podemos seguir com o encerramento do atendimento?
+
+Seguimos à disposição.
+
+Atenciosamente, 
+
+[ASSINATURA]`,
+
+  "Aguardando - Próximo de Vencer": `Olá,
+
+Objeto não postado até o momento. Por favor orientar o cliente em relação ao prazo que expira em [DATA_VALIDADE].
+
+Seguimos a disposição.
+
+Atenciosamente!
+
+[ASSINATURA]`,
+
+  "Aguardando - Encerrado": `Olá, Bom dia.
+
+Estamos seguindo com o encerramento do pedido como entregue.
+
+Seguimos a disposição, caso haja qualquer necessidade dentro dos prazo de atuação.
+
+Atenciosamente!
+
+[ASSINATURA]`,
+
+  "Entregue - Encerramento": `Olá,
+
+Poderia confirmar se podemos proceder com o encerramento do chamado?
+
+Seguimos a disposição.
+
+Atenciosamente,
+
+[ASSINATURA]`,
+
+  "Entregue - Prazo Expirado": `Olá,
+
+O código de postagem está expirado e não houve postagem do produto. Podemos seguir com o encerramento do atendimento?
+
+Seguimos à disposição.
+
+Atenciosamente,
+
+[ASSINATURA]`,
+
+  "Entregue - Próximo de Vencer": `Olá,
+
+Objeto não postado até o momento. Por favor orientar o cliente em relação ao prazo que expira em [DATA_VALIDADE].
+
+Seguimos a disposição.
+
+Atenciosamente!
+
+[ASSINATURA]`,
+
+  "Entregue - Encerrado": `Olá, Bom dia.
+
+Estamos seguindo com o encerramento do pedido como entregue.
+
+Seguimos a disposição, caso haja qualquer necessidade dentro dos prazo de atuação.
+
+Atenciosamente!
+
+[ASSINATURA]`,
+
+  "Entregue - Confirmação": `Prezado(a) Sr(a). [NOME_CLIENTE]
+
+Estamos entrando em contato para confirmar o recebimento do seu pedido: [PRODUTO] ([NUMERO_PEDIDO]). Poderia, por gentileza, nos informar se o produto já foi entregue?
+
+1 - Sim
+2 - Não
+
+Aguardamos sua resposta.
+
+Atenciosamente,
+Equipe de Atendimento Weconnect`
 };
 
-// Textos de Avaria
+// Função para detectar categoria e motivo baseado no status do pedido
+export const getCategoriaPorStatus = (statusPedido) => {
+  if (!statusPedido) return { categoria: '', motivo: '' };
+  
+  const status = statusPedido.toLowerCase();
+  
+  // PRIMEIRO: Verificar se contém "entregue" (qualquer case)
+  // "ENTREGUE", "Pedido Entregue", "Entregue ao cliente" -> motivo "Entregue"
+  if (/\bentregue\b/.test(status) && !status.includes('transportadora')) {
+    return { categoria: '', motivo: 'Entregue' };
+  }
+  
+  // Aguardando estoque
+  if (status.includes('aguardando estoque') || status.includes('ag. estoque')) {
+    return { categoria: 'Falha Compras', motivo: 'Ag. Compras' };
+  }
+  
+  // NF emitida, NF Aprovada, Entregue à transportadora
+  if (status.includes('nf emitida') || status.includes('nf aprovada') || 
+      status.includes('entregue à transportadora') || status.includes('entregue a transportadora')) {
+    return { categoria: 'Falha Produção', motivo: 'Ag. Logística' };
+  }
+  
+  // REGRA: Se o status estiver TODO em MAIÚSCULAS, é "Enviado"
+  // (já excluímos "ENTREGUE" acima)
+  const apenasLetras = statusPedido.replace(/[^a-zA-ZÀ-ÿ]/g, '');
+  if (apenasLetras.length > 0 && apenasLetras === apenasLetras.toUpperCase()) {
+    return { categoria: 'Falha Transporte', motivo: 'Enviado' };
+  }
+  
+  // Em trânsito, saiu para entrega, transferência, etc
+  if (status.includes('trânsito') || status.includes('transito') || 
+      status.includes('transferencia') || status.includes('transferência') ||
+      status.includes('saiu para entrega') || status.includes('em rota') ||
+      status.includes('tentativa') || status.includes('aguardando retirada')) {
+    return { categoria: 'Falha Transporte', motivo: 'Enviado' };
+  }
+  
+  return { categoria: '', motivo: '' };
+};
+
+// Função para detectar transportadora e retornar tipo de rastreio
+export const getTransportadoraRastreio = (transportadora) => {
+  if (!transportadora) return null;
+  
+  const transp = transportadora.toLowerCase();
+  
+  if (transp.includes('total') || transp.includes('tex')) {
+    return 'Com Rastreio - Total Express';
+  }
+  if (transp.includes('j&t') || transp.includes('jt') || transp.includes('j t')) {
+    return 'Com Rastreio - J&T Express';
+  }
+  if (transp.includes('asap') || transp.includes('logistica e solucoes') || transp.includes('logística e soluções')) {
+    return 'Com Rastreio - ASAP Log';
+  }
+  
+  return null;
+};
+
+// Textos de Avaria organizados
 export const TEXTOS_AVARIA = {
   "Avaria - Necessário Evidência": `Olá, Boa tarde.
 
@@ -329,6 +440,19 @@ Seguimos a disposição.
 Atenciosamente,
 [ASSINATURA]`,
 
+  "Rastreio - Correios": `Olá, Boa tarde.
+
+Pedido em processo de entrega, podendo ser entregue a qualquer momento.
+
+Segue link para rastreio:
+https://rastreamento.correios.com.br/app/index.php
+Rastreio: [CÓDIGO_RASTREIO]
+Previsão de entrega até dia [DATA_PREVISAO]
+
+Seguimos a disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
   "Bloqueio da Entrega": `Olá, Boa tarde.
 
 Acionamos a transportadora com o bloqueio de entrega. Poderia, por favor orientar o cliente que em caso de tentativa de entrega, recusar o recebimento.
@@ -339,12 +463,94 @@ Seguimos a disposição.
 Atenciosamente!
 [ASSINATURA]`,
 
+  "Não é Possível Bloqueio": `Olá, Boa tarde.
+
+Acionamos a transportadora com a solicitação de bloqueio da entrega. No entanto, identificamos que o pedido encontra-se em rota de entrega, o que significa que pode não ser possível impedir a entrega a tempo.
+
+Por gentileza, oriente o cliente a recusar o recebimento, caso a tentativa de entrega ocorra.
+
+Caso a entrega seja concluída, nos acionar novamente para que possamos seguir com a emissão da reversa para devolução do pedido.
+
+Assim que o pedido retornar ao nosso centro de distribuição, entraremos em contato.
+
+Permanecemos à disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
   "Extravio": `Olá, Boa tarde.
 
 O pedido foi extraviado pela transportadora. Iniciamos a preparação para envio de um novo item ao cliente, assim que possível disponibilizaremos o link para rastreio.
 Pedimos a gentileza de solicitar ao cliente que em caso de entrega nos acione para darmos as devidas tratativas.
 
 Seguimos a disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Extravio com Previsão": `Olá, Boa tarde.
+
+O pedido foi extraviado pela transportadora, iniciamos uma nova preparação para envio ao cliente. A previsão atual de entrega é para o dia [DATA_PREVISAO]. Poderia, por gentileza, confirmar junto ao cliente a nova previsão?
+
+Pedimos a gentileza de solicitar ao cliente que em caso de entrega nos acione para darmos as devidas tratativas.
+
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Extravio com Cancelamento": `Olá, Bom dia.
+
+Informamos que o item [PRODUTO] ([ENTREGA]) foi extraviado pela transportadora. Pedimos a gentileza de seguir com o cancelamento e estorno devido a indisponibilidade de reposição.
+
+Pedimos sinceras desculpas pelo ocorrido.
+
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Falta Comprovante": `Olá, Boa tarde.
+
+Solicitamos o comprovante de entrega assinado ou o início do processo de acareação da entrega. Assim que possível, encaminharemos as informações.
+
+Pedimos, por gentileza, que, ao entrar em contato com a cliente, seja solicitado que nos informe caso o pedido seja entregue.
+
+Seguimos à disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Desconhece Entrega - No Prazo": `Olá, Boa tarde.
+
+Informamos que o pedido foi entregue em [DATA_ENTREGA]. Por favor confirmar entrega junto ao cliente.
+
+Ressaltamos que o prazo para contestação da entrega ou solicitação de acareação é de até 10 dias corridos, contados da data da entrega. Caso haja qualquer divergência, pedimos que nos informe dentro desse período para que possamos realizar as devidas análises.
+
+Na ausência de manifestação dentro do prazo informado, seguiremos com o encerramento do chamado.
+
+Podemos encerrar o atendimento?
+
+Permanecemos à disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Desconhece Entrega - Fora Prazo": `Olá, Boa tarde.
+
+Informamos que o pedido foi entregue em [DATA_ENTREGA]. Encaminhamos em anexo o comprovante de entrega para sua conferência.
+
+Ressaltamos que o prazo para contestação da entrega ou solicitação de acareação é de até 10 dias corridos, contados a partir da data da entrega. Dessa forma, informamos que o prazo para solicitação de acareação já se encontra expirado.
+
+Diante disso, prosseguiremos com o encerramento do chamado.
+
+Permanecemos à disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "CSU - Comprovante Email": `Olá, Boa tarde.
+
+Informamos que o pedido foi entregue em [DATA_ENTREGA]. Por favor confirmar entrega junto ao cliente e seguir com o encerramento do chamado. Comprovante enviado via e-mail.
+
+Assunto: Ocorrência: [NUMERO_OCORRENCIA]
+
+Ressaltamos que o prazo para contestação da entrega ou solicitação de acareação é de até 10 dias corridos, contados da data da entrega. Caso haja qualquer divergência, pedimos que nos informe dentro desse período para que possamos realizar as devidas análises.
+
+Na ausência de manifestação dentro do prazo informado, seguiremos com o encerramento do chamado.
+
+Permanecemos à disposição.
 Atenciosamente,
 [ASSINATURA]`
 };
@@ -441,6 +647,72 @@ Recebemos o pedido em nosso galpão e estamos providenciando o envio de um novo 
 
 Estamos à disposição para qualquer dúvida.
 Atenciosamente,
+[ASSINATURA]`,
+
+  "Reversa Expirada": `Olá, Boa tarde.
+
+O código de postagem está expirado e não houve postagem do produto. Podemos seguir com o encerramento do atendimento?
+
+Seguimos à disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Reversa Irá Vencer": `Olá, Boa tarde.
+
+Objeto não postado até o momento. Por favor orientar o cliente em relação ao prazo que expira em [DATA_VALIDADE].
+
+Seguimos a disposição.
+Atenciosamente!
+[ASSINATURA]`,
+
+  "Bloqueio da Entrega": `Olá, Boa tarde.
+
+Acionamos a transportadora com o bloqueio de entrega. Poderia, por favor orientar o cliente que em caso de tentativa de entrega, recusar o recebimento.
+
+Assim que entrar em devolução, entraremos em contato.
+
+Seguimos a disposição.
+Atenciosamente!
+[ASSINATURA]`,
+
+  "Enviado Sem Bloqueio": `Olá, Boa tarde.
+
+Acionamos a transportadora com a solicitação de bloqueio da entrega. No entanto, identificamos que o pedido encontra-se em rota de entrega, o que significa que pode não ser possível impedir a entrega a tempo.
+
+Por gentileza, oriente o cliente a recusar o recebimento, caso a tentativa de entrega ocorra.
+
+Caso a entrega seja concluída, nos acionar novamente para que possamos seguir com a emissão da reversa para devolução do pedido.
+
+Assim que o pedido retornar ao nosso centro de distribuição, entraremos em contato.
+
+Permanecemos à disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Em Separação": `Olá, Boa tarde.
+
+O pedido está em processo de separação pela transportadora, aguardando a confirmação da solicitação de barragem.
+
+Prazo para retorno até 3 dias uteis. Assim que tivermos o retorno, entraremos em contato.
+
+Permanecemos à disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Impossibilidade Coleta": `Olá, Boa tarde.
+
+Informamos que, no momento, não disponibilizamos o serviço de coleta. Sendo assim, é necessário que a cliente se dirija até a agência dos Correios mais próxima para realizar a postagem do item, possibilitando a continuidade da tratativa.
+
+Permanecemos à disposição para quaisquer dúvidas.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Prazo Expirado": `Olá, Boa tarde.
+
+Informamos que o prazo para devolução do produto expirou. Dessa forma, não será possível dar continuidade à tratativa de devolução.
+
+Permanecemos à disposição para quaisquer dúvidas.
+Atenciosamente,
 [ASSINATURA]`
 };
 
@@ -525,6 +797,19 @@ Seguimos a disposição.
 Atenciosamente,
 [ASSINATURA]`,
 
+  "Em Processo - Correios": `Olá, 
+
+Pedido em processo de entrega, podendo ser entregue a qualquer momento.
+
+Segue link para rastreio:
+https://rastreamento.correios.com.br/app/index.php
+Rastreio: [CÓDIGO_RASTREIO]
+Previsão de entrega até dia [DATA_PREVISAO]
+
+Seguimos a disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
   "Cancelamento por Falta": `Olá, 
 
 Infelizmente, durante a preparação do item [PRODUTO] ([ENTREGA]), identificamos uma avaria, o que nos levou a optar pelo cancelamento devido à indisponibilidade para reposição.
@@ -534,12 +819,30 @@ Poderia, por gentileza, seguir com o cancelamento e o estorno ao cliente?
 Atenciosamente, 
 [ASSINATURA]`,
 
+  "Falha de Integração": `Olá,
+
+Não fomos acionamos pela Vtex para preparação deste pedido. Status Vtex (Aguardando autorização para despachar).
+
+Por favor verificar o ocorrido entre Vtex e ...
+
+Seguimos a disposição. 
+Atenciosamente,
+[ASSINATURA]`,
+
   "Ag. Compras": `Olá, 
 
 O pedido encontra-se em preparação. Assim que possível, disponibilizaremos o link para rastreio e previsão de entrega.
 
 Seguimos a disposição.
 Atenciosamente! 
+[ASSINATURA]`,
+
+  "Problema na Emissão da NF": `Olá,
+
+Infelizmente na emissão da Nota fiscal do pedido acima [ENTREGA] - [PRODUTO], foi constatado um problema fiscal por parte do CNPJ informado o qual impede a aprovação da NF. Poderiam seguir com o cancelamento e estorno ao cliente.
+
+Seguimos a disposição.
+Atenciosamente!
 [ASSINATURA]`
 };
 
@@ -596,7 +899,7 @@ export const TEXTOS_ASSISTENCIA = {
 Lamentamos muito pelo ocorrido e para agilizar o atendimento, pedimos que o cliente acione direto o fornecedor para dar andamento ao processo de troca.
 
 Serviço de Atendimento ao Cliente (SAC) – ODERÇO
-44 2101-1428
+📞 44 2101-1428
 
 Seguimos à disposição para qualquer apoio necessário.
 Atenciosamente,
@@ -620,7 +923,7 @@ Lamentamos muito pelo ocorrido e para agilizar o atendimento, pedimos que o clie
 Serviço de Atendimento ao Cliente (SAC) – OEX 
 reversa@newex.com.br
 
-0800 887 0505 OU 11 973928421
+📞 0800 887 0505 OU 11 973928421
 
 Seguimos à disposição para qualquer apoio necessário.
 
@@ -633,51 +936,90 @@ Lamentamos muito pelo ocorrido e para agilizar o atendimento, pedimos que o clie
 
 Serviço de Atendimento ao Cliente (SAC) – Hoopson
 
-+55 21 3809-2001
+📞 0+55 21 3809-2001
 
 Seguimos à disposição para qualquer apoio necessário.
 
 Atenciosamente,
+[ASSINATURA]`,
+
+  "Ventisol + Reversa": `Olá, 
+
+Este fornecedor tem a possibilidade de troca direto com ele, o cliente pode aciona-lo direto através do https://assistencia.ventisol.com.br/
+
+Como estamos dentro do prazo de devolução, o cliente também pode optar pelo troca aqui na loja, para isso, basta realizar a devolução conforme o código de postagem abaixo e assim que for recebido em nosso galpão será enviado outro em substituição.
+
+Segue os dados para realizar o retorno do produto em no máximo 10 dias.
+
+Autorização de Postagem em Agência
+
+Dados da Emissão:
+
+Objeto: [CÓDIGO_REVERSA]
+Emitido em: [DATA_EMISSAO]
+Data de Validade: [DATA_VALIDADE]
+Remetente autorizado: [NOME_CLIENTE]
+
+- Para utilizá-la, o consumidor dever se dirigir a uma Agência Própria ou Franqueada dos Correios, levando consigo, obrigatoriamente, o Código de Autorização e o objeto para postagem.
+
+DESTINATÁRIO:
+WECONNECT COMERCIO E SERVICOS LTDA 
+
+*** Orientações importantes ***: 
+
+* O produto deve ser devolvido na embalagem original e sem avaria (dentro de uma outra caixa de papelão OU papel pardo para manter a integridade do produto); 
+* Sem indícios de uso, sem violação do lacre original do fabricante; 
+* Coloque a nota fiscal dentro de um envelope plástico adesivo e cole-o na parte externa do pacote. Este tipo de envelope deve estar disponível em qualquer agência dos Correios; 
+* Acompanhado também dos acessórios/peças e manual do item. 
+* O estorno somente será autorizado após as avaliações citadas acima. As informações do destinatário serão preenchidas na agência dos Correios de acordo com Código de Postagem. 
+
+Seguimos a disposição.
+Atenciosamente!`,
+
+  "OEX + Reversa": `Olá, 
+
+Este fornecedor tem a possibilidade de troca direto com ele, o cliente pode aciona-lo direto através do Serviço de Atendimento ao Cliente (SAC) – OEX - reversa@newex.com.br - 📞 0800 887 0505 OU 11 973928421 . 
+
+Como estamos dentro do prazo de devolução, o cliente também pode optar pela devolução ou troca aqui na loja, para isso, basta realizar a devolução conforme o código de postagem abaixo e assim que for recebido em nosso galpão seguiremos com a tratativa
+
+Segue os dados para realizar o retorno do produto em no máximo 10 dias.
+
+Autorização de Postagem em Agência
+
+Dados da Emissão:
+
+Objeto: [CÓDIGO_REVERSA]
+Emitido em: [DATA_EMISSAO]
+Data de Validade: [DATA_VALIDADE]
+Remetente autorizado: [NOME_CLIENTE]
+
+- Para utilizá-la, o consumidor dever se dirigir a uma Agência Própria ou Franqueada dos Correios, levando consigo, obrigatoriamente, o Código de Autorização e o objeto para postagem.
+
+DESTINATÁRIO:
+WECONNECT COMERCIO E SERVICOS LTDA 
+
+*** Orientações importantes ***: 
+
+* O produto deve ser devolvido na embalagem original e sem avaria (dentro de uma outra caixa de papelão OU papel pardo para manter a integridade do produto); 
+* Sem indícios de uso, sem violação do lacre original do fabricante; 
+* Coloque a nota fiscal dentro de um envelope plástico adesivo e cole-o na parte externa do pacote. Este tipo de envelope deve estar disponível em qualquer agência dos Correios; 
+* Acompanhado também dos acessórios/peças e manual do item. 
+* O estorno somente será autorizado após as avaliações citadas acima. As informações do destinatário serão preenchidas na agência dos Correios de acordo com Código de Postagem. 
+
+Seguimos a disposição.
+Atenciosamente!
+
 [ASSINATURA]`
 };
 
-// Utilitários para detecção de rastreio (usados pelos componentes de atendimento)
-// Nota: getCategoriaPorStatus e getTransportadoraRastreio estão em textos.js
+// Texto para Falha de Integração
+export const TEXTO_FALHA_INTEGRACAO = `Olá,
 
-export const getRastreioTransporte = (transportadora) => {
-  if (!transportadora) return null;
-  const transp = transportadora.toLowerCase();
-  
-  if (transp.includes('total') || transp.includes('tex')) {
-    return 'Rastreio - Total Express';
-  }
-  if (transp.includes('j&t') || transp.includes('jt') || transp.includes('j t')) {
-    return 'Rastreio - J&T Express';
-  }
-  if (transp.includes('asap') || transp.includes('logistica e solucoes') || transp.includes('logística e soluções')) {
-    return 'Rastreio - ASAP Log';
-  }
-  if (transp.includes('correios') || transp.includes('sedex') || transp.includes('pac')) {
-    return 'Rastreio - Correios';
-  }
-  return null;
-};
+Não fomos acionados pela Vtex para preparação deste pedido. Status Vtex (Aguardando autorização para despachar).
 
-export const getRastreioAcompanhamento = (transportadora) => {
-  if (!transportadora) return null;
-  const transp = transportadora.toLowerCase();
-  
-  if (transp.includes('total') || transp.includes('tex')) {
-    return 'Em Processo - Total Express';
-  }
-  if (transp.includes('j&t') || transp.includes('jt') || transp.includes('j t')) {
-    return 'Em Processo - J&T Express';
-  }
-  if (transp.includes('asap') || transp.includes('logistica e solucoes') || transp.includes('logística e soluções')) {
-    return 'Em Processo - ASAP Log';
-  }
-  if (transp.includes('correios') || transp.includes('sedex') || transp.includes('pac')) {
-    return 'Em Processo - Correios';
-  }
-  return null;
-};
+Por favor verificar o ocorrido entre Vtex e [PARCEIRO].
+
+Seguimos a disposição.
+Atenciosamente,
+[ASSINATURA]`;
+
