@@ -3022,6 +3022,53 @@ async def padronizar_parceiros_endpoint(current_user: dict = Depends(get_current
         logger.error(f"Erro ao padronizar parceiros: {e}")
         return {"success": False, "message": str(e)}
 
+@api_router.post("/admin/padronizar-transportadoras")
+async def padronizar_transportadoras_endpoint(current_user: dict = Depends(get_current_user)):
+    """
+    Padroniza os motivos de pendência relacionados a transportadoras.
+    Formato final: "Ag. Transportadora - [Nome]" (Asap, J&T, Total)
+    """
+    try:
+        # Mapeamento de padronização para transportadoras
+        padronizacoes = [
+            # ASAP
+            {"regex": "Ag.*Transportadora.*Asap", "novo": "Ag. Transportadora - Asap"},
+            {"regex": "Ag.*transportadora.*asap", "novo": "Ag. Transportadora - Asap"},
+            # J&T
+            {"regex": "Ag.*Transportadora.*J&T", "novo": "Ag. Transportadora - J&T"},
+            {"regex": "Ag.*transportadora.*J&T", "novo": "Ag. Transportadora - J&T"},
+            {"regex": "Ag.*transportadora.*j&t", "novo": "Ag. Transportadora - J&T"},
+            {"regex": "Aguardando.*Transportadora.*J&T", "novo": "Ag. Transportadora - J&T"},
+            # Total
+            {"regex": "Ag.*Transportadora.*Total", "novo": "Ag. Transportadora - Total"},
+            {"regex": "Ag.*transportadora.*Total", "novo": "Ag. Transportadora - Total"},
+            {"regex": "Ag.*Parceiro.*transportadora.*Total", "novo": "Ag. Transportadora - Total"},
+            # Genérico (sem nome específico) -> manter como está ou adicionar observação
+            {"regex": "^Ag\\. Transportadora$", "novo": "Ag. Transportadora - (verificar)"},
+        ]
+        
+        total_atualizado = 0
+        detalhes = []
+        
+        for p in padronizacoes:
+            result = await db.chamados.update_many(
+                {"motivo_pendencia": {"$regex": p["regex"], "$options": "i"}},
+                {"$set": {"motivo_pendencia": p["novo"]}}
+            )
+            if result.modified_count > 0:
+                total_atualizado += result.modified_count
+                detalhes.append(f"{p['novo']}: {result.modified_count}")
+                logger.info(f"Padronizado '{p['regex']}' -> '{p['novo']}': {result.modified_count} registros")
+        
+        return {
+            "success": True, 
+            "message": f"Transportadoras padronizadas: {total_atualizado} registros",
+            "detalhes": detalhes
+        }
+    except Exception as e:
+        logger.error(f"Erro ao padronizar transportadoras: {e}")
+        return {"success": False, "message": str(e)}
+
 @api_router.post("/admin/corrigir-carga-inicial")
 async def corrigir_carga_inicial(
     file: UploadFile = File(...),

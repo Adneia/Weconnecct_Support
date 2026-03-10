@@ -63,7 +63,9 @@ const MOTIVOS_PENDENCIA = [
   "Em devolução",
   "Ag. Confirmação de Entrega",
   "Ag. Parceiro",
-  "Ag. Transportadora",
+  "Ag. Transportadora - Asap",
+  "Ag. Transportadora - J&T",
+  "Ag. Transportadora - Total",
   // --- Motivos que finalizam o atendimento ---
   "Entregue",
   "Estornado",
