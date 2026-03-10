@@ -3069,6 +3069,97 @@ async def padronizar_transportadoras_endpoint(current_user: dict = Depends(get_c
         logger.error(f"Erro ao padronizar transportadoras: {e}")
         return {"success": False, "message": str(e)}
 
+@api_router.post("/admin/identificar-transportadoras")
+async def identificar_transportadoras_endpoint(current_user: dict = Depends(get_current_user)):
+    """
+    Identifica a transportadora dos chamados marcados como "(verificar)"
+    consultando a base de pedidos ERP e atualiza o motivo de pendência.
+    
+    Mapeamento:
+    - TEX COURIER LTDA -> Ag. Transportadora - Total
+    - J&T EXPRESS BRAZIL LTDA -> Ag. Transportadora - J&T
+    - ASAP LOG - LOGISTICA E SOLUCOES LTDA -> Ag. Transportadora - Asap
+    """
+    try:
+        # Mapeamento de transportadoras
+        MAPA_TRANSPORTADORAS = {
+            "tex courier": "Ag. Transportadora - Total",
+            "total express": "Ag. Transportadora - Total",
+            "j&t express": "Ag. Transportadora - J&T",
+            "j&t": "Ag. Transportadora - J&T",
+            "asap log": "Ag. Transportadora - Asap",
+            "asap": "Ag. Transportadora - Asap",
+        }
+        
+        # Buscar chamados com motivo "(verificar)"
+        chamados = await db.chamados.find(
+            {"motivo_pendencia": "Ag. Transportadora - (verificar)"},
+            {"_id": 0, "numero_pedido": 1, "id": 1}
+        ).to_list(500)
+        
+        logger.info(f"Encontrados {len(chamados)} chamados para verificar transportadora")
+        
+        stats = {
+            "total": len(chamados),
+            "atualizados": 0,
+            "nao_encontrados": 0,
+            "sem_transportadora": 0,
+            "detalhes": []
+        }
+        
+        for chamado in chamados:
+            numero_pedido = chamado.get('numero_pedido')
+            if not numero_pedido:
+                continue
+            
+            # Buscar pedido na base ERP
+            pedido = await db.pedidos_erp.find_one(
+                {"numero_pedido": numero_pedido},
+                {"_id": 0, "transportadora": 1, "codigo_transportadora": 1}
+            )
+            
+            if not pedido:
+                stats["nao_encontrados"] += 1
+                continue
+            
+            transportadora = pedido.get('transportadora', '') or ''
+            
+            if not transportadora:
+                stats["sem_transportadora"] += 1
+                continue
+            
+            # Identificar a transportadora pelo nome
+            novo_motivo = None
+            transportadora_lower = transportadora.lower()
+            
+            for chave, motivo in MAPA_TRANSPORTADORAS.items():
+                if chave in transportadora_lower:
+                    novo_motivo = motivo
+                    break
+            
+            if novo_motivo:
+                # Atualizar o chamado
+                await db.chamados.update_one(
+                    {"numero_pedido": numero_pedido},
+                    {"$set": {"motivo_pendencia": novo_motivo}}
+                )
+                stats["atualizados"] += 1
+                stats["detalhes"].append(f"{numero_pedido}: {transportadora} -> {novo_motivo}")
+                logger.info(f"Atualizado {numero_pedido}: {transportadora} -> {novo_motivo}")
+            else:
+                # Transportadora desconhecida
+                stats["detalhes"].append(f"{numero_pedido}: Transportadora desconhecida: {transportadora}")
+        
+        return {
+            "success": True,
+            "message": f"Identificação concluída: {stats['atualizados']} atualizados",
+            "stats": stats
+        }
+        
+    except Exception as e:
+        logger.error(f"Erro ao identificar transportadoras: {e}")
+        return {"success": False, "message": str(e)}
+
 @api_router.post("/admin/corrigir-carga-inicial")
 async def corrigir_carga_inicial(
     file: UploadFile = File(...),
