@@ -240,7 +240,7 @@ const ListaAtendimentos = () => {
       );
       
       if (response.data.success) {
-        toast.success('Atendimentos finalizados! Notificação enviada para Adneia.');
+        toast.success('Atendimentos do dia finalizados com sucesso!');
         setShowFinalizarDialog(false);
       }
     } catch (error) {
@@ -543,7 +543,7 @@ const ListaAtendimentos = () => {
             
             <p className="text-sm text-muted-foreground">
               {canaisSemAtividade.length > 0 
-                ? 'Deseja finalizar mesmo assim? Uma notificação será enviada para Adneia informando os canais sem atividade.'
+                ? 'Deseja finalizar mesmo assim? Os canais sem atividade serão registrados.'
                 : 'Deseja confirmar a finalização dos atendimentos do dia?'
               }
             </p>

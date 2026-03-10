@@ -3124,16 +3124,23 @@ async def finalizar_atendimentos_dia(current_user: dict = Depends(get_current_us
         canais_sem_atividade = verificacao.get('canais_sem_atividade', [])
         
         # Criar notificação para Adneia
-        mensagem = f"Atendimentos do dia finalizados por {current_user.get('name', 'Usuário')}."
+        data_hoje = datetime.now().strftime('%d/%m/%Y')
+        
         if canais_sem_atividade:
-            mensagem += f"\n\n⚠️ Canais sem atividade hoje:\n• " + "\n• ".join(canais_sem_atividade)
+            titulo = f"⚠️ Finalização - {len(canais_sem_atividade)} canal(is) sem atividade - {data_hoje}"
+            mensagem = f"Atendimentos finalizados por {current_user.get('name', 'Usuário')}.\n\n"
+            mensagem += "❌ CANAIS SEM ATIVIDADE HOJE:\n"
+            for canal in canais_sem_atividade:
+                mensagem += f"   • {canal}\n"
         else:
-            mensagem += "\n\n✅ Todos os canais tiveram atividade hoje!"
+            titulo = f"✅ Finalização OK - {data_hoje}"
+            mensagem = f"Atendimentos finalizados por {current_user.get('name', 'Usuário')}.\n\n"
+            mensagem += "✅ Todos os canais tiveram atividade hoje!"
         
         notificacao = {
             "id": str(uuid.uuid4()),
             "tipo": "finalizacao_atendimento",
-            "titulo": f"Finalização de Atendimentos - {datetime.now().strftime('%d/%m/%Y')}",
+            "titulo": titulo,
             "mensagem": mensagem,
             "destinatario_email": "adneia@weconnect360.com.br",
             "dados_extras": {
