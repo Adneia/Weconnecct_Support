@@ -1965,6 +1965,12 @@ const NovoAtendimento = () => {
     setShowTextoDialog(true);
   };
 
+  // Verificar se a solicitação é do Reclame Aqui
+  const isReclameAqui = () => {
+    const solicitacao = (formData.solicitacao || '').toLowerCase();
+    return solicitacao.includes('reclame aqui') || solicitacao.includes('reclameaqui');
+  };
+
   const gerarCodigoReversa = async () => {
     if (!formData.numero_pedido) {
       toast.error('Selecione um pedido primeiro');
@@ -3586,6 +3592,47 @@ const NovoAtendimento = () => {
                     </p>
                   )}
                   
+                  {/* Textos padrão para Reclame Aqui (quando solicitação contém "Reclame aqui") */}
+                  {isReclameAqui() && (
+                    <div className="mt-3 p-3 rounded-lg bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 space-y-2">
+                      <Label className="text-sm font-medium text-rose-800 dark:text-rose-200">Textos Padrão - Reclame Aqui</Label>
+                      <div className="flex flex-wrap gap-2">
+                        <Button 
+                          type="button" 
+                          variant={selectedReclameAqui === 'Resposta Inicial' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => loadTextoReclameAqui('Resposta Inicial')}
+                        >
+                          Resposta Inicial
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant={selectedReclameAqui === 'Mensagem WhatsApp' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => loadTextoReclameAqui('Mensagem WhatsApp')}
+                        >
+                          WhatsApp
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant={selectedReclameAqui === 'Solicitar Encerramento' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => loadTextoReclameAqui('Solicitar Encerramento')}
+                        >
+                          Solicitar Encerramento
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant={selectedReclameAqui === 'Após Avaliação' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => loadTextoReclameAqui('Após Avaliação')}
+                        >
+                          Após Avaliação
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Textos padrão baseados no Motivo da Pendência */}
                   {motivoPendencia === 'Ag. Confirmação de Entrega' && (
                     <div className="mt-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 space-y-2">
