@@ -320,7 +320,7 @@ class GoogleSheetsClient:
             # Map update fields to column indices (1-indexed for gspread)
             # Nova estrutura: A=Data, B=Parceiro, C=Entrega, D=Solicitação, E=Nome, F=CPF,
             # G=Categoria, H=Motivo, I=Pendente, J=Motivo_Pendencia, K=Verificar, L=Retornar,
-            # M=DT_Encerramento, N=Reversa, O=Anotações, P=Status_Pedido, Q=Nota, R=Chave_Acesso, S=Filial
+            # M=DT_Encerramento, N=Reversa, O=Anotações, P=Status_Pedido, Q=Nota, R=Chave_Acesso, S=Filial, T=Tempo
             field_to_col = {
                 'parceiro': 2,            # B
                 'numero_pedido': 3,       # C - Entrega (NOVO!)
@@ -331,9 +331,15 @@ class GoogleSheetsClient:
                 'motivo_pendencia': 10,   # J
                 'verificar_adneia': 11,   # K
                 'retornar_chamado': 12,   # L
-                'data_fechamento': 13,    # M
+                'data_fechamento': 13,    # M - DT Encerramento
+                'data_encerramento': 13,  # M - DT Encerramento (alias)
                 'reversa_codigo': 14,     # N
                 'anotacoes': 15,          # O
+                'status_pedido': 16,      # P
+                'nota_fiscal': 17,        # Q
+                'chave_acesso': 18,       # R
+                'filial': 19,             # S
+                'tempo_dias': 20,         # T
             }
             
             # Build batch update

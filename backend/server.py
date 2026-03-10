@@ -3204,13 +3204,17 @@ Correções realizadas:
 async def sincronizar_correcoes_sheets(current_user: dict = Depends(get_current_user)):
     """
     Sincroniza as correções feitas no MongoDB com a planilha Google Sheets.
-    Atualiza apenas os campos que foram corrigidos.
+    Atualiza os campos que foram corrigidos: data_encerramento, chave_acesso, tempo_dias
     """
     try:
-        from google_sheets import atualizar_linha_sheets
-        
-        # Buscar todos os chamados
-        chamados = await db.chamados.find({}, {"_id": 0}).to_list(5000)
+        # Buscar todos os chamados que têm os campos novos preenchidos
+        chamados = await db.chamados.find({
+            "$or": [
+                {"data_encerramento": {"$exists": True, "$ne": ""}},
+                {"chave_acesso": {"$exists": True, "$ne": ""}},
+                {"tempo_dias": {"$exists": True, "$ne": None}}
+            ]
+        }, {"_id": 0}).to_list(5000)
         
         atualizados = 0
         erros = 0
@@ -3221,10 +3225,20 @@ async def sincronizar_correcoes_sheets(current_user: dict = Depends(get_current_
                 if not numero_pedido:
                     continue
                 
-                # Atualizar na planilha
-                resultado = atualizar_linha_sheets(chamado)
-                if resultado:
-                    atualizados += 1
+                # Preparar dados para atualização
+                updates = {}
+                if chamado.get('data_encerramento'):
+                    updates['data_encerramento'] = chamado['data_encerramento']
+                if chamado.get('chave_acesso'):
+                    updates['chave_acesso'] = chamado['chave_acesso']
+                if chamado.get('tempo_dias'):
+                    updates['tempo_dias'] = chamado['tempo_dias']
+                
+                if updates:
+                    # Usar o serviço de Google Sheets existente
+                    resultado = sheets_service.update_atendimento(numero_pedido, updates)
+                    if resultado:
+                        atualizados += 1
                     
             except Exception as e:
                 erros += 1
