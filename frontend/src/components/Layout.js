@@ -109,6 +109,10 @@ export const Layout = ({ children }) => {
       console.error('Erro ao marcar notificações como lidas:', error);
     }
   };
+
+  // Verificar se é ambiente de teste (preview)
+  const isPreview = window.location.hostname.includes('preview.emergentagent.com');
+  const appTitle = isPreview ? 'ELO - Ambiente de Teste' : 'ELO - Sistema de Atendimentos';
   
   // Filtrar itens de navegação baseado no usuário
   const filteredNavItems = navItems.filter(item => {
@@ -269,9 +273,16 @@ export const Layout = ({ children }) => {
             >
               <Menu className="h-5 w-5" />
             </Button>
-            <h1 className="text-lg font-semibold tracking-tight font-['Plus_Jakarta_Sans'] hidden sm:block">
-              ELO - Sistema de Atendimentos
-            </h1>
+            <div className="hidden sm:flex items-center gap-2">
+              <h1 className="text-lg font-semibold tracking-tight font-['Plus_Jakarta_Sans']">
+                {appTitle}
+              </h1>
+              {isPreview && (
+                <span className="px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-800 rounded-full border border-amber-300">
+                  TESTE
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
