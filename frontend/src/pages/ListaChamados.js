@@ -31,7 +31,7 @@ import {
   DialogTitle,
 } from '../components/ui/dialog';
 import { toast } from 'sonner';
-import { Search, Plus, Filter, X, Clock, CheckCircle, AlertCircle, FileText, RotateCcw, Download, FileSpreadsheet, CheckSquare, ExternalLink } from 'lucide-react';
+import { Search, Plus, Filter, X, Clock, CheckCircle, AlertCircle, FileText, RotateCcw, Download, FileSpreadsheet, CheckSquare, ExternalLink, Copy } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
@@ -461,6 +461,25 @@ const ListaAtendimentos = () => {
     });
   };
 
+  // Função para copiar todas as reversas dos atendimentos filtrados
+  const copyTodasReversas = () => {
+    const reversas = atendimentos
+      .map(atd => atd.codigo_reversa || atd.reversa_codigo)
+      .filter(r => r && r !== '-' && r.trim() !== '');
+    
+    if (reversas.length === 0) {
+      toast.info('Nenhuma reversa encontrada nos atendimentos filtrados');
+      return;
+    }
+    
+    const textoReversas = reversas.join('\n');
+    navigator.clipboard.writeText(textoReversas).then(() => {
+      toast.success(`${reversas.length} reversa(s) copiada(s)!`);
+    }).catch(() => {
+      toast.error('Erro ao copiar reversas');
+    });
+  };
+
   const getCategoryBadgeColor = (categoria) => {
     const colors = {
       'Falha Produção': 'bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-400',
@@ -550,6 +569,16 @@ const ListaAtendimentos = () => {
           <p className="text-muted-foreground text-sm">{atendimentos.length} atendimentos encontrados</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {/* Botão para copiar todas as reversas */}
+          <Button 
+            variant="outline" 
+            onClick={copyTodasReversas}
+            className="bg-purple-50 hover:bg-purple-100 text-purple-700 border-purple-200"
+            data-testid="btn-copiar-reversas"
+          >
+            <Copy className="h-4 w-4 mr-2" />
+            Copiar Reversas
+          </Button>
           {/* Relatórios Especiais */}
           <Button variant="outline" onClick={exportRelatorioCompras} className="bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-200" data-testid="btn-relatorio-compras">
             <FileSpreadsheet className="h-4 w-4 mr-2" />
