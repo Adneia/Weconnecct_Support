@@ -3033,6 +3033,11 @@ async def corrigir_carga_inicial(
     1. Campo Cliente (estava com status, deveria ter o nome)
     2. Campos ausentes: DT Encerramento, Nota, Chave de Acesso, Filial, Tempo médio
     3. Move o status incorreto para Motivo Pendência (se vazio)
+    
+    IMPORTANTE: Não sobrescreve registros que já foram alterados manualmente.
+    Critérios para considerar "alterado manualmente":
+    - Tem anotações (indica interação do atendente)
+    - Campo já tem valor válido (diferente de status incorreto)
     """
     import pandas as pd
     from io import BytesIO
@@ -3050,7 +3055,7 @@ async def corrigir_carga_inicial(
             "Encerrado", "Ag. Parceiro", "Atendido", "Em devolução", "Aguardando",
             "Ag. Compras", "Ag. Barrar", "Ag. Transportadora Asap", "Ag. Transportadora J&T",
             "Ag. transportadora Total", "Ag. Transportadora Total", "Ag. Bseller",
-            "Ag. Cliente", "Ag. encerramento", "Ag. acareação"
+            "Ag. Cliente", "Ag. encerramento", "Ag. acareação", "Reenviado", "Devolvido"
         ]
         
         # Contadores
@@ -3063,6 +3068,7 @@ async def corrigir_carga_inicial(
             "filial": 0,
             "tempo_dias": 0,
             "nao_encontrados": 0,
+            "ignorados_interacao_manual": 0,
             "erros": []
         }
         
@@ -3079,16 +3085,23 @@ async def corrigir_carga_inicial(
                     stats["nao_encontrados"] += 1
                     continue
                 
+                # VERIFICAÇÃO: Se tem anotações, foi alterado manualmente - NÃO ALTERAR NOME
+                tem_anotacoes = bool(chamado.get('anotacoes', '').strip())
+                
                 update_data = {}
                 
-                # 1. Corrigir campo Cliente (nome_cliente)
+                # 1. Corrigir campo Cliente (nome_cliente) - SOMENTE SE NÃO TEM INTERAÇÃO MANUAL
                 nome_correto = str(row.get('Nome', '')).strip() if pd.notna(row.get('Nome')) else ''
                 cliente_atual = chamado.get('nome_cliente', '')
                 
                 # Verificar se o cliente atual é um status incorreto
                 cliente_eh_status = any(status.lower() in str(cliente_atual).lower() for status in STATUS_INCORRETOS)
                 
-                if cliente_eh_status and nome_correto and nome_correto != 'nan':
+                # Só corrige se:
+                # 1. Cliente atual é um status incorreto
+                # 2. NÃO tem anotações (sem interação manual)
+                # 3. Tem nome correto na base original
+                if cliente_eh_status and not tem_anotacoes and nome_correto and nome_correto != 'nan':
                     update_data['nome_cliente'] = nome_correto
                     stats["cliente_corrigido"] += 1
                     
@@ -3099,10 +3112,14 @@ async def corrigir_carga_inicial(
                         status_normalizado = cliente_atual.split('\n')[0].strip()
                         update_data['motivo_pendencia'] = status_normalizado
                         stats["motivo_atualizado"] += 1
+                elif cliente_eh_status and tem_anotacoes:
+                    stats["ignorados_interacao_manual"] += 1
                 
                 # 2. Preencher campos ausentes (somente se vazio no ELO)
+                # Estes campos são preenchidos independente de ter anotações,
+                # pois são dados complementares que não foram carregados inicialmente
                 
-                # DT Encerramento
+                # DT Encerramento - só preenche se vazio
                 if not chamado.get('data_encerramento') and pd.notna(row.get('DT Encerramento')):
                     dt_enc = row.get('DT Encerramento')
                     if hasattr(dt_enc, 'strftime'):
@@ -3111,25 +3128,31 @@ async def corrigir_carga_inicial(
                         update_data['data_encerramento'] = str(dt_enc)
                     stats["dt_encerramento"] += 1
                 
-                # Nota fiscal
+                # Nota fiscal - só preenche se vazio
                 if not chamado.get('nota_fiscal') and pd.notna(row.get('Nota')):
-                    update_data['nota_fiscal'] = str(int(row.get('Nota'))) if row.get('Nota') else ''
-                    stats["nota_fiscal"] += 1
+                    try:
+                        update_data['nota_fiscal'] = str(int(row.get('Nota')))
+                        stats["nota_fiscal"] += 1
+                    except:
+                        pass
                 
-                # Chave de acesso
+                # Chave de acesso - só preenche se vazio
                 if not chamado.get('chave_acesso') and pd.notna(row.get('chave de acesso')):
                     update_data['chave_acesso'] = str(row.get('chave de acesso'))
                     stats["chave_acesso"] += 1
                 
-                # Filial
+                # Filial - só preenche se vazio
                 if not chamado.get('filial') and pd.notna(row.get('Filial')):
                     update_data['filial'] = str(row.get('Filial'))
                     stats["filial"] += 1
                 
-                # Tempo médio (dias)
+                # Tempo médio (dias) - só preenche se vazio
                 if not chamado.get('tempo_dias') and pd.notna(row.get('Tempo médio')):
-                    update_data['tempo_dias'] = int(row.get('Tempo médio'))
-                    stats["tempo_dias"] += 1
+                    try:
+                        update_data['tempo_dias'] = int(row.get('Tempo médio'))
+                        stats["tempo_dias"] += 1
+                    except:
+                        pass
                 
                 # Atualizar no banco se houver mudanças
                 if update_data:
@@ -3157,7 +3180,11 @@ Correções realizadas:
 ✅ Tempo (dias) preenchido: {stats['tempo_dias']} registros
 
 ⚠️ Não encontrados no ELO: {stats['nao_encontrados']} registros
+⚠️ Ignorados (interação manual): {stats['ignorados_interacao_manual']} registros
 ❌ Erros: {len(stats['erros'])}
+
+💡 Nota: Registros com anotações não tiveram o nome do cliente alterado,
+   pois indica que houve interação manual do atendente.
 """
         
         logger.info(relatorio)
