@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { Button } from './ui/button';
@@ -11,6 +12,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './ui/dropdown-menu';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from './ui/popover';
 import {
   LayoutDashboard,
   Plus,
@@ -24,8 +30,12 @@ import {
   LogOut,
   User,
   ChevronLeft,
-  FileText
+  FileText,
+  Bell,
+  Check
 } from 'lucide-react';
+
+const API_URL = process.env.REACT_APP_BACKEND_URL;
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -38,10 +48,67 @@ const navItems = [
 export const Layout = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [notificacoes, setNotificacoes] = useState([]);
+  const [notificacoesNaoLidas, setNotificacoesNaoLidas] = useState(0);
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, getAuthHeader } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  
+  // Buscar notificações ao carregar
+  useEffect(() => {
+    const fetchNotificacoes = async () => {
+      try {
+        const response = await axios.get(
+          `${API_URL}/api/notificacoes`,
+          { headers: getAuthHeader() }
+        );
+        setNotificacoes(response.data.notificacoes || []);
+        setNotificacoesNaoLidas(response.data.nao_lidas || 0);
+      } catch (error) {
+        console.error('Erro ao buscar notificações:', error);
+      }
+    };
+    
+    if (user) {
+      fetchNotificacoes();
+      // Atualizar a cada 60 segundos
+      const interval = setInterval(fetchNotificacoes, 60000);
+      return () => clearInterval(interval);
+    }
+  }, [user, getAuthHeader]);
+
+  // Marcar notificação como lida
+  const marcarComoLida = async (notificacaoId) => {
+    try {
+      await axios.put(
+        `${API_URL}/api/notificacoes/${notificacaoId}/lida`,
+        {},
+        { headers: getAuthHeader() }
+      );
+      setNotificacoes(prev => prev.map(n => 
+        n.id === notificacaoId ? { ...n, lida: true } : n
+      ));
+      setNotificacoesNaoLidas(prev => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error('Erro ao marcar notificação como lida:', error);
+    }
+  };
+
+  // Marcar todas como lidas
+  const marcarTodasComoLidas = async () => {
+    try {
+      await axios.put(
+        `${API_URL}/api/notificacoes/marcar-todas-lidas`,
+        {},
+        { headers: getAuthHeader() }
+      );
+      setNotificacoes(prev => prev.map(n => ({ ...n, lida: true })));
+      setNotificacoesNaoLidas(0);
+    } catch (error) {
+      console.error('Erro ao marcar notificações como lidas:', error);
+    }
+  };
   
   // Filtrar itens de navegação baseado no usuário
   const filteredNavItems = navItems.filter(item => {
@@ -208,6 +275,73 @@ export const Layout = ({ children }) => {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Notificações */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="relative"
+                  data-testid="notifications-btn"
+                >
+                  <Bell className="h-5 w-5" />
+                  {notificacoesNaoLidas > 0 && (
+                    <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">
+                      {notificacoesNaoLidas > 9 ? '9+' : notificacoesNaoLidas}
+                    </span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-80 p-0">
+                <div className="flex items-center justify-between p-3 border-b">
+                  <h4 className="font-semibold">Notificações</h4>
+                  {notificacoesNaoLidas > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={marcarTodasComoLidas}
+                      className="text-xs"
+                    >
+                      <Check className="h-3 w-3 mr-1" />
+                      Marcar todas lidas
+                    </Button>
+                  )}
+                </div>
+                <div className="max-h-80 overflow-y-auto">
+                  {notificacoes.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-8 text-sm">
+                      Nenhuma notificação
+                    </p>
+                  ) : (
+                    notificacoes.slice(0, 10).map((notif) => (
+                      <div
+                        key={notif.id}
+                        className={`p-3 border-b hover:bg-muted/50 cursor-pointer transition-colors ${
+                          !notif.lida ? 'bg-blue-50 dark:bg-blue-950/20' : ''
+                        }`}
+                        onClick={() => !notif.lida && marcarComoLida(notif.id)}
+                      >
+                        <div className="flex items-start gap-2">
+                          {!notif.lida && (
+                            <span className="h-2 w-2 rounded-full bg-blue-500 mt-2 flex-shrink-0" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">{notif.titulo}</p>
+                            <p className="text-xs text-muted-foreground mt-1 whitespace-pre-line line-clamp-3">
+                              {notif.mensagem}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-2">
+                              {new Date(notif.data_criacao).toLocaleString('pt-BR')}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </PopoverContent>
+            </Popover>
+
             <Button
               variant="ghost"
               size="icon"

@@ -22,8 +22,16 @@ import {
   TableHeader,
   TableRow,
 } from '../components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog';
 import { toast } from 'sonner';
-import { Search, Plus, Filter, X, Clock, CheckCircle, AlertCircle, FileText, RotateCcw, Download, FileSpreadsheet } from 'lucide-react';
+import { Search, Plus, Filter, X, Clock, CheckCircle, AlertCircle, FileText, RotateCcw, Download, FileSpreadsheet, CheckSquare } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
@@ -66,6 +74,13 @@ const ListaAtendimentos = () => {
   });
   const [showFilters, setShowFilters] = useState(false);
   const [parceiros, setParceiros] = useState([]);
+  
+  // Estados para finalização de atendimentos
+  const [showFinalizarDialog, setShowFinalizarDialog] = useState(false);
+  const [canaisSemAtividade, setCanaisSemAtividade] = useState([]);
+  const [canaisComAtividade, setCanaisComAtividade] = useState([]);
+  const [verificandoCanais, setVerificandoCanais] = useState(false);
+  const [finalizando, setFinalizando] = useState(false);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -191,6 +206,48 @@ const ListaAtendimentos = () => {
     } catch (error) {
       console.error('Erro ao exportar:', error);
       toast.error('Erro ao exportar para Excel');
+    }
+  };
+
+  // Função para verificar canais sem atividade
+  const verificarCanais = async () => {
+    setVerificandoCanais(true);
+    try {
+      const response = await axios.get(
+        `${API_URL}/api/atendimentos/verificar-canais`,
+        { headers: getAuthHeader() }
+      );
+      
+      setCanaisSemAtividade(response.data.canais_sem_atividade || []);
+      setCanaisComAtividade(response.data.canais_com_atividade || []);
+      setShowFinalizarDialog(true);
+    } catch (error) {
+      console.error('Erro ao verificar canais:', error);
+      toast.error('Erro ao verificar canais');
+    } finally {
+      setVerificandoCanais(false);
+    }
+  };
+
+  // Função para finalizar atendimentos do dia
+  const finalizarAtendimentos = async () => {
+    setFinalizando(true);
+    try {
+      const response = await axios.post(
+        `${API_URL}/api/atendimentos/finalizar-dia`,
+        {},
+        { headers: getAuthHeader() }
+      );
+      
+      if (response.data.success) {
+        toast.success('Atendimentos finalizados! Notificação enviada para Adneia.');
+        setShowFinalizarDialog(false);
+      }
+    } catch (error) {
+      console.error('Erro ao finalizar:', error);
+      toast.error('Erro ao finalizar atendimentos');
+    } finally {
+      setFinalizando(false);
     }
   };
 
@@ -426,12 +483,86 @@ const ListaAtendimentos = () => {
             <Download className="h-4 w-4 mr-2" />
             Exportar Excel
           </Button>
+          <Button 
+            variant="outline" 
+            onClick={verificarCanais} 
+            disabled={verificandoCanais}
+            className="bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+            data-testid="btn-finalizar-dia"
+          >
+            <CheckSquare className="h-4 w-4 mr-2" />
+            {verificandoCanais ? 'Verificando...' : 'Finalizar Dia'}
+          </Button>
           <Button onClick={() => navigate('/chamados/novo')} data-testid="btn-novo">
             <Plus className="h-4 w-4 mr-2" />
             Novo Atendimento
           </Button>
         </div>
       </div>
+
+      {/* Dialog de Finalização de Atendimentos */}
+      <Dialog open={showFinalizarDialog} onOpenChange={setShowFinalizarDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Finalizar Atendimentos do Dia</DialogTitle>
+            <DialogDescription>
+              Verificação de atividade nos canais diários
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {canaisSemAtividade.length > 0 ? (
+              <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                <p className="font-semibold text-amber-800 dark:text-amber-200 mb-2">
+                  ⚠️ Canais sem atividade hoje:
+                </p>
+                <ul className="list-disc list-inside space-y-1">
+                  {canaisSemAtividade.map((canal, idx) => (
+                    <li key={idx} className="text-amber-700 dark:text-amber-300">{canal}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <div className="p-4 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
+                <p className="font-semibold text-green-800 dark:text-green-200">
+                  ✅ Todos os canais tiveram atividade hoje!
+                </p>
+              </div>
+            )}
+            
+            {canaisComAtividade.length > 0 && (
+              <div className="p-4 rounded-lg bg-slate-50 dark:bg-slate-900/30 border">
+                <p className="font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                  Canais com atividade ({canaisComAtividade.length}):
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {canaisComAtividade.join(', ')}
+                </p>
+              </div>
+            )}
+            
+            <p className="text-sm text-muted-foreground">
+              {canaisSemAtividade.length > 0 
+                ? 'Deseja finalizar mesmo assim? Uma notificação será enviada para Adneia informando os canais sem atividade.'
+                : 'Deseja confirmar a finalização dos atendimentos do dia?'
+              }
+            </p>
+          </div>
+          
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => setShowFinalizarDialog(false)}>
+              Revisar
+            </Button>
+            <Button 
+              onClick={finalizarAtendimentos} 
+              disabled={finalizando}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {finalizando ? 'Finalizando...' : 'Confirmar Finalização'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">

@@ -296,6 +296,41 @@ class Historico(HistoricoBase):
     usuario_id: Optional[str] = None
     usuario_nome: Optional[str] = None
 
+# Notificação Models
+class NotificacaoBase(BaseModel):
+    tipo: str  # finalizacao_atendimento, alerta, info
+    titulo: str
+    mensagem: str
+    destinatario_email: str  # email do usuário que deve ver a notificação
+    dados_extras: Optional[dict] = None  # canais sem atividade, etc.
+
+class Notificacao(NotificacaoBase):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    data_criacao: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    lida: bool = False
+    criado_por_nome: Optional[str] = None
+
+# Lista de canais para verificação diária
+CANAIS_DIARIOS = [
+    "Reclame aqui",
+    "ZAP/E-mail",
+    "Mercado Livre",
+    "LL Loyalty",
+    "Sicredi",
+    "CSU",
+    "Nicequest",
+    "GRS",
+    "LTM",
+    "Camicado",
+    "Coopera",
+    "Livelo",
+    "Tudo Azul",
+    "SENFF",
+    "ShopHub",
+    "Bradesco"
+]
+
 # ============== HELPERS ==============
 
 def hash_password(password: str) -> str:
@@ -2999,6 +3034,192 @@ async def atualizar_motivos_pendencia_automatico():
     
     logger.info(f"Atualização automática concluída: {atualizacoes}")
 
+# ============== ENDPOINTS DE NOTIFICAÇÕES E FINALIZAÇÃO ==============
+
+@api_router.get("/atendimentos/verificar-canais")
+async def verificar_canais_sem_atividade(current_user: dict = Depends(get_current_user)):
+    """
+    Verifica quais canais não tiveram atendimentos criados ou editados hoje
+    """
+    try:
+        # Data de hoje (início do dia)
+        hoje = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        hoje_str = hoje.strftime("%d/%m")
+        
+        # Buscar todos os chamados
+        chamados = await db.chamados.find({}, {"_id": 0}).to_list(10000)
+        
+        canais_com_atividade = set()
+        
+        for chamado in chamados:
+            parceiro = chamado.get('parceiro') or chamado.get('canal_vendas') or ''
+            solicitacao = chamado.get('solicitacao') or ''
+            anotacoes = chamado.get('anotacoes') or ''
+            data_abertura = chamado.get('data_abertura')
+            
+            # Verificar se foi criado hoje
+            criado_hoje = False
+            if data_abertura:
+                if isinstance(data_abertura, datetime):
+                    criado_hoje = data_abertura.date() == hoje.date()
+                elif isinstance(data_abertura, str):
+                    try:
+                        dt = datetime.fromisoformat(data_abertura.replace('Z', '+00:00'))
+                        criado_hoje = dt.date() == hoje.date()
+                    except:
+                        pass
+            
+            # Verificar se foi editado hoje (anotação com data de hoje)
+            editado_hoje = hoje_str in anotacoes[:20] if anotacoes else False
+            
+            if criado_hoje or editado_hoje:
+                # Mapear para canal correspondente
+                parceiro_upper = parceiro.upper() if parceiro else ''
+                solicitacao_lower = solicitacao.lower() if solicitacao else ''
+                
+                # Verificar "Reclame aqui" na solicitação
+                if 'reclame' in solicitacao_lower:
+                    canais_com_atividade.add("Reclame aqui")
+                
+                # Verificar "ZAP/E-mail" na solicitação
+                if 'zap' in solicitacao_lower or 'e-mail' in solicitacao_lower or 'email' in solicitacao_lower:
+                    canais_com_atividade.add("ZAP/E-mail")
+                
+                # Mapear parceiro para canal
+                for canal in CANAIS_DIARIOS:
+                    canal_upper = canal.upper()
+                    if canal_upper in parceiro_upper or parceiro_upper in canal_upper:
+                        canais_com_atividade.add(canal)
+                        break
+                    # Verificações especiais
+                    if canal == "LL Loyalty" and "LOYALTY" in parceiro_upper:
+                        canais_com_atividade.add(canal)
+                    elif canal == "GRS" and ("GLOBAL" in parceiro_upper or "REWARDS" in parceiro_upper):
+                        canais_com_atividade.add(canal)
+                    elif canal == "SENFF" and "SENFF" in parceiro_upper:
+                        canais_com_atividade.add(canal)
+        
+        # Encontrar canais sem atividade
+        canais_sem_atividade = [canal for canal in CANAIS_DIARIOS if canal not in canais_com_atividade]
+        
+        return {
+            "success": True,
+            "data_verificacao": hoje.isoformat(),
+            "canais_com_atividade": list(canais_com_atividade),
+            "canais_sem_atividade": canais_sem_atividade,
+            "todos_canais_ok": len(canais_sem_atividade) == 0
+        }
+    except Exception as e:
+        logger.error(f"Erro ao verificar canais: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/atendimentos/finalizar-dia")
+async def finalizar_atendimentos_dia(current_user: dict = Depends(get_current_user)):
+    """
+    Finaliza o dia de atendimentos e cria notificação para Adneia
+    """
+    try:
+        # Verificar canais sem atividade
+        verificacao = await verificar_canais_sem_atividade(current_user)
+        canais_sem_atividade = verificacao.get('canais_sem_atividade', [])
+        
+        # Criar notificação para Adneia
+        mensagem = f"Atendimentos do dia finalizados por {current_user.get('name', 'Usuário')}."
+        if canais_sem_atividade:
+            mensagem += f"\n\n⚠️ Canais sem atividade hoje:\n• " + "\n• ".join(canais_sem_atividade)
+        else:
+            mensagem += "\n\n✅ Todos os canais tiveram atividade hoje!"
+        
+        notificacao = {
+            "id": str(uuid.uuid4()),
+            "tipo": "finalizacao_atendimento",
+            "titulo": f"Finalização de Atendimentos - {datetime.now().strftime('%d/%m/%Y')}",
+            "mensagem": mensagem,
+            "destinatario_email": "adneia@weconnect360.com.br",
+            "dados_extras": {
+                "canais_sem_atividade": canais_sem_atividade,
+                "canais_com_atividade": verificacao.get('canais_com_atividade', []),
+                "finalizado_por": current_user.get('name', 'Usuário'),
+                "finalizado_por_email": current_user.get('email', '')
+            },
+            "data_criacao": datetime.now(timezone.utc),
+            "lida": False,
+            "criado_por_nome": current_user.get('name', 'Usuário')
+        }
+        
+        await db.notificacoes.insert_one(notificacao)
+        
+        return {
+            "success": True,
+            "message": "Atendimentos finalizados com sucesso!",
+            "notificacao_criada": True,
+            "canais_sem_atividade": canais_sem_atividade
+        }
+    except Exception as e:
+        logger.error(f"Erro ao finalizar atendimentos: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/notificacoes")
+async def listar_notificacoes(current_user: dict = Depends(get_current_user)):
+    """
+    Lista notificações do usuário atual
+    """
+    try:
+        email = current_user.get('email', '')
+        notificacoes = await db.notificacoes.find(
+            {"destinatario_email": email},
+            {"_id": 0}
+        ).sort("data_criacao", -1).to_list(50)
+        
+        # Contar não lidas
+        nao_lidas = sum(1 for n in notificacoes if not n.get('lida', False))
+        
+        return {
+            "notificacoes": notificacoes,
+            "total": len(notificacoes),
+            "nao_lidas": nao_lidas
+        }
+    except Exception as e:
+        logger.error(f"Erro ao listar notificações: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.put("/notificacoes/{notificacao_id}/lida")
+async def marcar_notificacao_lida(notificacao_id: str, current_user: dict = Depends(get_current_user)):
+    """
+    Marca uma notificação como lida
+    """
+    try:
+        result = await db.notificacoes.update_one(
+            {"id": notificacao_id, "destinatario_email": current_user.get('email', '')},
+            {"$set": {"lida": True}}
+        )
+        
+        if result.modified_count == 0:
+            raise HTTPException(status_code=404, detail="Notificação não encontrada")
+        
+        return {"success": True, "message": "Notificação marcada como lida"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erro ao marcar notificação como lida: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.put("/notificacoes/marcar-todas-lidas")
+async def marcar_todas_notificacoes_lidas(current_user: dict = Depends(get_current_user)):
+    """
+    Marca todas as notificações do usuário como lidas
+    """
+    try:
+        result = await db.notificacoes.update_many(
+            {"destinatario_email": current_user.get('email', ''), "lida": False},
+            {"$set": {"lida": True}}
+        )
+        
+        return {"success": True, "message": f"{result.modified_count} notificações marcadas como lidas"}
+    except Exception as e:
+        logger.error(f"Erro ao marcar notificações como lidas: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 def get_column_mapping():
     """Retorna o mapeamento de colunas para importação"""
     return {
@@ -3325,19 +3546,22 @@ async def get_dashboard_visao_geral(
     
     # Lista fixa de canais na ordem desejada (igual ao Excel)
     # Cada entrada pode ter variações do nome que serão agrupadas
+    # Também verifica o campo "solicitacao" para Reclame aqui e ZAP/E-mail
     CANAIS_CONFIG = [
+        {"nome": "Reclame aqui", "variacoes": ["Reclame aqui", "Reclame Aqui", "RECLAME AQUI"], "buscar_solicitacao": True},
+        {"nome": "ZAP/E-mail", "variacoes": ["ZAP", "E-mail", "Email", "Zap", "zap"], "buscar_solicitacao": True},
         {"nome": "Mercado Livre", "variacoes": ["Mercado Livre"]},
         {"nome": "LL Loyalty", "variacoes": ["LL Loyalty", "LL Loyalt"]},
         {"nome": "Sicredi", "variacoes": ["Sicredi", "SICREDI"]},
         {"nome": "CSU", "variacoes": ["CSU"]},
         {"nome": "Nicequest", "variacoes": ["Nicequest", "NiceQuest"]},
-        {"nome": "Global Rewards", "variacoes": ["Global Rewards", "GRS"]},
+        {"nome": "GRS", "variacoes": ["Global Rewards", "GRS"]},
         {"nome": "LTM", "variacoes": ["LTM"]},
         {"nome": "Camicado", "variacoes": ["Camicado"]},
         {"nome": "Coopera", "variacoes": ["Coopera"]},
         {"nome": "Livelo", "variacoes": ["Livelo"]},
         {"nome": "Tudo Azul", "variacoes": ["Tudo Azul"]},
-        {"nome": "Senff", "variacoes": ["Senff", "SENFF"]},
+        {"nome": "SENFF", "variacoes": ["Senff", "SENFF"]},
         {"nome": "ShopHub", "variacoes": ["ShopHub", "SHOPHUB"]},
         {"nome": "Bradesco", "variacoes": ["Bradesco"]},
     ]
@@ -3367,9 +3591,15 @@ async def get_dashboard_visao_geral(
             
             # Construir query para todas as variações do canal
             canal_or_conditions = []
+            buscar_solicitacao = canal_config.get("buscar_solicitacao", False)
+            
             for var in variacoes:
-                canal_or_conditions.append({"parceiro": var})
-                canal_or_conditions.append({"canal_vendas": var})
+                if buscar_solicitacao:
+                    # Para Reclame aqui e ZAP/E-mail, buscar no campo solicitacao
+                    canal_or_conditions.append({"solicitacao": {"$regex": var, "$options": "i"}})
+                else:
+                    canal_or_conditions.append({"parceiro": var})
+                    canal_or_conditions.append({"canal_vendas": var})
             
             # AR = Atendimentos criados/abertos naquele dia
             ar = await db.chamados.count_documents({
