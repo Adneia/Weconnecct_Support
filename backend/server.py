@@ -3201,25 +3201,50 @@ Correções realizadas:
         return {"success": False, "message": str(e)}
 
 @api_router.post("/admin/sincronizar-correcoes-sheets")
-async def sincronizar_correcoes_sheets(current_user: dict = Depends(get_current_user)):
+async def sincronizar_correcoes_sheets(
+    batch_size: int = 50,
+    current_user: dict = Depends(get_current_user)
+):
     """
     Sincroniza as correções feitas no MongoDB com a planilha Google Sheets.
     Atualiza os campos que foram corrigidos: data_encerramento, chave_acesso, tempo_dias
+    
+    IMPORTANTE: Processa em lotes para evitar rate limit do Google Sheets.
+    O Google Sheets tem limite de 60 requisições por minuto.
     """
+    import asyncio
+    
     try:
+        # Primeiro, atualizar os headers para incluir as novas colunas
+        try:
+            worksheet = sheets_client._get_atendimentos_worksheet()
+            if worksheet:
+                from google_sheets import ATENDIMENTO_COLUMNS
+                sheets_client._ensure_headers(worksheet, ATENDIMENTO_COLUMNS)
+                logger.info("Headers atualizados na planilha")
+        except Exception as header_error:
+            logger.warning(f"Não foi possível atualizar headers: {header_error}")
+        
         # Buscar todos os chamados que têm os campos novos preenchidos
         chamados = await db.chamados.find({
             "$or": [
                 {"data_encerramento": {"$exists": True, "$ne": ""}},
                 {"chave_acesso": {"$exists": True, "$ne": ""}},
-                {"tempo_dias": {"$exists": True, "$ne": None}}
+                {"tempo_dias": {"$exists": True, "$ne": None}},
+                {"nota_fiscal": {"$exists": True, "$ne": ""}},
+                {"filial": {"$exists": True, "$ne": ""}}
             ]
         }, {"_id": 0}).to_list(5000)
         
         atualizados = 0
         erros = 0
+        nao_encontrados = 0
+        processados = 0
         
-        for chamado in chamados:
+        # Processar apenas os primeiros batch_size registros para evitar timeout
+        chamados_batch = chamados[:batch_size]
+        
+        for chamado in chamados_batch:
             try:
                 numero_pedido = chamado.get('numero_pedido')
                 if not numero_pedido:
@@ -3233,20 +3258,40 @@ async def sincronizar_correcoes_sheets(current_user: dict = Depends(get_current_
                     updates['chave_acesso'] = chamado['chave_acesso']
                 if chamado.get('tempo_dias'):
                     updates['tempo_dias'] = chamado['tempo_dias']
+                if chamado.get('nota_fiscal'):
+                    updates['nota_fiscal'] = chamado['nota_fiscal']
+                if chamado.get('filial'):
+                    updates['filial'] = chamado['filial']
                 
                 if updates:
                     # Usar o serviço de Google Sheets existente
-                    resultado = sheets_service.update_atendimento(numero_pedido, updates)
+                    resultado = sheets_client.update_atendimento(numero_pedido, updates)
                     if resultado:
                         atualizados += 1
+                    else:
+                        nao_encontrados += 1
+                    
+                    processados += 1
+                    # Delay para evitar rate limit (máx 60 req/min = 1 req/segundo)
+                    await asyncio.sleep(1.2)
                     
             except Exception as e:
                 erros += 1
                 logger.error(f"Erro ao sincronizar {chamado.get('numero_pedido')}: {e}")
         
+        restantes = len(chamados) - batch_size if len(chamados) > batch_size else 0
+        
         return {
             "success": True,
-            "message": f"Sincronização concluída: {atualizados} atualizados, {erros} erros"
+            "message": f"Sincronização concluída: {atualizados} atualizados, {nao_encontrados} não encontrados na planilha, {erros} erros. Restantes: {restantes}",
+            "stats": {
+                "atualizados": atualizados,
+                "nao_encontrados": nao_encontrados,
+                "erros": erros,
+                "processados": processados,
+                "total": len(chamados),
+                "restantes": restantes
+            }
         }
         
     except Exception as e:

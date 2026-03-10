@@ -46,7 +46,8 @@ ATENDIMENTO_COLUMNS = [
     'Status_Pedido',    # P - Status da entrega
     'Nota',             # Q - Número da NF
     'Chave_Acesso',     # R - Chave da NF-e
-    'Filial'            # S - UF
+    'Filial',           # S - UF
+    'Tempo'             # T - Tempo médio (dias)
 ]
 
 # Column mapping for Devoluções sheet
@@ -368,7 +369,7 @@ class GoogleSheetsClient:
             # Apply batch update
             if updates_to_apply:
                 worksheet.batch_update(updates_to_apply)
-                logger.info(f"Atendimento {id_atendimento} updated in Google Sheets")
+                logger.info(f"Atendimento {numero_pedido} updated in Google Sheets")
             
             # Aplicar formatação verde se o atendimento foi encerrado
             if 'pendente' in updates and not updates['pendente']:
