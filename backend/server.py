@@ -3022,6 +3022,196 @@ async def padronizar_parceiros_endpoint(current_user: dict = Depends(get_current
         logger.error(f"Erro ao padronizar parceiros: {e}")
         return {"success": False, "message": str(e)}
 
+@api_router.post("/admin/corrigir-carga-inicial")
+async def corrigir_carga_inicial(
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Corrige erros da carga inicial de atendimentos.
+    Recebe o arquivo Excel original e corrige:
+    1. Campo Cliente (estava com status, deveria ter o nome)
+    2. Campos ausentes: DT Encerramento, Nota, Chave de Acesso, Filial, Tempo médio
+    3. Move o status incorreto para Motivo Pendência (se vazio)
+    """
+    import pandas as pd
+    from io import BytesIO
+    
+    try:
+        # Ler arquivo Excel
+        content = await file.read()
+        df = pd.read_excel(BytesIO(content))
+        
+        logger.info(f"Arquivo carregado com {len(df)} registros")
+        
+        # Valores que indicam que o campo Cliente está com status incorreto
+        STATUS_INCORRETOS = [
+            "Entregue", "ENtregue", "Estornado", "Enviado", "Ag. Logística", "Ag. logística",
+            "Encerrado", "Ag. Parceiro", "Atendido", "Em devolução", "Aguardando",
+            "Ag. Compras", "Ag. Barrar", "Ag. Transportadora Asap", "Ag. Transportadora J&T",
+            "Ag. transportadora Total", "Ag. Transportadora Total", "Ag. Bseller",
+            "Ag. Cliente", "Ag. encerramento", "Ag. acareação"
+        ]
+        
+        # Contadores
+        stats = {
+            "cliente_corrigido": 0,
+            "motivo_atualizado": 0,
+            "dt_encerramento": 0,
+            "nota_fiscal": 0,
+            "chave_acesso": 0,
+            "filial": 0,
+            "tempo_dias": 0,
+            "nao_encontrados": 0,
+            "erros": []
+        }
+        
+        # Processar cada registro
+        for _, row in df.iterrows():
+            try:
+                numero_pedido = str(row.get('Entrega', '')).strip()
+                if not numero_pedido or numero_pedido == 'nan' or numero_pedido == '-':
+                    continue
+                
+                # Buscar chamado no banco
+                chamado = await db.chamados.find_one({"numero_pedido": numero_pedido})
+                if not chamado:
+                    stats["nao_encontrados"] += 1
+                    continue
+                
+                update_data = {}
+                
+                # 1. Corrigir campo Cliente (nome_cliente)
+                nome_correto = str(row.get('Nome', '')).strip() if pd.notna(row.get('Nome')) else ''
+                cliente_atual = chamado.get('nome_cliente', '')
+                
+                # Verificar se o cliente atual é um status incorreto
+                cliente_eh_status = any(status.lower() in str(cliente_atual).lower() for status in STATUS_INCORRETOS)
+                
+                if cliente_eh_status and nome_correto and nome_correto != 'nan':
+                    update_data['nome_cliente'] = nome_correto
+                    stats["cliente_corrigido"] += 1
+                    
+                    # Mover o status antigo para motivo_pendencia se estiver vazio
+                    motivo_atual = chamado.get('motivo_pendencia', '')
+                    if not motivo_atual and cliente_atual:
+                        # Normalizar o status para motivo de pendência
+                        status_normalizado = cliente_atual.split('\n')[0].strip()
+                        update_data['motivo_pendencia'] = status_normalizado
+                        stats["motivo_atualizado"] += 1
+                
+                # 2. Preencher campos ausentes (somente se vazio no ELO)
+                
+                # DT Encerramento
+                if not chamado.get('data_encerramento') and pd.notna(row.get('DT Encerramento')):
+                    dt_enc = row.get('DT Encerramento')
+                    if hasattr(dt_enc, 'strftime'):
+                        update_data['data_encerramento'] = dt_enc.strftime('%Y-%m-%d')
+                    else:
+                        update_data['data_encerramento'] = str(dt_enc)
+                    stats["dt_encerramento"] += 1
+                
+                # Nota fiscal
+                if not chamado.get('nota_fiscal') and pd.notna(row.get('Nota')):
+                    update_data['nota_fiscal'] = str(int(row.get('Nota'))) if row.get('Nota') else ''
+                    stats["nota_fiscal"] += 1
+                
+                # Chave de acesso
+                if not chamado.get('chave_acesso') and pd.notna(row.get('chave de acesso')):
+                    update_data['chave_acesso'] = str(row.get('chave de acesso'))
+                    stats["chave_acesso"] += 1
+                
+                # Filial
+                if not chamado.get('filial') and pd.notna(row.get('Filial')):
+                    update_data['filial'] = str(row.get('Filial'))
+                    stats["filial"] += 1
+                
+                # Tempo médio (dias)
+                if not chamado.get('tempo_dias') and pd.notna(row.get('Tempo médio')):
+                    update_data['tempo_dias'] = int(row.get('Tempo médio'))
+                    stats["tempo_dias"] += 1
+                
+                # Atualizar no banco se houver mudanças
+                if update_data:
+                    await db.chamados.update_one(
+                        {"numero_pedido": numero_pedido},
+                        {"$set": update_data}
+                    )
+                    
+            except Exception as row_error:
+                stats["erros"].append(f"Erro no pedido {numero_pedido}: {str(row_error)}")
+        
+        # Gerar relatório
+        relatorio = f"""
+📊 CORREÇÃO DE CARGA CONCLUÍDA
+
+Registros processados: {len(df)}
+
+Correções realizadas:
+✅ Campo Cliente corrigido: {stats['cliente_corrigido']} registros
+✅ Motivo Pendência atualizado: {stats['motivo_atualizado']} registros
+✅ DT Encerramento preenchida: {stats['dt_encerramento']} registros
+✅ Nota Fiscal preenchida: {stats['nota_fiscal']} registros
+✅ Chave de Acesso preenchida: {stats['chave_acesso']} registros
+✅ Filial preenchida: {stats['filial']} registros
+✅ Tempo (dias) preenchido: {stats['tempo_dias']} registros
+
+⚠️ Não encontrados no ELO: {stats['nao_encontrados']} registros
+❌ Erros: {len(stats['erros'])}
+"""
+        
+        logger.info(relatorio)
+        
+        return {
+            "success": True,
+            "message": "Correção de carga concluída",
+            "stats": stats,
+            "relatorio": relatorio
+        }
+        
+    except Exception as e:
+        logger.error(f"Erro na correção de carga: {e}")
+        return {"success": False, "message": str(e)}
+
+@api_router.post("/admin/sincronizar-correcoes-sheets")
+async def sincronizar_correcoes_sheets(current_user: dict = Depends(get_current_user)):
+    """
+    Sincroniza as correções feitas no MongoDB com a planilha Google Sheets.
+    Atualiza apenas os campos que foram corrigidos.
+    """
+    try:
+        from google_sheets import atualizar_linha_sheets
+        
+        # Buscar todos os chamados
+        chamados = await db.chamados.find({}, {"_id": 0}).to_list(5000)
+        
+        atualizados = 0
+        erros = 0
+        
+        for chamado in chamados:
+            try:
+                numero_pedido = chamado.get('numero_pedido')
+                if not numero_pedido:
+                    continue
+                
+                # Atualizar na planilha
+                resultado = atualizar_linha_sheets(chamado)
+                if resultado:
+                    atualizados += 1
+                    
+            except Exception as e:
+                erros += 1
+                logger.error(f"Erro ao sincronizar {chamado.get('numero_pedido')}: {e}")
+        
+        return {
+            "success": True,
+            "message": f"Sincronização concluída: {atualizados} atualizados, {erros} erros"
+        }
+        
+    except Exception as e:
+        logger.error(f"Erro na sincronização: {e}")
+        return {"success": False, "message": str(e)}
+
 async def atualizar_motivos_pendencia_automatico():
     """
     Atualiza automaticamente os motivos de pendência dos chamados
