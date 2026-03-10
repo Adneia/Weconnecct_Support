@@ -1,426 +1,331 @@
-"""
-Rotas de Pedidos ERP - Busca e importação
-"""
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks
-from typing import List, Optional
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, BackgroundTasks
+from typing import Optional, List
 from datetime import datetime, timezone, timedelta
-import logging
-import io
 import uuid
-import pandas as pd
 
-from models.pedido import PedidoERPBase
 from utils.database import db
 from utils.auth import get_current_user
-from utils.helpers import get_galpao_from_serie, calcular_dias_uteis, is_status_maiusculo
+from utils.helpers import (
+    parse_date_safe, get_galpao_from_serie, get_column_mapping,
+    extract_pedido_data, should_skip_old_pedido
+)
 
+import logging
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/pedidos-erp", tags=["pedidos"])
+router = APIRouter(prefix="/api")
 
 
-async def add_estoque_info(pedido: dict) -> dict:
-    """Adiciona informações de estoque ao pedido"""
-    codigo_item = pedido.get('codigo_item_bseller', '')
-    if codigo_item:
-        if str(codigo_item).endswith('.0'):
-            codigo_item = str(codigo_item)[:-2]
-        estoque = await db.estoque_sigeq.find_one({"id_item": str(codigo_item)}, {"_id": 0})
-        if estoque:
-            pedido['estoque_disponivel'] = estoque.get('disp_venda', 0)
-            pedido['estoque_reserva'] = estoque.get('qt_reserva', 0)
+# ============== BUSCAR PEDIDOS ==============
+
+@router.get("/pedidos-erp/buscar")
+async def buscar_pedido_erp(
+    numero_pedido: Optional[str] = None,
+    galpao: Optional[str] = None,
+    nota: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    if galpao and nota:
+        query = {}
+        nota_str = nota.strip()
+        if galpao.upper() == "SC":
+            query["serie_nf"] = "1"
+        elif galpao.upper() == "SP":
+            query["serie_nf"] = "6"
+        elif galpao.upper() == "ES":
+            query["serie_nf"] = "2"
         else:
-            pedido['estoque_disponivel'] = None
-            pedido['estoque_reserva'] = None
-    return pedido
+            query["serie_nf"] = galpao
+        query["$or"] = [
+            {"nota_fiscal": nota_str},
+            {"nota_fiscal": nota_str + ".0"},
+        ]
+        pedidos = await db.pedidos_erp.find(query, {"_id": 0}).to_list(10)
+        if not pedidos:
+            query_nota = {"$or": [
+                {"nota_fiscal": nota_str},
+                {"nota_fiscal": nota_str + ".0"},
+            ]}
+            pedidos = await db.pedidos_erp.find(query_nota, {"_id": 0}).to_list(10)
+        if pedidos:
+            for p in pedidos:
+                galpao_info = get_galpao_from_serie(p.get('serie_nf', ''), p.get('chave_nota', ''))
+                p['galpao'] = galpao_info.get('galpao', '')
+                p['uf_galpao'] = galpao_info.get('uf_galpao', '')
+            return pedidos
+        return []
 
+    if not numero_pedido:
+        raise HTTPException(status_code=400, detail="Número do pedido é obrigatório")
 
-@router.get("/buscar/cpf/{cpf}")
-async def get_pedidos_by_cpf(cpf: str, current_user: dict = Depends(get_current_user)):
-    """Buscar pedidos por CPF"""
-    cpf_limpo = cpf.replace('.', '').replace('-', '').replace(' ', '')
-    cpf_sem_zeros = cpf_limpo.lstrip('0')
-    
-    pedidos = await db.pedidos_erp.find(
-        {"$or": [
-            {"cpf_cliente": {"$regex": f"^{cpf_limpo}$"}},
-            {"cpf_cliente": {"$regex": f"^{cpf_sem_zeros}$"}},
-            {"cpf_cliente": {"$regex": cpf_limpo}},
-            {"cpf_cliente": {"$regex": cpf_sem_zeros}}
-        ]},
-        {"_id": 0}
-    ).sort("data_status", -1).to_list(100)
-    
-    for p in pedidos:
-        galpao_info = get_galpao_from_serie(p.get('serie_nf'), p.get('chave_nota'))
-        p.update(galpao_info)
-        await add_estoque_info(p)
-    
-    return pedidos
-
-
-@router.get("/buscar/nome/{nome}", response_model=List[dict])
-async def get_pedidos_by_nome(nome: str, current_user: dict = Depends(get_current_user)):
-    """Buscar pedidos por nome do cliente"""
-    pedidos = await db.pedidos_erp.find(
-        {"nome_cliente": {"$regex": nome, "$options": "i"}},
-        {"_id": 0}
-    ).sort("data_status", -1).to_list(100)
-    
-    for p in pedidos:
-        galpao_info = get_galpao_from_serie(p.get('serie_nf'), p.get('chave_nota'))
-        p.update(galpao_info)
-        await add_estoque_info(p)
-    
-    return pedidos
-
-
-@router.get("/buscar/pedido/{pedido}", response_model=List[dict])
-async def get_pedidos_by_pedido(pedido: str, current_user: dict = Depends(get_current_user)):
-    """Buscar pedidos por número"""
-    pedidos = await db.pedidos_erp.find(
-        {"$or": [
-            {"numero_pedido": {"$regex": pedido, "$options": "i"}},
-            {"pedido_cliente": {"$regex": pedido, "$options": "i"}},
-            {"pedido_externo": {"$regex": pedido, "$options": "i"}}
-        ]},
-        {"_id": 0}
-    ).sort("data_status", -1).to_list(100)
-    
-    for p in pedidos:
-        galpao_info = get_galpao_from_serie(p.get('serie_nf'), p.get('chave_nota'))
-        p.update(galpao_info)
-        await add_estoque_info(p)
-    
-    return pedidos
-
-
-@router.get("/buscar/nota/{nota}", response_model=List[dict])
-async def get_pedidos_by_nota(nota: str, current_user: dict = Depends(get_current_user)):
-    """Buscar pedidos por nota fiscal"""
-    nota_limpa = nota.replace('.', '').replace('-', '').replace(' ', '').strip()
-    
-    pedidos = await db.pedidos_erp.find(
-        {"$or": [
-            {"nota_fiscal": {"$regex": nota_limpa, "$options": "i"}},
-            {"nota_fiscal": nota_limpa},
-            {"nota_fiscal": nota}
-        ]},
-        {"_id": 0}
-    ).sort("data_status", -1).to_list(100)
-    
-    for p in pedidos:
-        galpao_info = get_galpao_from_serie(p.get('serie_nf'), p.get('chave_nota'))
-        p.update(galpao_info)
-        await add_estoque_info(p)
-    
-    return pedidos
-
-
-@router.get("/buscar/galpao/{galpao}/nota/{nota}", response_model=List[dict])
-async def get_pedidos_by_galpao_nota(galpao: str, nota: str, current_user: dict = Depends(get_current_user)):
-    """Buscar pedidos por galpão e nota fiscal"""
-    nota_limpa = nota.replace('.', '').replace('-', '').replace(' ', '').strip()
-    galpao_upper = galpao.upper()
-    
-    pedidos = await db.pedidos_erp.find(
-        {"$or": [
-            {"nota_fiscal": {"$regex": nota_limpa, "$options": "i"}},
-            {"nota_fiscal": nota_limpa},
-            {"nota_fiscal": nota}
-        ]},
-        {"_id": 0}
-    ).sort("data_status", -1).to_list(100)
-    
-    resultado = []
-    for p in pedidos:
-        galpao_info = get_galpao_from_serie(p.get('serie_nf'), p.get('chave_nota'))
-        p.update(galpao_info)
-        
-        uf_galpao = p.get('uf_galpao', '').upper()
-        filial = p.get('filial', '').upper()
-        
-        if uf_galpao == galpao_upper or filial == galpao_upper:
-            await add_estoque_info(p)
-            resultado.append(p)
-    
-    return resultado
-
-
-@router.get("/{numero_pedido}", response_model=dict)
-async def get_pedido_erp(numero_pedido: str, current_user: dict = Depends(get_current_user)):
-    """Obter detalhes de um pedido específico"""
     pedido = await db.pedidos_erp.find_one({"numero_pedido": numero_pedido}, {"_id": 0})
     if not pedido:
-        raise HTTPException(status_code=404, detail="Pedido não encontrado")
-    
-    galpao_info = get_galpao_from_serie(pedido.get('serie_nf'), pedido.get('chave_nota'))
-    pedido.update(galpao_info)
-    await add_estoque_info(pedido)
-    
-    return pedido
+        return []
+
+    galpao_info = get_galpao_from_serie(pedido.get('serie_nf', ''), pedido.get('chave_nota', ''))
+    pedido['galpao'] = galpao_info.get('galpao', '')
+    pedido['uf_galpao'] = galpao_info.get('uf_galpao', '')
+    return [pedido]
 
 
-@router.get("", response_model=List[dict])
-async def list_pedidos_erp(current_user: dict = Depends(get_current_user)):
-    """Listar todos os pedidos (limitado a 1000)"""
-    pedidos = await db.pedidos_erp.find({}, {"_id": 0}).to_list(1000)
-    return pedidos
+@router.get("/pedidos-erp")
+async def list_pedidos_erp(
+    page: int = 1,
+    page_size: int = 50,
+    search: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    query = {}
+    if search:
+        search_regex = {"$regex": search, "$options": "i"}
+        query["$or"] = [
+            {"numero_pedido": search_regex},
+            {"cpf_cliente": search_regex},
+            {"nome_cliente": search_regex},
+            {"produto": search_regex}
+        ]
+    skip = (page - 1) * page_size
+    total = await db.pedidos_erp.count_documents(query)
+    pedidos = await db.pedidos_erp.find(query, {"_id": 0}).skip(skip).limit(page_size).to_list(page_size)
+    return {"total": total, "page": page, "page_size": page_size, "pedidos": pedidos}
 
 
-@router.get("/import-status/{import_id}")
-async def get_import_status(import_id: str, current_user: dict = Depends(get_current_user)):
-    """Verificar status de uma importação em andamento"""
-    job = await db.import_jobs.find_one({"import_id": import_id}, {"_id": 0})
-    if not job:
-        raise HTTPException(status_code=404, detail="Importação não encontrada")
-    return job
+# ============== IMPORTAR PEDIDOS ==============
 
+async def process_import_background(content: bytes, filename: str, user_name: str, user_email: str):
+    import pandas as pd
+    from io import BytesIO
+    from routes.admin import atualizar_motivos_pendencia_automatico
 
-def get_column_mapping():
-    """Mapeamento de colunas para importação"""
-    return {
-        'numero_pedido': ['entrega'],
-        'canal_vendas': ['nome canal de vendas'],
-        'pedido_cliente': ['ped. cliente'],
-        'pedido_externo': ['ped. externo'],
-        'cpf_cliente': ['cpf'],
-        'nome_cliente': ['nome'],
-        'cep': ['cep'],
-        'cidade': ['cidade'],
-        'uf': ['uf'],
-        'fone_cliente': ['fone'],
-        'email_cliente': ['e-mail'],
-        'status_pedido': ['status da entrega', 'status'],
-        'data_status': ['dt.ult.ponto de controle'],
-        'transportadora': ['transportadora'],
-        'departamento': ['nome_5'],
-        'codigo_item_bseller': ['item'],
-        'produto': ['nome do produto'],
-        'codigo_item_vtex': ['c?d. terceiro', 'cód. terceiro'],
-        'quantidade': ['qtde pedido'],
-        'preco_final': ['pre?o final', 'preço final'],
-        'frete': ['frete'],
-        'filial': ['uf.1'],
-        'nota_fiscal': ['nota'],
-        'serie_nf': ['série', 'serie'],
-        'chave_nota': ['chave acesso'],
-        'pedido_troca': ['pedido troca'],
-        'codigo_fornecedor': ['cód. fornecedor', 'cód. fornecedor do sigeq230', 'codigo_fornecedor'],
-    }
-
-
-def extract_pedido_data(row, column_mapping, original_columns):
-    """Extrai dados do pedido de uma linha do DataFrame"""
-    pedido_data = {}
-    for field, possible_names in column_mapping.items():
-        for name in possible_names:
-            name_lower = name.lower()
-            if name_lower in original_columns:
-                value = row.get(name_lower)
-                if pd.notna(value):
-                    pedido_data[field] = str(value).strip()
-                break
-    return pedido_data
-
-
-def should_skip_old_pedido(pedido_data, data_limite):
-    """Verifica se o pedido deve ser ignorado por ser muito antigo"""
-    if 'data_status' in pedido_data and pedido_data['data_status']:
-        try:
-            data_str = pedido_data['data_status'].split()[0]
-            data_pedido = datetime.strptime(data_str, '%d/%m/%Y')
-            data_pedido = data_pedido.replace(tzinfo=timezone.utc)
-            return data_pedido < data_limite
-        except (ValueError, IndexError):
-            pass
-    return False
-
-
-async def import_fornecedores(df):
-    """Importa tabela de fornecedores com dias extras padrão"""
     try:
-        df.columns = df.columns.str.strip().str.lower()
-        
-        for idx, row in df.iterrows():
-            fornecedor = None
-            dias_extras = 5
-            
-            for col in ['fornecedor', 'nome', 'nome_fornecedor']:
-                if col in df.columns:
-                    fornecedor = str(row.get(col, '')).strip()
-                    break
-            
-            for col in ['dias extras padrão (dias úteis)', 'dias extras padrão', 'dias extras', 'dias_extras']:
-                if col in df.columns:
-                    val = row.get(col)
-                    if pd.notna(val):
-                        dias_extras = int(val)
-                    break
-            
-            if fornecedor and fornecedor.lower() != 'nan':
-                await db.fornecedores.update_one(
-                    {"nome": fornecedor},
-                    {"$set": {
-                        "nome": fornecedor,
-                        "dias_extras_padrao": dias_extras,
-                        "ultima_atualizacao": datetime.now(timezone.utc).isoformat()
-                    }},
-                    upsert=True
-                )
-        
-        logger.info("Fornecedores importados com sucesso")
-    except Exception as e:
-        logger.error(f"Erro ao importar fornecedores: {e}")
+        import_id = str(uuid.uuid4())[:8]
+        await db.import_status.insert_one({
+            "import_id": import_id,
+            "status": "processing",
+            "progress": 0,
+            "total": 0,
+            "inserted": 0,
+            "updated": 0,
+            "skipped": 0,
+            "errors": 0,
+            "started_at": datetime.now(timezone.utc).isoformat(),
+            "started_by": user_name
+        })
 
+        if filename.endswith('.csv'):
+            df = pd.read_csv(BytesIO(content))
+        else:
+            df = pd.read_excel(BytesIO(content))
 
-async def import_estoque_sigeq(df):
-    """Importa dados de estoque da aba SIGEQ425"""
-    try:
-        df.columns = df.columns.str.strip()
-        imported = 0
-        updated = 0
-        
+        total = len(df)
+        await db.import_status.update_one(
+            {"import_id": import_id},
+            {"$set": {"total": total}}
+        )
+
+        column_mapping = get_column_mapping()
+        original_columns = {col.lower().strip(): col for col in df.columns}
+        df.columns = [col.lower().strip() for col in df.columns]
+
+        data_limite = datetime(2025, 1, 1, tzinfo=timezone.utc)
+        inserted = updated = skipped = errors = 0
+
         for idx, row in df.iterrows():
             try:
-                id_item = str(row.get('ID do item', '')).strip()
-                if not id_item or id_item == 'nan':
+                pedido_data = extract_pedido_data(row, column_mapping, original_columns)
+                numero_pedido = pedido_data.get('numero_pedido', '')
+                if not numero_pedido or numero_pedido == 'nan' or numero_pedido == '-':
+                    skipped += 1
                     continue
-                
-                if id_item.endswith('.0'):
-                    id_item = id_item[:-2]
-                
-                estoque_data = {
-                    "id_item": id_item,
-                    "fornecedor": str(row.get('Nome do fornecedor', '')).strip(),
-                    "descricao": str(row.get('Descrição do item', '')).strip(),
-                    "codigo_fornecedor": str(row.get('Código fornecedor', '')).strip(),
-                    "qt_reserva": int(row.get('Qt. Res', 0)) if pd.notna(row.get('Qt. Res')) else 0,
-                    "disp_venda": int(row.get('Disp. Venda', 0)) if pd.notna(row.get('Disp. Venda')) else 0,
-                    "qt_arquivo": int(row.get('Qt. Arquivo', 0)) if pd.notna(row.get('Qt. Arquivo')) else 0,
-                    "ultima_atualizacao": datetime.now(timezone.utc).isoformat()
-                }
-                
-                existing = await db.estoque_sigeq.find_one({"id_item": id_item})
+                if should_skip_old_pedido(pedido_data, data_limite):
+                    skipped += 1
+                    continue
+                existing = await db.pedidos_erp.find_one({"numero_pedido": numero_pedido})
                 if existing:
-                    await db.estoque_sigeq.update_one({"id_item": id_item}, {"$set": estoque_data})
+                    await db.pedidos_erp.update_one(
+                        {"numero_pedido": numero_pedido},
+                        {"$set": pedido_data}
+                    )
                     updated += 1
                 else:
-                    await db.estoque_sigeq.insert_one(estoque_data)
-                    imported += 1
-                    
+                    pedido_data['id'] = str(uuid.uuid4())
+                    pedido_data['imported_at'] = datetime.now(timezone.utc).isoformat()
+                    pedido_data['imported_by'] = user_name
+                    await db.pedidos_erp.insert_one(pedido_data)
+                    inserted += 1
+
+                if (idx + 1) % 100 == 0:
+                    progress = int(((idx + 1) / total) * 100)
+                    await db.import_status.update_one(
+                        {"import_id": import_id},
+                        {"$set": {"progress": progress, "inserted": inserted, "updated": updated, "skipped": skipped, "errors": errors}}
+                    )
             except Exception as e:
-                logger.error(f"Erro ao processar estoque linha {idx}: {e}")
-                continue
-        
-        logger.info(f"Estoque SIGEQ importado: {imported} novos, {updated} atualizados")
-    except Exception as e:
-        logger.error(f"Erro ao importar estoque SIGEQ: {e}")
+                errors += 1
+                logger.error(f"Error importing row {idx}: {e}")
 
-
-async def process_import_sync(df):
-    """Processa importação de forma síncrona para arquivos pequenos"""
-    column_mapping = get_column_mapping()
-    df.columns = df.columns.str.strip().str.lower()
-    original_columns = list(df.columns)
-    data_limite = datetime.now(timezone.utc) - timedelta(days=180)
-    
-    imported = 0
-    updated = 0
-    errors = 0
-    skipped_old = 0
-    
-    for idx, row in df.iterrows():
         try:
-            pedido_data = extract_pedido_data(row, column_mapping, original_columns)
-            
-            if not pedido_data.get('numero_pedido'):
-                continue
-            
-            if should_skip_old_pedido(pedido_data, data_limite):
-                skipped_old += 1
-                continue
-            
-            existing = await db.pedidos_erp.find_one({"numero_pedido": pedido_data['numero_pedido']})
-            
-            if existing:
-                pedido_data['ultima_atualizacao'] = datetime.now(timezone.utc).isoformat()
-                await db.pedidos_erp.update_one(
-                    {"numero_pedido": pedido_data['numero_pedido']},
-                    {"$set": pedido_data}
-                )
-                updated += 1
-            else:
-                pedido = PedidoERPBase(**pedido_data)
-                pedido_dict = pedido.model_dump()
-                pedido_dict['ultima_atualizacao'] = pedido_dict['ultima_atualizacao'].isoformat()
-                await db.pedidos_erp.insert_one(pedido_dict)
-                imported += 1
+            await atualizar_motivos_pendencia_automatico()
         except Exception as e:
-            logger.error(f"Erro na linha {idx}: {str(e)}")
-            errors += 1
-            continue
-    
-    return {
-        "message": f"Importação concluída: {imported} novos, {updated} atualizados, {skipped_old} ignorados (>6 meses), {errors} erros",
-        "imported": imported,
-        "updated": updated,
-        "skipped_old": skipped_old,
-        "errors": errors
-    }
+            logger.error(f"Erro na atualização automática de motivos: {e}")
+
+        await db.import_status.update_one(
+            {"import_id": import_id},
+            {"$set": {
+                "status": "completed",
+                "progress": 100,
+                "inserted": inserted,
+                "updated": updated,
+                "skipped": skipped,
+                "errors": errors,
+                "completed_at": datetime.now(timezone.utc).isoformat()
+            }}
+        )
+
+        # Notificar admin
+        try:
+            admin = await db.users.find_one({"email": "adneia@weconnect360.com.br"}, {"_id": 0})
+            if admin:
+                notif = {
+                    "id": str(uuid.uuid4()),
+                    "tipo": "import_concluida",
+                    "titulo": "Importação de Pedidos Concluída",
+                    "mensagem": f"A importação iniciada por {user_name} foi concluída. {inserted} novos, {updated} atualizados, {skipped} ignorados, {errors} erros.",
+                    "destinatario_email": admin['email'],
+                    "dados_extras": {"import_id": import_id, "inserted": inserted, "updated": updated, "skipped": skipped, "errors": errors},
+                    "data_criacao": datetime.now(timezone.utc).isoformat(),
+                    "lida": False,
+                    "criado_por_nome": "Sistema"
+                }
+                await db.notifications.insert_one(notif)
+        except Exception as e:
+            logger.error(f"Erro ao criar notificação: {e}")
+
+        logger.info(f"Import completed: {inserted} inserted, {updated} updated, {skipped} skipped, {errors} errors")
+
+    except Exception as e:
+        logger.error(f"Import error: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
 
 
-@router.post("/import", response_model=dict)
+@router.post("/pedidos-erp/import", response_model=dict)
 async def import_pedidos(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     current_user: dict = Depends(get_current_user)
 ):
-    """Importar pedidos de arquivo Excel ou CSV"""
-    if not file.filename:
-        raise HTTPException(status_code=400, detail="Arquivo não fornecido")
-    
-    filename = file.filename.lower()
-    
+    if not file.filename.endswith(('.xlsx', '.xls', '.csv')):
+        raise HTTPException(status_code=400, detail="Formato de arquivo inválido. Use .xlsx, .xls ou .csv")
+    content = await file.read()
+    background_tasks.add_task(process_import_background, content, file.filename, current_user['name'], current_user['email'])
+    return {"message": "Importação iniciada em background", "status": "processing"}
+
+
+@router.get("/pedidos-erp/import-status")
+async def get_import_status(current_user: dict = Depends(get_current_user)):
+    status = await db.import_status.find({}, {"_id": 0}).sort("started_at", -1).to_list(5)
+    return status
+
+
+# ============== ESTOQUE ==============
+
+@router.get("/estoque")
+async def get_estoque(
+    search: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 50,
+    current_user: dict = Depends(get_current_user)
+):
+    query = {}
+    if search:
+        search_regex = {"$regex": search, "$options": "i"}
+        query["$or"] = [
+            {"id_item": search_regex},
+            {"descricao": search_regex},
+            {"nome": search_regex}
+        ]
+    skip = (page - 1) * page_size
+    total = await db.estoque_sigeq.count_documents(query)
+    items = await db.estoque_sigeq.find(query, {"_id": 0}).skip(skip).limit(page_size).to_list(page_size)
+    return {"total": total, "page": page, "page_size": page_size, "items": items}
+
+
+@router.get("/estoque/{item_id}")
+async def get_estoque_item(item_id: str, current_user: dict = Depends(get_current_user)):
+    item = await db.estoque_sigeq.find_one({"id_item": item_id}, {"_id": 0})
+    if not item:
+        raise HTTPException(status_code=404, detail="Item não encontrado no estoque")
+    return item
+
+
+# ============== FORNECEDORES ==============
+
+@router.get("/fornecedores")
+async def list_fornecedores(current_user: dict = Depends(get_current_user)):
+    return await db.fornecedores.find({}, {"_id": 0}).sort("nome", 1).to_list(100)
+
+
+@router.post("/fornecedores")
+async def create_fornecedor(data: dict, current_user: dict = Depends(get_current_user)):
+    data['id'] = str(uuid.uuid4())
+    data['criado_por'] = current_user['name']
+    data['criado_em'] = datetime.now(timezone.utc).isoformat()
+    await db.fornecedores.insert_one(data)
+    return {"message": "Fornecedor criado com sucesso", "id": data['id']}
+
+
+@router.put("/fornecedores/{fornecedor_id}")
+async def update_fornecedor(fornecedor_id: str, data: dict, current_user: dict = Depends(get_current_user)):
+    result = await db.fornecedores.update_one({"id": fornecedor_id}, {"$set": data})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Fornecedor não encontrado")
+    return {"message": "Fornecedor atualizado com sucesso"}
+
+
+# ============== IMPORT ESTOQUE/FORNECEDORES SHEETS ==============
+
+@router.post("/admin/sync-fornecedores")
+async def sync_fornecedores(current_user: dict = Depends(get_current_user)):
     try:
-        content = await file.read()
-        file_size_mb = len(content) / (1024 * 1024)
-        logger.info(f"Arquivo recebido: {filename}, tamanho: {file_size_mb:.2f} MB")
-    except Exception as e:
-        logger.error(f"Erro ao ler arquivo: {e}")
-        raise HTTPException(status_code=400, detail=f"Erro ao ler arquivo: {str(e)}")
-    
-    try:
-        if filename.endswith('.csv'):
-            df = pd.read_csv(io.BytesIO(content))
-        elif filename.endswith(('.xlsx', '.xls')):
-            excel_file = pd.ExcelFile(io.BytesIO(content))
-            sheet_names = excel_file.sheet_names
-            logger.info(f"Abas encontradas: {sheet_names}")
-            
-            if 'Tabelão' in sheet_names:
-                df = pd.read_excel(excel_file, sheet_name='Tabelão')
+        from google_sheets import sheets_client
+        dados = sheets_client.get_fornecedores_data()
+        if not dados:
+            return {"success": False, "message": "Nenhum dado encontrado na planilha"}
+        inserted = updated = 0
+        for item in dados:
+            nome = item.get('nome', '').strip()
+            if not nome:
+                continue
+            existing = await db.fornecedores.find_one({"nome": nome})
+            if existing:
+                await db.fornecedores.update_one({"nome": nome}, {"$set": item})
+                updated += 1
             else:
-                df = pd.read_excel(excel_file, sheet_name=0)
-            
-            if 'Fornecedores' in sheet_names:
-                df_fornecedores = pd.read_excel(excel_file, sheet_name='Fornecedores')
-                logger.info(f"Aba Fornecedores encontrada: {len(df_fornecedores)} registros")
-                await import_fornecedores(df_fornecedores)
-            
-            if 'SIGEQ425' in sheet_names:
-                df_sigeq = pd.read_excel(excel_file, sheet_name='SIGEQ425')
-                logger.info(f"Aba SIGEQ425 encontrada: {len(df_sigeq)} registros de estoque")
-                await import_estoque_sigeq(df_sigeq)
-        else:
-            raise HTTPException(status_code=400, detail="Formato de arquivo não suportado. Use CSV ou Excel.")
-        
-        total_rows = len(df)
-        logger.info(f"Arquivo parseado com sucesso: {total_rows} linhas")
-        
-        # Para arquivos pequenos, processar imediatamente
-        result = await process_import_sync(df)
-        return result
-    
+                item['id'] = str(uuid.uuid4())
+                await db.fornecedores.insert_one(item)
+                inserted += 1
+        return {"success": True, "message": f"Fornecedores sincronizados: {inserted} novos, {updated} atualizados"}
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Erro ao processar arquivo: {str(e)}")
+        logger.error(f"Erro ao sincronizar fornecedores: {e}")
+        return {"success": False, "message": str(e)}
+
+
+@router.post("/admin/sync-transportadoras-devolucoes")
+async def sync_transportadoras_devolucoes(current_user: dict = Depends(get_current_user)):
+    try:
+        from google_sheets import sheets_client
+        dados = sheets_client.get_transportadoras_devolucoes_data()
+        if not dados:
+            return {"success": False, "message": "Nenhum dado encontrado"}
+        inserted = 0
+        for item in dados:
+            existing = await db.transportadoras_devolucoes.find_one({"codigo": item.get('codigo')})
+            if not existing:
+                item['id'] = str(uuid.uuid4())
+                await db.transportadoras_devolucoes.insert_one(item)
+                inserted += 1
+        return {"success": True, "message": f"{inserted} transportadoras importadas"}
+    except Exception as e:
+        logger.error(f"Erro: {e}")
+        return {"success": False, "message": str(e)}
