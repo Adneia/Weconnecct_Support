@@ -278,7 +278,19 @@ Seguimos a disposição, caso haja qualquer necessidade dentro dos prazo de atua
 
 Atenciosamente!
 
-[ASSINATURA]`
+[ASSINATURA]`,
+
+  "Entregue - Confirmação": `Prezado(a) Sr(a). [NOME_CLIENTE]
+
+Estamos entrando em contato para confirmar o recebimento do seu pedido: [PRODUTO] ([NUMERO_PEDIDO]). Poderia, por gentileza, nos informar se o produto já foi entregue?
+
+1 - Sim
+2 - Não
+
+Aguardamos sua resposta.
+
+Atenciosamente,
+Equipe de Atendimento Weconnect`
 };
 
 // Função para detectar categoria e motivo baseado no status do pedido
@@ -3755,6 +3767,14 @@ const NovoAtendimento = () => {
                     <div className="mt-3 p-3 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 space-y-2">
                       <Label className="text-sm font-medium text-green-800 dark:text-green-200">Textos Padrão - Entregue</Label>
                       <div className="flex flex-wrap gap-2">
+                        <Button 
+                          type="button" 
+                          variant={selectedMotivoPendencia === 'Entregue - Confirmação' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => loadTextoMotivoPendencia('Entregue - Confirmação')}
+                        >
+                          Confirmação
+                        </Button>
                         <Button 
                           type="button" 
                           variant={selectedMotivoPendencia === 'Entregue - Encerramento' ? 'default' : 'outline'}

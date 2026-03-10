@@ -1374,7 +1374,19 @@ Estamos seguindo com o encerramento do pedido como entregue.
 Seguimos a disposição, caso haja qualquer necessidade dentro dos prazo de atuação.
 
 Atenciosamente!
-[ASSINATURA]"""
+[ASSINATURA]""",
+
+    "Entregue - Confirmação": """Prezado(a) Sr(a). [NOME_CLIENTE]
+
+Estamos entrando em contato para confirmar o recebimento do seu pedido: [PRODUTO] ([NUMERO_PEDIDO]). Poderia, por gentileza, nos informar se o produto já foi entregue?
+
+1 - Sim
+2 - Não
+
+Aguardamos sua resposta.
+
+Atenciosamente,
+Equipe de Atendimento Weconnect"""
 }
 
 @api_router.get("/textos-padroes/{categoria}")
@@ -1767,6 +1779,10 @@ async def list_chamados(
             if pedido:
                 c['status_pedido'] = pedido.get('status_pedido', '')
                 c['data_ultimo_status'] = pedido.get('data_status', '')
+        
+        # Normalizar campo de código da reversa (pode estar em reversa_codigo ou codigo_reversa)
+        if not c.get('codigo_reversa') and c.get('reversa_codigo'):
+            c['codigo_reversa'] = c['reversa_codigo']
     
     return chamados
 
@@ -2986,6 +3002,17 @@ async def atualizar_motivos_pendencia_automatico():
     atualizacoes = {"compras_para_logistica": 0, "logistica_para_enviado": 0, 
                    "enviado_para_entregue": 0, "enviado_para_ag_transportadora": 0}
     
+    # Motivos finalizadores que NÃO devem ser alterados automaticamente
+    # Estes motivos indicam uma decisão manual do atendente e devem permanecer fixos
+    MOTIVOS_FINALIZADORES = [
+        "Em devolução",
+        "Devolvido",
+        "Estornado",
+        "Reenviado",
+        "Aguardando Devolução",
+        "Encerrado"
+    ]
+    
     # Buscar todos os chamados pendentes
     chamados = await db.chamados.find({"pendente": True}, {"_id": 0}).to_list(5000)
     
@@ -2994,6 +3021,10 @@ async def atualizar_motivos_pendencia_automatico():
         motivo_atual = chamado.get('motivo_pendencia', '')
         
         if not numero_pedido:
+            continue
+        
+        # NOVA VERIFICAÇÃO: Se o motivo atual é finalizador, não alterar
+        if motivo_atual in MOTIVOS_FINALIZADORES:
             continue
         
         # Buscar pedido ERP atualizado
