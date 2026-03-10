@@ -3436,6 +3436,31 @@ async def sincronizar_correcoes_sheets(
         logger.error(f"Erro na sincronização: {e}")
         return {"success": False, "message": str(e)}
 
+@api_router.post("/admin/corrigir-motivo-resolvidos")
+async def corrigir_motivo_resolvidos(current_user: dict = Depends(get_current_user)):
+    """
+    Corrige atendimentos que estão como Resolvido (pendente=False) 
+    mas ainda mostram motivo de Transportadora.
+    Atualiza para "Entregue" pois foram encerrados.
+    """
+    try:
+        # Buscar atendimentos resolvidos com motivo de transportadora
+        resultado = await db.chamados.update_many(
+            {
+                "pendente": False,
+                "motivo_pendencia": {"$regex": "Transportadora", "$options": "i"}
+            },
+            {"$set": {"motivo_pendencia": "Entregue"}}
+        )
+        
+        return {
+            "success": True,
+            "message": f"Corrigidos {resultado.modified_count} atendimentos resolvidos"
+        }
+    except Exception as e:
+        logger.error(f"Erro ao corrigir motivos: {e}")
+        return {"success": False, "message": str(e)}
+
 async def atualizar_motivos_pendencia_automatico():
     """
     Atualiza automaticamente os motivos de pendência dos chamados
