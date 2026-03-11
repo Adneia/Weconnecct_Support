@@ -57,11 +57,13 @@ async def buscar_pedido_por_nome(nome: str, current_user: dict = Depends(get_cur
 
 @router.get("/pedidos-erp/buscar/pedido/{pedido}")
 async def buscar_pedido_por_numero_pedido(pedido: str, current_user: dict = Depends(get_current_user)):
-    """Search pedidos by pedido number (partial match)"""
+    """Search pedidos by any pedido-related field (partial match)"""
     pedidos = await db.pedidos_erp.find({
         "$or": [
             {"numero_pedido": {"$regex": pedido, "$options": "i"}},
-            {"codigo_pedido": {"$regex": pedido, "$options": "i"}}
+            {"codigo_pedido": {"$regex": pedido, "$options": "i"}},
+            {"pedido_cliente": {"$regex": pedido, "$options": "i"}},
+            {"pedido_externo": {"$regex": pedido, "$options": "i"}}
         ]
     }, {"_id": 0}).sort("data_status", -1).to_list(50)
     
@@ -130,12 +132,16 @@ async def get_import_status_by_id(import_id: str, current_user: dict = Depends(g
 
 @router.get("/pedidos-erp/{numero_pedido}")
 async def get_pedido_by_entrega(numero_pedido: str, current_user: dict = Depends(get_current_user)):
-    """Get single pedido by numero_pedido ou codigo_pedido (entrega)"""
+    """Get single pedido by numero_pedido, codigo_pedido, pedido_cliente ou pedido_externo"""
     pedido = await db.pedidos_erp.find_one({"numero_pedido": numero_pedido}, {"_id": 0})
     
-    # Se não encontrou por numero_pedido, buscar por codigo_pedido
+    # Buscar em campos alternativos se não encontrou
     if not pedido:
         pedido = await db.pedidos_erp.find_one({"codigo_pedido": numero_pedido}, {"_id": 0})
+    if not pedido:
+        pedido = await db.pedidos_erp.find_one({"pedido_cliente": numero_pedido}, {"_id": 0})
+    if not pedido:
+        pedido = await db.pedidos_erp.find_one({"pedido_externo": numero_pedido}, {"_id": 0})
     
     if not pedido:
         raise HTTPException(status_code=404, detail="Pedido não encontrado")
