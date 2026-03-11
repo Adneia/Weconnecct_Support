@@ -120,8 +120,15 @@ const NovoAtendimento = () => {
     }
   }, [user, isEditMode]);
 
+  const [skipSearchEffect, setSkipSearchEffect] = useState(false);
+
   useEffect(() => {
     const timer = setTimeout(() => {
+      // Pular busca automática quando carregando chamado em modo edição
+      if (skipSearchEffect) {
+        setSkipSearchEffect(false);
+        return;
+      }
       if (searchValue.trim().length >= 3) {
         if (searchType === 'entrega') searchByEntrega(searchValue.trim());
         else if (searchType === 'cpf') searchByCpf(searchValue.trim());
@@ -177,6 +184,7 @@ const NovoAtendimento = () => {
       if (atd.status_devolucao) setStatusDevolucao(atd.status_devolucao);
 
       if (atd.numero_pedido) {
+        setSkipSearchEffect(true);
         setSearchValue(atd.numero_pedido);
         setSearchType('entrega');
         try {
