@@ -130,8 +130,12 @@ async def get_import_status_by_id(import_id: str, current_user: dict = Depends(g
 
 @router.get("/pedidos-erp/{numero_pedido}")
 async def get_pedido_by_entrega(numero_pedido: str, current_user: dict = Depends(get_current_user)):
-    """Get single pedido by numero_pedido (entrega)"""
+    """Get single pedido by numero_pedido ou codigo_pedido (entrega)"""
     pedido = await db.pedidos_erp.find_one({"numero_pedido": numero_pedido}, {"_id": 0})
+    
+    # Se não encontrou por numero_pedido, buscar por codigo_pedido
+    if not pedido:
+        pedido = await db.pedidos_erp.find_one({"codigo_pedido": numero_pedido}, {"_id": 0})
     
     if not pedido:
         raise HTTPException(status_code=404, detail="Pedido não encontrado")

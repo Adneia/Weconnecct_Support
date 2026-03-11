@@ -105,10 +105,10 @@ const ListaAtendimentos = () => {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const { getAuthHeader } = useAuth();
+  const { getAuthHeader, user } = useAuth();
   
-  // Chave para localStorage dos filtros
-  const FILTERS_STORAGE_KEY = 'elo_atendimentos_filters';
+  // Chave para localStorage dos filtros — POR USUÁRIO
+  const FILTERS_STORAGE_KEY = `elo_atendimentos_filters_${user?.email || 'default'}`;
   
   // Flag para indicar se já carregou os filtros do localStorage
   const [filtersLoaded, setFiltersLoaded] = useState(false);
