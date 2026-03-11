@@ -208,6 +208,7 @@ const ListaAtendimentos = () => {
         'Categoria': atd.categoria || '',
         'Motivo Pendência': atd.motivo_pendencia || '',
         'Status Pedido': atd.status_pedido || '',
+        'Data Último Ponto': atd.data_ultimo_status || '',
         'Motivo': atd.motivo || '',
         'Reversa': atd.codigo_reversa || '',
         'Atendente': atd.atendente || '',
@@ -233,6 +234,7 @@ const ListaAtendimentos = () => {
         { wch: 18 }, // Categoria
         { wch: 15 }, // Motivo Pendência
         { wch: 20 }, // Status Pedido
+        { wch: 15 }, // Data Último Ponto
         { wch: 30 }, // Motivo
         { wch: 15 }, // Reversa
         { wch: 18 }, // Atendente
@@ -1011,13 +1013,38 @@ const ListaAtendimentos = () => {
                           )}
                         </div>
                       </TableCell>
-                      {/* Coluna Reversa - copiável */}
+                      {/* Coluna Reversa - copiável + alerta de vencimento */}
                       <TableCell 
                         className="text-sm font-mono cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950/30"
                         onClick={(e) => copyText(atd.codigo_reversa, 'Reversa', e)}
                         title="Clique para copiar"
                       >
-                        {atd.codigo_reversa || '-'}
+                        <div className="flex flex-col gap-0.5">
+                          <span>{atd.codigo_reversa || '-'}</span>
+                          {atd.data_vencimento_reversa && (() => {
+                            const hoje = new Date();
+                            hoje.setHours(0, 0, 0, 0);
+                            let dataVenc;
+                            const dv = atd.data_vencimento_reversa;
+                            if (dv.includes('-')) {
+                              dataVenc = new Date(dv + 'T00:00:00');
+                            } else if (dv.includes('/')) {
+                              const parts = dv.split('/');
+                              if (parts.length === 3) dataVenc = new Date(parts[2], parts[1] - 1, parts[0]);
+                              else if (parts.length === 2) dataVenc = new Date(2026, parts[1] - 1, parts[0]);
+                            }
+                            if (!dataVenc || isNaN(dataVenc)) return null;
+                            dataVenc.setHours(0, 0, 0, 0);
+                            const diffDias = Math.ceil((dataVenc - hoje) / (1000 * 60 * 60 * 24));
+                            if (diffDias < 0) {
+                              return <Badge className="bg-red-100 text-red-700 text-[10px] px-1 py-0">Vencida</Badge>;
+                            }
+                            if (diffDias <= 3) {
+                              return <Badge className="bg-amber-100 text-amber-700 text-[10px] px-1 py-0">Vence em {diffDias}d</Badge>;
+                            }
+                            return null;
+                          })()}
+                        </div>
                       </TableCell>
                       {/* Coluna Status Pedido - copiável */}
                       <TableCell 

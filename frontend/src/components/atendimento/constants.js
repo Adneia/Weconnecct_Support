@@ -13,7 +13,6 @@ export const CATEGORIAS = [
   "Produto com Avaria",
   "Arrependimento",
   "Acompanhamento",
-  "Comprovante de Entrega",
   "Assistência Técnica"
 ];
 

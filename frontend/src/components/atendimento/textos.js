@@ -1023,3 +1023,159 @@ Seguimos a disposição.
 Atenciosamente,
 [ASSINATURA]`;
 
+
+// Textos de Reversa com Assistência Técnica (por fornecedor)
+export const TEXTOS_REVERSA_ASSISTENCIA = {
+  'Ventisol': `Olá,
+
+Este fornecedor tem a possibilidade de troca direto com ele, o cliente pode acioná-lo direto através do https://assistencia.ventisol.com.br/
+
+Como estamos dentro do prazo de devolução, o cliente também pode optar pela troca aqui na loja, para isso, basta realizar a devolução conforme o código de postagem abaixo e assim que for recebido em nosso galpão será enviado outro em substituição.
+
+Segue os dados para realizar o retorno do produto em no máximo 10 dias.
+
+Autorização de Postagem em Agência
+
+Dados da Emissão:
+
+Objeto: [CÓDIGO_REVERSA]
+Emitido em: [DATA_EMISSAO]
+Data de Validade: [DATA_VALIDADE]
+Remetente autorizado: [NOME_CLIENTE]
+
+- Para utilizá-la, o consumidor dever se dirigir a uma Agência Própria ou Franqueada dos Correios, levando consigo, obrigatoriamente, o Código de Autorização e o objeto para postagem.
+
+DESTINATÁRIO:
+WECONNECT COMERCIO E SERVICOS LTDA 
+
+*** Orientações importantes ***: 
+
+* O produto deve ser devolvido na embalagem original e sem avaria (dentro de uma outra caixa de papelão OU papel pardo para manter a integridade do produto); 
+* Sem indícios de uso, sem violação do lacre original do fabricante; 
+* Coloque a nota fiscal dentro de um envelope plástico adesivo e cole-o na parte externa do pacote. Este tipo de envelope deve estar disponível em qualquer agência dos Correios; 
+* Acompanhado também dos acessórios/peças e manual do item. 
+* O estorno somente será autorizado após as avaliações citadas acima. As informações do destinatário serão preenchidas na agência dos Correios de acordo com Código de Postagem. 
+
+Serviço de Atendimento ao Cliente (SAC) – VENTISOL
+https://assistencia.ventisol.com.br/
+
+Seguimos a disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  'OEX': `Olá,
+
+Este fornecedor tem a possibilidade de troca direto com ele, o cliente pode acioná-lo direto através do e-mail reversa@newex.com.br ou pelos telefones 0800 887 0505 / 11 973928421.
+
+Como estamos dentro do prazo de devolução, o cliente também pode optar pela troca aqui na loja, para isso, basta realizar a devolução conforme o código de postagem abaixo e assim que for recebido em nosso galpão será enviado outro em substituição.
+
+Segue os dados para realizar o retorno do produto em no máximo 10 dias.
+
+Autorização de Postagem em Agência
+
+Dados da Emissão:
+
+Objeto: [CÓDIGO_REVERSA]
+Emitido em: [DATA_EMISSAO]
+Data de Validade: [DATA_VALIDADE]
+Remetente autorizado: [NOME_CLIENTE]
+
+- Para utilizá-la, o consumidor dever se dirigir a uma Agência Própria ou Franqueada dos Correios, levando consigo, obrigatoriamente, o Código de Autorização e o objeto para postagem.
+
+DESTINATÁRIO:
+WECONNECT COMERCIO E SERVICOS LTDA 
+
+*** Orientações importantes ***: 
+
+* O produto deve ser devolvido na embalagem original e sem avaria (dentro de uma outra caixa de papelão OU papel pardo para manter a integridade do produto); 
+* Sem indícios de uso, sem violação do lacre original do fabricante; 
+* Coloque a nota fiscal dentro de um envelope plástico adesivo e cole-o na parte externa do pacote. Este tipo de envelope deve estar disponível em qualquer agência dos Correios; 
+* Acompanhado também dos acessórios/peças e manual do item. 
+* O estorno somente será autorizado após as avaliações citadas acima. As informações do destinatário serão preenchidas na agência dos Correios de acordo com Código de Postagem. 
+
+Serviço de Atendimento ao Cliente (SAC) – OEX 
+reversa@newex.com.br
+0800 887 0505 OU 11 973928421
+
+Seguimos a disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  'Oderço': `Olá,
+
+Este fornecedor tem a possibilidade de troca direto com ele, o cliente pode acioná-lo direto através do telefone 44 2101-1428.
+
+Como estamos dentro do prazo de devolução, o cliente também pode optar pela troca aqui na loja, para isso, basta realizar a devolução conforme o código de postagem abaixo e assim que for recebido em nosso galpão será enviado outro em substituição.
+
+Segue os dados para realizar o retorno do produto em no máximo 10 dias.
+
+Autorização de Postagem em Agência
+
+Dados da Emissão:
+
+Objeto: [CÓDIGO_REVERSA]
+Emitido em: [DATA_EMISSAO]
+Data de Validade: [DATA_VALIDADE]
+Remetente autorizado: [NOME_CLIENTE]
+
+- Para utilizá-la, o consumidor dever se dirigir a uma Agência Própria ou Franqueada dos Correios, levando consigo, obrigatoriamente, o Código de Autorização e o objeto para postagem.
+
+DESTINATÁRIO:
+WECONNECT COMERCIO E SERVICOS LTDA 
+
+*** Orientações importantes ***: 
+
+* O produto deve ser devolvido na embalagem original e sem avaria (dentro de uma outra caixa de papelão OU papel pardo para manter a integridade do produto); 
+* Sem indícios de uso, sem violação do lacre original do fabricante; 
+* Coloque a nota fiscal dentro de um envelope plástico adesivo e cole-o na parte externa do pacote. Este tipo de envelope deve estar disponível em qualquer agência dos Correios; 
+* Acompanhado também dos acessórios/peças e manual do item. 
+* O estorno somente será autorizado após as avaliações citadas acima. As informações do destinatário serão preenchidas na agência dos Correios de acordo com Código de Postagem. 
+
+Serviço de Atendimento ao Cliente (SAC) – ODERÇO
+44 2101-1428
+
+Seguimos a disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  'Hoopson': `Olá,
+
+Este fornecedor tem a possibilidade de troca direto com ele, o cliente pode acioná-lo direto através do telefone +55 21 3809-2001.
+
+Como estamos dentro do prazo de devolução, o cliente também pode optar pela troca aqui na loja, para isso, basta realizar a devolução conforme o código de postagem abaixo e assim que for recebido em nosso galpão será enviado outro em substituição.
+
+Segue os dados para realizar o retorno do produto em no máximo 10 dias.
+
+Autorização de Postagem em Agência
+
+Dados da Emissão:
+
+Objeto: [CÓDIGO_REVERSA]
+Emitido em: [DATA_EMISSAO]
+Data de Validade: [DATA_VALIDADE]
+Remetente autorizado: [NOME_CLIENTE]
+
+- Para utilizá-la, o consumidor dever se dirigir a uma Agência Própria ou Franqueada dos Correios, levando consigo, obrigatoriamente, o Código de Autorização e o objeto para postagem.
+
+DESTINATÁRIO:
+WECONNECT COMERCIO E SERVICOS LTDA 
+
+*** Orientações importantes ***: 
+
+* O produto deve ser devolvido na embalagem original e sem avaria (dentro de uma outra caixa de papelão OU papel pardo para manter a integridade do produto); 
+* Sem indícios de uso, sem violação do lacre original do fabricante; 
+* Coloque a nota fiscal dentro de um envelope plástico adesivo e cole-o na parte externa do pacote. Este tipo de envelope deve estar disponível em qualquer agência dos Correios; 
+* Acompanhado também dos acessórios/peças e manual do item. 
+* O estorno somente será autorizado após as avaliações citadas acima. As informações do destinatário serão preenchidas na agência dos Correios de acordo com Código de Postagem. 
+
+Serviço de Atendimento ao Cliente (SAC) – Hoopson
++55 21 3809-2001
+
+Seguimos a disposição.
+Atenciosamente,
+[ASSINATURA]`
+};
+
+// Lista de fornecedores com assistência técnica
+export const FORNECEDORES_ASSISTENCIA = ['Ventisol', 'OEX', 'Oderço', 'Hoopson'];
+

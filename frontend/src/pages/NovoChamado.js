@@ -34,6 +34,7 @@ import {
   TEXTOS_MOTIVO_PENDENCIA, TEXTOS_AVARIA, TEXTOS_FALHA_PRODUCAO,
   TEXTOS_FALHA_TRANSPORTE, TEXTOS_ARREPENDIMENTO, TEXTOS_ACOMPANHAMENTO,
   TEXTOS_RECLAME_AQUI, TEXTOS_ASSISTENCIA, TEXTO_FALHA_INTEGRACAO,
+  TEXTOS_REVERSA_ASSISTENCIA,
   getCategoriaPorStatus, getTransportadoraRastreio,
 } from '../components/atendimento/textos';
 import { replaceAllPlaceholders } from '../components/atendimento/textReplacer';
@@ -82,6 +83,7 @@ const NovoAtendimento = () => {
   const [selectedAssistencia, setSelectedAssistencia] = useState('');
   const [selectedComprovante, setSelectedComprovante] = useState('');
   const [selectedMotivoPendencia, setSelectedMotivoPendencia] = useState('');
+  const [selectedAssistenciaAguardando, setSelectedAssistenciaAguardando] = useState('');
   const [motivoPendencia, setMotivoPendencia] = useState('');
   const [transportadoraDetectada, setTransportadoraDetectada] = useState(null);
   const [retornarChamado, setRetornarChamado] = useState(false);
@@ -272,7 +274,9 @@ const NovoAtendimento = () => {
     try {
       const response = await axios.get(`${API_URL}/api/textos-padroes/${encodeURIComponent(`Falha Fornecedor - ${tipo}`)}`, { headers: getAuthHeader() });
       setTextoPadrao(replaceAllPlaceholders(response.data.texto, getTextContext()));
-      setSelectedFalhaFornecedor(tipo); setShowTextoDialog(true);
+      setSelectedFalhaFornecedor(tipo);
+      setSelectedAssistenciaAguardando(tipo);
+      setShowTextoDialog(true);
     } catch { toast.error('Erro ao carregar texto padrão'); }
   };
   const loadTextoArrependimento = (tipo) => {
@@ -295,12 +299,18 @@ const NovoAtendimento = () => {
     try {
       const response = await axios.get(`${API_URL}/api/textos-padroes/${encodeURIComponent(`Comprovante de Entrega - ${tipo}`)}`, { headers: getAuthHeader() });
       setTextoPadrao(replaceAllPlaceholders(response.data.texto, getTextContext()));
-      setSelectedComprovante(tipo); setShowTextoDialog(true);
+      setSelectedComprovante(tipo);
+      setSelectedMotivoPendencia(`Comprovante - ${tipo}`);
+      setShowTextoDialog(true);
     } catch { toast.error('Erro ao carregar texto de comprovante'); }
   };
   const loadTextoMotivoPendencia = (tipo) => {
     setTextoPadrao(replaceAllPlaceholders(TEXTOS_MOTIVO_PENDENCIA[tipo] || '', getTextContext()));
     setSelectedMotivoPendencia(tipo); setShowTextoDialog(true);
+  };
+  const loadTextoReversaAssistencia = (fornecedor) => {
+    setTextoPadrao(replaceAllPlaceholders(TEXTOS_REVERSA_ASSISTENCIA[fornecedor] || '', getTextContext()));
+    setSelectedAssistenciaAguardando(`Reversa Assistência - ${fornecedor}`); setShowTextoDialog(true);
   };
 
   const isReclameAqui = () => formData.solicitacao && formData.solicitacao.toLowerCase().includes('reclame');
@@ -421,6 +431,19 @@ const NovoAtendimento = () => {
   };
 
   // --- Devolução ---
+  const handleReabrir = async () => {
+    if (!isEditMode || !atendimentoId) return;
+    if (!window.confirm('Deseja reabrir este atendimento?')) return;
+    setLoading(true);
+    try {
+      await axios.put(`${API_URL}/api/chamados/${atendimentoId}/reabrir`, {}, { headers: getAuthHeader() });
+      toast.success('Atendimento reaberto com sucesso!');
+      loadAtendimento(atendimentoId);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Erro ao reabrir atendimento');
+    } finally { setLoading(false); }
+  };
+
   const handleRegistrarDevolucaoComStatus = async (status) => {
     setShowDevolucaoDialog(false);
     setLoading(true);
@@ -776,8 +799,14 @@ const NovoAtendimento = () => {
               onVerificarAdneiaChange={setVerificarAdneia}
               pedidoErp={pedidoErp}
               selectedMotivoPendencia={selectedMotivoPendencia}
+              selectedAssistenciaAguardando={selectedAssistenciaAguardando}
               onLoadTextoMotivoPendencia={loadTextoMotivoPendencia}
               onLoadTextoPadrao={loadTextoPadrao}
+              onLoadTextoReversaAssistencia={loadTextoReversaAssistencia}
+              onLoadTextoFalhaFornecedor={loadTextoFalhaFornecedor}
+              onLoadTextoComprovante={loadTextoComprovante}
+              onLoadTextoFalhaTransporte={loadTextoFalhaTransporte}
+              parceiro={formData.parceiro}
             />
 
             {/* Ações */}
@@ -789,6 +818,7 @@ const NovoAtendimento = () => {
               motivoPendencia={motivoPendencia}
               pendente={formData.pendente}
               onEncerrar={handleEncerrar}
+              onReabrir={handleReabrir}
               onCancel={() => navigate(filterParam ? `/chamados?filter=${filterParam}` : '/chamados')}
             />
           </>

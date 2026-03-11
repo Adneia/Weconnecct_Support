@@ -291,6 +291,48 @@ async def update_chamado(
     return {"message": "Chamado atualizado com sucesso", "google_sheets_sync": "queued"}
 
 
+@router.put("/chamados/{chamado_id}/reabrir", response_model=dict)
+async def reabrir_chamado(
+    chamado_id: str,
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user)
+):
+    existing = await db.chamados.find_one({"id": chamado_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Chamado não encontrado")
+    if existing.get('pendente', True):
+        raise HTTPException(status_code=400, detail="Atendimento já está aberto")
+
+    hoje = datetime.now(timezone.utc).strftime('%d/%m/%Y')
+    anotacoes_atuais = existing.get('anotacoes', '')
+    nova_anotacao = f"[{hoje}] *** ATENDIMENTO REABERTO por {current_user['name']} ***"
+    novas_anotacoes = f"{nova_anotacao}\n\n{anotacoes_atuais}" if anotacoes_atuais else nova_anotacao
+
+    update_data = {
+        "pendente": True,
+        "data_fechamento": None,
+        "anotacoes": novas_anotacoes
+    }
+    await db.chamados.update_one({"id": chamado_id}, {"$set": update_data})
+
+    historico = Historico(
+        chamado_id=chamado_id,
+        tipo_acao="Reabertura",
+        descricao=f"Atendimento reaberto por {current_user['name']}",
+        usuario_id=current_user['id'],
+        usuario_nome=current_user['name']
+    )
+    hist_dict = historico.model_dump()
+    hist_dict['data_hora'] = hist_dict['data_hora'].isoformat()
+    await db.historico.insert_one(hist_dict)
+
+    numero_pedido = existing.get('numero_pedido')
+    if numero_pedido:
+        background_tasks.add_task(sync_update_to_google_sheets, numero_pedido, update_data)
+
+    return {"message": "Atendimento reaberto com sucesso"}
+
+
 @router.delete("/chamados/{chamado_id}", response_model=dict)
 async def delete_chamado(chamado_id: str, current_user: dict = Depends(get_current_user)):
     result = await db.chamados.delete_one({"id": chamado_id})

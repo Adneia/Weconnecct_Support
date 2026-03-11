@@ -104,17 +104,6 @@ const TextosCategoriaButtons = ({
             <Button type="button" variant={selected.falhaTransporte === 'Extravio com Cancelamento' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTexto.falhaTransporte('Extravio com Cancelamento')}>Com Cancelamento</Button>
           </div>
         </div>
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Comprovante de Entrega</Label>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant={selected.falhaTransporte === 'Falta Comprovante' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTexto.falhaTransporte('Falta Comprovante')}>Falta Comprovante</Button>
-            <Button type="button" variant={selected.falhaTransporte === 'Desconhece Entrega - No Prazo' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTexto.falhaTransporte('Desconhece Entrega - No Prazo')}>Desconhece (No Prazo)</Button>
-            <Button type="button" variant={selected.falhaTransporte === 'Desconhece Entrega - Fora Prazo' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTexto.falhaTransporte('Desconhece Entrega - Fora Prazo')}>Desconhece (Fora Prazo)</Button>
-            {parceiro?.toLowerCase().includes('csu') && (
-              <Button type="button" variant={selected.falhaTransporte === 'CSU - Comprovante Email' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTexto.falhaTransporte('CSU - Comprovante Email')} className="bg-orange-50 border-orange-200 text-orange-700 hover:bg-orange-100">CSU - Email</Button>
-            )}
-          </div>
-        </div>
       </div>
     );
   }
@@ -222,20 +211,7 @@ const TextosCategoriaButtons = ({
   }
 
   if (categoria === 'Comprovante de Entrega') {
-    return (
-      <div className="space-y-3" data-testid="textos-comprovante">
-        <div className="space-y-2">
-          <Label className="text-sm font-medium">Textos para Comprovante de Entrega</Label>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant={selected.comprovante === 'Confirmação' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTexto.comprovante('Confirmação')}>Confirmação</Button>
-            <Button type="button" variant={selected.comprovante === 'Dentro do Prazo' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTexto.comprovante('Dentro do Prazo')}>Dentro do Prazo</Button>
-            <Button type="button" variant={selected.comprovante === 'Expirado' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTexto.comprovante('Expirado')}>Expirado</Button>
-            <Button type="button" variant={selected.comprovante === 'Expirado para Encerrar' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTexto.comprovante('Expirado para Encerrar')}>Expirado p/ Encerrar</Button>
-            <Button type="button" variant={selected.comprovante === 'Email CSU' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTexto.comprovante('Email CSU')}>Email CSU</Button>
-          </div>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   if (categoria === 'Assistência Técnica') {

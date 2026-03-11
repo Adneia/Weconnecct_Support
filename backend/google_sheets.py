@@ -463,7 +463,7 @@ class GoogleSheetsClient:
             return None
     
     def add_devolucao_row(self, row_data: Dict[str, Any]) -> bool:
-        """Add a row to the Devoluções spreadsheet"""
+        """Add or update a row in the Devoluções spreadsheet (no duplicates by numero_pedido)"""
         if not self._initialized:
             if not self.initialize():
                 return False
@@ -482,10 +482,6 @@ class GoogleSheetsClient:
                 logger.error("Planilha de devoluções não tem cabeçalhos")
                 return False
             
-            # Map row_data keys to the exact column names in the spreadsheet
-            # Colunas: ID_Devolucao, ID_Atendimento, Data_Entrada_Lista, Entrega, CPF, Nome, Produto, Filial, 
-            #          Codigo_Reversa, Atendimento, Devolvido_por, Status_Galpao, Data_Recebimento, Condicao_Produto, 
-            #          Proxima_Acao, Responsavel_Galpao, Observacoes_Galpao, Data_Conclusao
             column_mapping = {
                 'ID_Devolucao': row_data.get('id_devolucao', ''),
                 'ID_Atendimento': row_data.get('id_atendimento', ''),
@@ -496,29 +492,52 @@ class GoogleSheetsClient:
                 'Produto': row_data.get('produto', ''),
                 'Filial': row_data.get('filial', ''),
                 'Codigo_Reversa': row_data.get('codigo_reversa', ''),
-                'Atendimento': row_data.get('atendimento', 'Aguardando'),  # J - Aguardando/Estornado/Reenviado
-                'Devolvido_por': row_data.get('devolvido_por', ''),  # K - Correios ou Transportadora
-                'Status_Galpao': row_data.get('status_galpao', 'AGUARDANDO'),  # L
-                'Data_Recebimento': '',  # Preenchido posteriormente
-                'Condicao_Produto': '',  # Preenchido posteriormente
+                'Atendimento': row_data.get('atendimento', 'Aguardando'),
+                'Devolvido_por': row_data.get('devolvido_por', ''),
+                'Status_Galpao': row_data.get('status_galpao', 'AGUARDANDO'),
+                'Data_Recebimento': '',
+                'Condicao_Produto': '',
                 'Proxima_Acao': 'Aguardando recebimento',
-                'Responsavel_Galpao': '',  # Preenchido posteriormente
+                'Responsavel_Galpao': '',
                 'Observacoes_Galpao': row_data.get('motivo', ''),
-                'Data_Conclusao': '',  # Preenchido posteriormente
+                'Data_Conclusao': '',
             }
             
-            # Prepare row values in the same order as headers
-            row_values = []
-            for header in headers:
-                value = column_mapping.get(header, '')
-                row_values.append(str(value) if value else '')
+            # Check if entry already exists by numero_pedido (Entrega column)
+            numero_pedido = row_data.get('numero_pedido', '')
+            existing_row = None
+            if numero_pedido and 'Entrega' in headers:
+                entrega_col = headers.index('Entrega') + 1  # 1-indexed
+                try:
+                    cell = worksheet.find(str(numero_pedido), in_column=entrega_col)
+                    if cell:
+                        existing_row = cell.row
+                        logger.info(f"Devolução existente encontrada na linha {existing_row} para Entrega={numero_pedido}")
+                except Exception:
+                    existing_row = None
             
-            # Append row
-            worksheet.append_row(row_values, value_input_option='USER_ENTERED')
-            logger.info(f"Devolução added to Google Sheets: Entrega={row_data.get('numero_pedido', 'N/A')}, Nome={row_data.get('nome_cliente', 'N/A')}")
-            return True
+            if existing_row:
+                # Update existing row - only update editable fields
+                update_fields = ['Codigo_Reversa', 'Atendimento', 'Devolvido_por', 'Status_Galpao', 'Observacoes_Galpao', 'ID_Atendimento']
+                for field in update_fields:
+                    if field in headers and column_mapping.get(field):
+                        col_idx = headers.index(field) + 1
+                        worksheet.update_cell(existing_row, col_idx, str(column_mapping[field]))
+                logger.info(f"Devolução atualizada na linha {existing_row}: Entrega={numero_pedido}")
+                return True
+            else:
+                # Prepare row values in the same order as headers
+                row_values = []
+                for header in headers:
+                    value = column_mapping.get(header, '')
+                    row_values.append(str(value) if value else '')
+                
+                # Append new row
+                worksheet.append_row(row_values, value_input_option='USER_ENTERED')
+                logger.info(f"Devolução nova adicionada: Entrega={numero_pedido}, Nome={row_data.get('nome_cliente', 'N/A')}")
+                return True
         except Exception as e:
-            logger.error(f"Error adding devolução to Google Sheets: {e}")
+            logger.error(f"Error adding/updating devolução to Google Sheets: {e}")
             import traceback
             logger.error(traceback.format_exc())
             return False

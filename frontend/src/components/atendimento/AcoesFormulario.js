@@ -1,6 +1,6 @@
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
-import { Loader2, CheckCircle } from 'lucide-react';
+import { Loader2, CheckCircle, RotateCcw } from 'lucide-react';
 import { MOTIVOS_FINALIZADORES } from './constants';
 
 const AcoesFormulario = ({
@@ -11,6 +11,7 @@ const AcoesFormulario = ({
   motivoPendencia,
   pendente,
   onEncerrar,
+  onReabrir,
   onCancel,
 }) => {
   return (
@@ -37,10 +38,24 @@ const AcoesFormulario = ({
           </div>
         )}
         {isEditMode && pendente === false && (
-          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-300 py-2 px-4">
-            <CheckCircle className="h-4 w-4 mr-2" />
-            Atendimento Encerrado
-          </Badge>
+          <div className="flex flex-col gap-2">
+            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-300 py-2 px-4">
+              <CheckCircle className="h-4 w-4 mr-2" />
+              Atendimento Encerrado
+            </Badge>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={onReabrir}
+              disabled={loading}
+              className="border-amber-300 text-amber-700 hover:bg-amber-50"
+              data-testid="btn-reabrir"
+            >
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Reabrir Atendimento
+            </Button>
+          </div>
         )}
       </div>
       <div className="flex gap-3 items-center">
