@@ -100,6 +100,18 @@ async def create_chamado(
 ):
     if not chamado_data.numero_pedido.strip():
         raise HTTPException(status_code=400, detail="Número do pedido é obrigatório")
+    
+    # Prevenir duplicatas: verificar se já existe chamado PENDENTE para este pedido
+    chamado_existente = await db.chamados.find_one(
+        {"numero_pedido": chamado_data.numero_pedido.strip(), "pendente": True},
+        {"_id": 0, "id_atendimento": 1}
+    )
+    if chamado_existente:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Já existe um atendimento pendente ({chamado_existente.get('id_atendimento')}) para este pedido. Edite o existente ou encerre-o antes de criar um novo."
+        )
+    
     id_atendimento = await generate_atendimento_id()
     chamado = Chamado(**chamado_data.model_dump())
     chamado.id_atendimento = id_atendimento
