@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 from utils.database import db
 from utils.auth import get_current_user
-from utils.helpers import calcular_dias_uteis, is_status_maiusculo
+from data.motivo_pendencia_mapping import get_motivo_from_status, MOTIVOS_AUTO_ATUALIZAVEIS, STATUS_NAO_ALTERAR
 
 import logging
 logger = logging.getLogger(__name__)
@@ -13,8 +13,64 @@ router = APIRouter(prefix="/api")
 
 @router.post("/admin/atualizar-motivos")
 async def admin_atualizar_motivos(current_user: dict = Depends(get_current_user)):
-    await atualizar_motivos_pendencia_automatico()
-    return {"success": True, "message": "Motivos de pendência atualizados"}
+    stats = await atualizar_motivos_pendencia_automatico()
+    return {"success": True, "message": "Motivos de pendência atualizados", "stats": stats}
+
+
+@router.post("/admin/migrar-ajustes-marco2026")
+async def migrar_ajustes_marco2026(current_user: dict = Depends(get_current_user)):
+    """
+    Executa AJUSTE 1 e AJUSTE 2 do Prompt Março 2026:
+    - AJUSTE 1: Aplica mapeamento de motivo de pendência nos pendentes
+    - AJUSTE 2: Limpa verificar_adneia onde motivo mudou
+    """
+    # AJUSTE 1
+    stats_ajuste1 = await atualizar_motivos_pendencia_automatico()
+
+    # AJUSTE 2 adicional: verificar todos com verificar_adneia=True
+    # (já tratado dentro de atualizar_motivos, mas checamos os restantes)
+    chamados_verificar = await db.chamados.find(
+        {"verificar_adneia": True, "pendente": True},
+        {"_id": 0, "id_atendimento": 1, "motivo_pendencia": 1}
+    ).to_list(5000)
+
+    # Distribuição final de motivos
+    pipeline_dist = [
+        {"$match": {"pendente": True}},
+        {"$group": {"_id": "$motivo_pendencia", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}}
+    ]
+    distribuicao_raw = await db.chamados.aggregate(pipeline_dist).to_list(50)
+    distribuicao = {item['_id'] or 'Sem motivo': item['count'] for item in distribuicao_raw}
+
+    # AJUSTE 5 stats: registros com/sem data
+    total_com_data = await db.pedidos_erp.count_documents({"data_status": {"$exists": True, "$nin": ["", None]}})
+    total_sem_data = await db.pedidos_erp.count_documents({"$or": [{"data_status": {"$exists": False}}, {"data_status": ""}, {"data_status": None}]})
+
+    return {
+        "success": True,
+        "ajuste1": stats_ajuste1,
+        "ajuste2": {
+            "registros_revisados": len(chamados_verificar),
+            "verificar_limpo": stats_ajuste1.get("verificar_limpo", 0),
+        },
+        "distribuicao_final": distribuicao,
+        "ajuste5": {
+            "com_data": total_com_data,
+            "sem_data": total_sem_data,
+        }
+    }
+
+
+@router.get("/admin/total-na-base")
+async def get_total_na_base(current_user: dict = Depends(get_current_user)):
+    """AJUSTE 4 — Retorna o total geral de registros, independente de filtros."""
+    total_chamados = await db.chamados.count_documents({})
+    total_pedidos = await db.pedidos_erp.count_documents({})
+    return {
+        "total_chamados": total_chamados,
+        "total_pedidos": total_pedidos,
+    }
 
 
 @router.post("/admin/padronizar-parceiros")
@@ -269,55 +325,66 @@ async def padronizar_motivos_inconsistentes(current_user: dict = Depends(get_cur
 
 
 async def atualizar_motivos_pendencia_automatico():
-    logger.info("Iniciando atualização automática de motivos de pendência...")
-    atualizacoes = {"compras_para_logistica": 0, "logistica_para_enviado": 0,
-                    "enviado_para_entregue": 0, "enviado_para_ag_transportadora": 0}
-    MOTIVOS_FINALIZADORES = ["Em devolução", "Devolvido", "Estornado", "Reenviado", "Aguardando Devolução", "Encerrado"]
+    """
+    AJUSTE 1 — Fluxo automático de Motivo de Pendência.
+    Usa a tabela de mapeamento Status do Pedido → Motivo de Pendência.
+    Só atualiza se o motivo atual for Ag. Compras, Ag. Logística ou Enviado.
+    Não altera registros com Status = Entrega cancelada ou CANCELADO.
+    Também aplica AJUSTE 2: limpa verificar_adneia quando motivo muda.
+    """
+
+    logger.info("Iniciando atualização automática de motivos de pendência (novo mapeamento)...")
+    stats = {
+        "pendentes_verificados": 0,
+        "elegiveis": 0,
+        "atualizados": 0,
+        "ignorados_outros_motivos": 0,
+        "aguardando_acao_manual": 0,
+        "verificar_limpo": 0,
+    }
+
     chamados = await db.chamados.find({"pendente": True}, {"_id": 0}).to_list(5000)
+    stats["pendentes_verificados"] = len(chamados)
+
     for chamado in chamados:
         numero_pedido = chamado.get('numero_pedido')
         motivo_atual = chamado.get('motivo_pendencia', '')
         if not numero_pedido:
             continue
-        if motivo_atual in MOTIVOS_FINALIZADORES:
-            continue
+
         pedido = await db.pedidos_erp.find_one({"numero_pedido": numero_pedido}, {"_id": 0})
         if not pedido:
             continue
+
         status_pedido = pedido.get('status_pedido', '')
-        data_status = pedido.get('data_status', '')
-        novo_motivo = None
-        if motivo_atual == 'Ag. Compras':
-            status_lower = status_pedido.lower() if status_pedido else ''
-            if status_pedido and (status_lower != 'aguardando estoque' or
-                                  'entregue' in status_lower and 'transportadora' in status_lower):
-                novo_motivo = 'Ag. Logística'
-                atualizacoes['compras_para_logistica'] += 1
-        elif motivo_atual == 'Ag. Logística':
-            status_lower = status_pedido.lower() if status_pedido else ''
-            is_entregue_transportadora = 'entregue' in status_lower and 'transportadora' in status_lower
-            if is_status_maiusculo(status_pedido) or (status_pedido and not is_entregue_transportadora and status_lower not in ['aguardando estoque', 'nf emitida', 'nf aprovada']):
-                novo_motivo = 'Enviado'
-                atualizacoes['logistica_para_enviado'] += 1
-        elif motivo_atual == 'Enviado':
-            status_lower = status_pedido.lower() if status_pedido else ''
-            if status_pedido and 'entregue' in status_lower and not is_status_maiusculo(status_pedido):
-                novo_motivo = 'Entregue'
-                atualizacoes['enviado_para_entregue'] += 1
-            elif is_status_maiusculo(status_pedido) and data_status:
-                dias_sem_mudanca = calcular_dias_uteis(data_status)
-                if dias_sem_mudanca >= 3:
-                    novo_motivo = 'Ag. Transportadora'
-                    atualizacoes['enviado_para_ag_transportadora'] += 1
-        elif motivo_atual in ['Entregue', 'Ag. Transportadora', 'Ag. Parceiro']:
-            status_lower = status_pedido.lower() if status_pedido else ''
-            if is_status_maiusculo(status_pedido) and 'entregue' not in status_lower:
-                novo_motivo = 'Enviado'
-                atualizacoes['correcao_para_enviado'] = atualizacoes.get('correcao_para_enviado', 0) + 1
-        if novo_motivo:
+
+        # Verificar se status é cancelado (não alterar)
+        if status_pedido in STATUS_NAO_ALTERAR:
+            stats["aguardando_acao_manual"] += 1
+            continue
+
+        # Só atualizar automaticamente se motivo atual for auto-atualizável
+        if motivo_atual not in MOTIVOS_AUTO_ATUALIZAVEIS:
+            stats["ignorados_outros_motivos"] += 1
+            continue
+
+        stats["elegiveis"] += 1
+
+        # Buscar novo motivo pelo mapeamento
+        novo_motivo = get_motivo_from_status(status_pedido)
+        if novo_motivo and novo_motivo != motivo_atual:
+            update_fields = {"motivo_pendencia": novo_motivo}
+            # AJUSTE 2: limpar verificar quando motivo muda
+            if chamado.get('verificar_adneia'):
+                update_fields["verificar_adneia"] = False
+                stats["verificar_limpo"] += 1
+
             await db.chamados.update_one(
                 {"id_atendimento": chamado.get('id_atendimento')},
-                {"$set": {"motivo_pendencia": novo_motivo}}
+                {"$set": update_fields}
             )
+            stats["atualizados"] += 1
             logger.info(f"Chamado {chamado.get('id_atendimento')}: {motivo_atual} -> {novo_motivo}")
-    logger.info(f"Atualização automática concluída: {atualizacoes}")
+
+    logger.info(f"Atualização automática concluída: {stats}")
+    return stats

@@ -30,8 +30,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../components/ui/dialog';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '../components/ui/popover';
+import { Checkbox } from '../components/ui/checkbox';
+import { Separator } from '../components/ui/separator';
 import { toast } from 'sonner';
-import { Search, Plus, Filter, X, Clock, CheckCircle, AlertCircle, FileText, RotateCcw, Download, FileSpreadsheet, CheckSquare, ExternalLink, Copy } from 'lucide-react';
+import { Search, Plus, Filter, X, Clock, CheckCircle, AlertCircle, FileText, RotateCcw, Download, FileSpreadsheet, CheckSquare, ExternalLink, Copy, ChevronDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
@@ -64,6 +71,13 @@ const MOTIVOS_PENDENCIA = [
 
 const ATENDENTES = ["Letícia Martelo", "Adnéia Campos"];
 
+// AJUSTE 3 — Lista fixa de parceiros para multi-select
+const PARCEIROS_FIXOS = [
+  "Bradesco", "CSU", "Camicado", "Coopera", "Global Rewards",
+  "LL Loyalty", "LTM", "Livelo", "Mercado Livre", "NiceQuest",
+  "Senff", "ShopHub", "Sicredi", "Tudo Azul"
+];
+
 const ListaAtendimentos = () => {
   const [atendimentos, setAtendimentos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -75,10 +89,12 @@ const ListaAtendimentos = () => {
     retornar_chamado: '',
     verificar_adneia: '',
     motivo_pendencia: '',
-    parceiro: ''
+    parceiro: []
   });
   const [showFilters, setShowFilters] = useState(false);
   const [parceiros, setParceiros] = useState([]);
+  
+  const [totalNaBase, setTotalNaBase] = useState(null);
   
   // Estados para finalização de atendimentos
   const [showFinalizarDialog, setShowFinalizarDialog] = useState(false);
@@ -103,14 +119,19 @@ const ListaAtendimentos = () => {
     if (savedFilters) {
       try {
         const parsed = JSON.parse(savedFilters);
-        setFilters(parsed.filters || {
+        const restoredFilters = parsed.filters || {
           pendente: '',
           categoria: '',
           retornar_chamado: '',
           verificar_adneia: '',
           motivo_pendencia: '',
-          parceiro: ''
-        });
+          parceiro: []
+        };
+        // Migrar parceiro de string para array
+        if (typeof restoredFilters.parceiro === 'string') {
+          restoredFilters.parceiro = restoredFilters.parceiro ? [restoredFilters.parceiro] : [];
+        }
+        setFilters(restoredFilters);
         setGlobalFilter(parsed.globalFilter || '');
         setSearchType(parsed.searchType || 'todos');
       } catch (e) {
@@ -157,20 +178,31 @@ const ListaAtendimentos = () => {
       if (filters.retornar_chamado !== '') params.append('retornar_chamado', filters.retornar_chamado);
       if (filters.verificar_adneia !== '') params.append('verificar_adneia', filters.verificar_adneia);
       if (filters.motivo_pendencia) params.append('motivo_pendencia', filters.motivo_pendencia);
-      if (filters.parceiro) params.append('parceiro', filters.parceiro);
+      // AJUSTE 3: Suporte a múltiplos parceiros
+      if (filters.parceiro) {
+        if (Array.isArray(filters.parceiro)) {
+          params.append('parceiro', filters.parceiro.join(','));
+        } else {
+          params.append('parceiro', filters.parceiro);
+        }
+      }
       if (globalFilter) {
         params.append('search', globalFilter);
         params.append('search_type', searchType);
       }
 
-      const response = await axios.get(
-        `${API_URL}/api/chamados?${params.toString()}`,
-        { headers: getAuthHeader() }
-      );
-      setAtendimentos(response.data);
+      const [chamadosRes, totalRes] = await Promise.all([
+        axios.get(`${API_URL}/api/chamados?${params.toString()}`, { headers: getAuthHeader() }),
+        totalNaBase === null ? axios.get(`${API_URL}/api/admin/total-na-base`, { headers: getAuthHeader() }).catch(() => null) : Promise.resolve(null)
+      ]);
+      
+      setAtendimentos(chamadosRes.data);
+      if (totalRes?.data) {
+        setTotalNaBase(totalRes.data.total_chamados);
+      }
       
       // Extrair lista de parceiros únicos
-      const parceirosUnicos = [...new Set(response.data.map(a => a.parceiro).filter(p => p))].sort();
+      const parceirosUnicos = [...new Set(chamadosRes.data.map(a => a.parceiro).filter(p => p))].sort();
       setParceiros(parceirosUnicos);
     } catch (error) {
       toast.error('Erro ao carregar atendimentos');
@@ -185,11 +217,11 @@ const ListaAtendimentos = () => {
   };
 
   const clearFilters = () => {
-    setFilters({ pendente: '', categoria: '', retornar_chamado: '', verificar_adneia: '', motivo_pendencia: '', parceiro: '' });
+    setFilters({ pendente: '', categoria: '', retornar_chamado: '', verificar_adneia: '', motivo_pendencia: '', parceiro: [] });
     setGlobalFilter('');
   };
 
-  const hasActiveFilters = Object.values(filters).some(v => v !== '') || globalFilter;
+  const hasActiveFilters = Object.values(filters).some(v => Array.isArray(v) ? v.length > 0 : v !== '') || globalFilter;
 
   // Função para exportar para Excel
   const exportToExcel = () => {
@@ -730,14 +762,14 @@ const ListaAtendimentos = () => {
           </CardContent>
         </Card>
         
-        <Card className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => setFilters(f => ({ ...f, pendente: 'true', retornar_chamado: '', verificar_adneia: '' }))}>
+        <Card className="border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700" data-testid="card-total-base">
           <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-2 rounded-md bg-indigo-100 dark:bg-indigo-900/30">
-              <Clock className="h-5 w-5 text-indigo-600" />
+            <div className="p-2 rounded-md bg-amber-200 dark:bg-amber-900/50">
+              <FileText className="h-5 w-5 text-amber-700" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{abertoParaAmanha}</p>
-              <p className="text-sm text-muted-foreground">Aberto p/ {proximoDiaUtil}</p>
+              <p className="text-2xl font-bold text-amber-800 dark:text-amber-300">{totalNaBase !== null ? totalNaBase : '...'}</p>
+              <p className="text-sm text-amber-600 dark:text-amber-400 font-medium">Total na Base</p>
             </div>
           </CardContent>
         </Card>
@@ -856,17 +888,54 @@ const ListaAtendimentos = () => {
                   </SelectContent>
                 </Select>
 
-                <Select value={filters.parceiro} onValueChange={(v) => setFilters(f => ({ ...f, parceiro: v === 'all' ? '' : v }))}>
-                  <SelectTrigger data-testid="filter-parceiro">
-                    <SelectValue placeholder="Parceiro/Canal" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos Parceiros</SelectItem>
-                    {parceiros.map(p => (
-                      <SelectItem key={p} value={p}>{p}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-between font-normal" data-testid="filter-parceiro">
+                      <span className="truncate">
+                        {Array.isArray(filters.parceiro) && filters.parceiro.length > 0
+                          ? filters.parceiro.length === 1
+                            ? filters.parceiro[0]
+                            : `${filters.parceiro.length} canais selecionados`
+                          : 'Todos Parceiros'}
+                      </span>
+                      <ChevronDown className="h-4 w-4 opacity-50 shrink-0 ml-2" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56 p-2 max-h-64 overflow-y-auto" align="start">
+                    <div
+                      className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent cursor-pointer text-sm font-medium"
+                      onClick={() => setFilters(f => ({ ...f, parceiro: [] }))}
+                      data-testid="filter-parceiro-todos"
+                    >
+                      Todos Parceiros
+                    </div>
+                    <Separator className="my-1" />
+                    {PARCEIROS_FIXOS.map(p => {
+                      const isChecked = Array.isArray(filters.parceiro) && filters.parceiro.includes(p);
+                      return (
+                        <div
+                          key={p}
+                          className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent cursor-pointer"
+                          onClick={() => {
+                            setFilters(f => {
+                              const current = Array.isArray(f.parceiro) ? f.parceiro : [];
+                              return {
+                                ...f,
+                                parceiro: isChecked
+                                  ? current.filter(x => x !== p)
+                                  : [...current, p]
+                              };
+                            });
+                          }}
+                          data-testid={`filter-parceiro-${p.toLowerCase().replace(/\s+/g, '-')}`}
+                        >
+                          <Checkbox checked={isChecked} className="pointer-events-none" />
+                          <span className="text-sm">{p}</span>
+                        </div>
+                      );
+                    })}
+                  </PopoverContent>
+                </Popover>
               </div>
             )}
           </div>
@@ -1046,13 +1115,31 @@ const ListaAtendimentos = () => {
                           })()}
                         </div>
                       </TableCell>
-                      {/* Coluna Status Pedido - copiável */}
+                      {/* Coluna Status Pedido - copiável + AJUSTE 5: data abaixo */}
                       <TableCell 
                         className="text-sm cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950/30"
                         onClick={(e) => copyText(atd.status_pedido, 'Status', e)}
                         title="Clique para copiar"
                       >
-                        {atd.status_pedido || '-'}
+                        <div className="flex flex-col">
+                          <span>{atd.status_pedido || '-'}</span>
+                          {atd.data_ultimo_status && (
+                            <span className="text-[11px] text-gray-400">
+                              {(() => {
+                                const d = atd.data_ultimo_status;
+                                if (!d) return '';
+                                // Se já está em DD/MM/YYYY, extrair apenas a parte da data
+                                if (d.includes('/')) return d.split(' ')[0];
+                                // Se é ISO format, converter
+                                try {
+                                  const date = new Date(d);
+                                  if (!isNaN(date)) return date.toLocaleDateString('pt-BR');
+                                } catch {}
+                                return d.split(' ')[0];
+                              })()}
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                       {/* Coluna Status do Atendimento */}
                       <TableCell>

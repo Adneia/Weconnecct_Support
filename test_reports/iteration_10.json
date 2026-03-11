@@ -1,0 +1,104 @@
+{
+  "summary": "Completed testing of 5 AJUSTES from Prompt_Completo_ELO_Marco2026.md. All 11 backend tests passed. Frontend verification confirmed all UI adjustments working correctly.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Dashboard charts",
+        "issues": ["Console warnings about chart dimensions being -1, should set minWidth/minHeight - cosmetic only"]
+      }
+    ]
+  },
+  "test_coverage": {
+    "AJUSTE_1": {
+      "description": "Auto-fill motivo_pendencia from status_pedido mapping",
+      "backend_tests": [
+        "test_migrar_ajustes_marco2026_endpoint - PASS - Returns stats with pendentes_verificados, elegiveis, atualizados etc",
+        "test_create_chamado_auto_fill_motivo - PASS - New chamados get motivo_pendencia from status_pedido mapping"
+      ],
+      "status": "PASS"
+    },
+    "AJUSTE_2": {
+      "description": "Clear verificar_adneia when motivo_pendencia changes",
+      "backend_tests": [
+        "test_update_motivo_clears_verificar - PASS - When motivo_pendencia changes, verificar_adneia is set to False"
+      ],
+      "status": "PASS"
+    },
+    "AJUSTE_3": {
+      "description": "Multi-select Parceiro/Canal filter with comma-separated values",
+      "backend_tests": [
+        "test_single_parceiro_filter - PASS - GET /api/chamados?parceiro=CSU returns only CSU chamados",
+        "test_multi_parceiro_filter - PASS - GET /api/chamados?parceiro=CSU,LTM returns chamados from both",
+        "test_multi_parceiro_filter_three_values - PASS - GET /api/chamados?parceiro=CSU,LTM,Livelo works correctly"
+      ],
+      "frontend_tests": [
+        "Multi-select popover shows checkboxes for all partners (Bradesco, CSU, Camicado, Coopera, Global Rewards, LL Loyalty, LTM, Livelo, etc.)",
+        "Selecting CSU and LTM shows '2 canais selecionados' in filter button"
+      ],
+      "status": "PASS"
+    },
+    "AJUSTE_4": {
+      "description": "Total na Base card independent of filters",
+      "backend_tests": [
+        "test_total_na_base_endpoint - PASS - GET /api/admin/total-na-base returns total_chamados=1355, total_pedidos",
+        "test_total_na_base_independent_of_filters - PASS - Total returns same value regardless of chamados filter"
+      ],
+      "frontend_tests": [
+        "Card visible in stats row with amber/yellow styling",
+        "Shows '1355 Total na Base' which matches /api/admin/total-na-base response"
+      ],
+      "status": "PASS"
+    },
+    "AJUSTE_5": {
+      "description": "Date display in Status Pedido column from data_ultimo_status field",
+      "backend_tests": [
+        "test_chamados_list_has_data_ultimo_status - PASS - GET /api/chamados returns data_ultimo_status for chamados with pedido_erp",
+        "test_chamado_detail_has_pedido_data_status - PASS - Single chamado endpoint returns pedido with data_status"
+      ],
+      "frontend_tests": [
+        "Status Pedido column shows date (e.g., '19/02/2026') in gray text below status text"
+      ],
+      "status": "PASS"
+    }
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_ajustes_marco2026.py",
+    "/app/test_reports/pytest/pytest_ajustes_marco2026.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "All 5 AJUSTES implemented correctly and working as expected",
+    "motivo_pendencia_mapping.py contains proper STATUS_PEDIDO_TO_MOTIVO mapping table",
+    "MOTIVOS_AUTO_ATUALIZAVEIS correctly limits auto-update to Ag. Compras, Ag. Logística, Enviado",
+    "STATUS_NAO_ALTERAR correctly excludes Entrega cancelada, CANCELADO from auto-updates",
+    "Multi-select parceiro filter uses $in query for multiple values",
+    "Total na Base endpoint is simple count of all chamados, independent of any filters"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_ajustes_marco2026.py - Created test file for all 5 AJUSTES"
+  ],
+  "success_rate": {
+    "backend": "100% (11/11 tests passed)",
+    "frontend": "100% (all UI features verified)"
+  },
+  "test_credentials": {
+    "admin_user": {
+      "email": "adneia@weconnect360.com.br",
+      "password": "20wead"
+    },
+    "standard_user": {
+      "email": "leticia@weconnect360.com.br",
+      "password": "Teste123"
+    }
+  },
+  "seed_data_creation": "None - used existing data",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All 5 AJUSTES from Marco2026 are fully implemented and tested. The test file /app/backend/tests/test_ajustes_marco2026.py covers all backend functionality. Frontend UI shows: (1) Total na Base card with amber styling in stats row, (2) Multi-select Parceiro filter with checkboxes, (3) Status Pedido column with date below status text. The mapping table in motivo_pendencia_mapping.py is working correctly for auto-filling motivo_pendencia."
+}

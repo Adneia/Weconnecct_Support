@@ -8,6 +8,7 @@ from utils.auth import get_current_user
 from utils.helpers import parse_date_safe, generate_reversa_code
 from models.chamado import Chamado, ChamadoCreate, ChamadoUpdate
 from models.historico import Historico
+from data.motivo_pendencia_mapping import get_motivo_from_status, MOTIVOS_AUTO_ATUALIZAVEIS
 
 import logging
 logger = logging.getLogger(__name__)
@@ -116,6 +117,11 @@ async def create_chamado(
         chamado.canal_vendas = pedido.get('canal_vendas')
         if not chamado.parceiro:
             chamado.parceiro = pedido.get('canal_vendas')
+        # AJUSTE 1 - Regra permanente: preencher motivo automaticamente ao criar
+        if not chamado.motivo_pendencia:
+            novo_motivo = get_motivo_from_status(pedido.get('status_pedido', ''))
+            if novo_motivo:
+                chamado.motivo_pendencia = novo_motivo
     chamado_dict = chamado.model_dump()
     chamado_dict['data_abertura'] = chamado_dict['data_abertura'].isoformat()
     if chamado_dict.get('data_fechamento'):
@@ -161,7 +167,12 @@ async def list_chamados(
     if atendente:
         query['atendente'] = atendente
     if parceiro:
-        query['parceiro'] = parceiro
+        # AJUSTE 3: Suporte a múltiplos parceiros separados por vírgula
+        parceiros_list = [p.strip() for p in parceiro.split(',') if p.strip()]
+        if len(parceiros_list) > 1:
+            query['parceiro'] = {"$in": parceiros_list}
+        else:
+            query['parceiro'] = parceiro
     if retornar_chamado is not None:
         query['retornar_chamado'] = retornar_chamado
     if verificar_adneia is not None:
@@ -255,6 +266,12 @@ async def update_chamado(
     if not existing:
         raise HTTPException(status_code=404, detail="Chamado não encontrado")
     update_data = {k: v for k, v in chamado_data.model_dump().items() if v is not None}
+
+    # AJUSTE 2 — Limpar "Verificar" ao mudar Motivo de Pendência
+    motivo_antigo = existing.get('motivo_pendencia', '')
+    motivo_novo = update_data.get('motivo_pendencia', motivo_antigo)
+    if motivo_novo != motivo_antigo and 'motivo_pendencia' in update_data:
+        update_data['verificar_adneia'] = False
     if update_data.get('status_atendimento') == 'Fechado' and existing.get('status_atendimento') != 'Fechado':
         update_data['data_resolucao'] = datetime.now(timezone.utc).isoformat()
     if 'pendente' in update_data and not update_data['pendente'] and existing.get('pendente', True):
