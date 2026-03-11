@@ -364,10 +364,40 @@ async def reabrir_chamado(
 
 @router.delete("/chamados/{chamado_id}", response_model=dict)
 async def delete_chamado(chamado_id: str, current_user: dict = Depends(get_current_user)):
-    result = await db.chamados.delete_one({"id": chamado_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Chamado não encontrado")
-    return {"message": "Chamado excluído com sucesso"}
+    """Exclui um atendimento e notifica a Adnéia."""
+    existing = await db.chamados.find_one(
+        {"$or": [{"id": chamado_id}, {"id_atendimento": chamado_id}]}
+    )
+    if not existing:
+        raise HTTPException(status_code=404, detail="Atendimento não encontrado")
+
+    id_atendimento = existing.get('id_atendimento', chamado_id)
+    numero_pedido = existing.get('numero_pedido', '')
+    nome_cliente = existing.get('nome_cliente', '')
+
+    # Remover chamado
+    await db.chamados.delete_one({"_id": existing["_id"]})
+
+    # Remover histórico associado
+    await db.historico.delete_many({"chamado_id": existing.get("id")})
+
+    # Registrar notificação para Adnéia
+    notificacao = {
+        "id": str(uuid.uuid4()),
+        "tipo": "exclusao_atendimento",
+        "titulo": "Atendimento Excluído",
+        "mensagem": f"Atendimento {id_atendimento} (Pedido: {numero_pedido} - {nome_cliente}) foi excluído por {current_user['name']}",
+        "destinatario_email": "adneia@weconnect360.com.br",
+        "excluido_por_nome": current_user['name'],
+        "id_atendimento": id_atendimento,
+        "numero_pedido": numero_pedido,
+        "data_criacao": datetime.now(timezone.utc).isoformat(),
+        "lida": False
+    }
+    await db.notifications.insert_one(notificacao)
+
+    logger.info(f"Atendimento {id_atendimento} excluído por {current_user['name']}")
+    return {"success": True, "message": f"Atendimento {id_atendimento} excluído com sucesso"}
 
 
 # ============== HISTORICO ==============

@@ -452,6 +452,19 @@ const NovoAtendimento = () => {
     } finally { setLoading(false); }
   };
 
+  const handleExcluir = async () => {
+    if (!isEditMode || !atendimentoId) return;
+    if (!window.confirm('Tem certeza que deseja EXCLUIR este atendimento? Esta ação não pode ser desfeita.')) return;
+    setLoading(true);
+    try {
+      await axios.delete(`${API_URL}/api/chamados/${atendimentoId}`, { headers: getAuthHeader() });
+      toast.success('Atendimento excluído com sucesso!');
+      navigate('/chamados');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Erro ao excluir atendimento');
+    } finally { setLoading(false); }
+  };
+
   const handleRegistrarDevolucaoComStatus = async (status) => {
     setShowDevolucaoDialog(false);
     setLoading(true);
@@ -827,6 +840,7 @@ const NovoAtendimento = () => {
               pendente={formData.pendente}
               onEncerrar={handleEncerrar}
               onReabrir={handleReabrir}
+              onExcluir={handleExcluir}
               onCancel={() => navigate(filterParam ? `/chamados?filter=${filterParam}` : '/chamados')}
             />
           </>

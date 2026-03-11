@@ -64,7 +64,11 @@ async def list_notificacoes(current_user: dict = Depends(get_current_user)):
     notificacoes = await db.notifications.find(
         {"destinatario_email": current_user['email']}, {"_id": 0}
     ).sort("data_criacao", -1).to_list(50)
-    return notificacoes
+    nao_lidas = sum(1 for n in notificacoes if not n.get('lida', False))
+    return {
+        "notificacoes": notificacoes,
+        "nao_lidas": nao_lidas
+    }
 
 
 @router.put("/notificacoes/{notificacao_id}/lida")
