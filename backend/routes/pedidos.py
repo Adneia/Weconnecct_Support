@@ -114,6 +114,20 @@ async def buscar_pedido_por_galpao_nota(galpao: str, nota: str, current_user: di
     return pedidos
 
 
+@router.get("/pedidos-erp/import-status")
+async def get_import_status(current_user: dict = Depends(get_current_user)):
+    status = await db.import_status.find({}, {"_id": 0}).sort("started_at", -1).to_list(5)
+    return status
+
+
+@router.get("/pedidos-erp/import-status/{import_id}")
+async def get_import_status_by_id(import_id: str, current_user: dict = Depends(get_current_user)):
+    status = await db.import_status.find_one({"import_id": import_id}, {"_id": 0})
+    if not status:
+        return {"import_id": import_id, "status": "processing", "progress": 0, "total_rows": 0, "processed": 0}
+    return status
+
+
 @router.get("/pedidos-erp/{numero_pedido}")
 async def get_pedido_by_entrega(numero_pedido: str, current_user: dict = Depends(get_current_user)):
     """Get single pedido by numero_pedido (entrega)"""
@@ -204,13 +218,14 @@ async def list_pedidos_erp(
 
 # ============== IMPORTAR PEDIDOS ==============
 
-async def process_import_background(content: bytes, filename: str, user_name: str, user_email: str):
+async def process_import_background(content: bytes, filename: str, user_name: str, user_email: str, import_id: str = None):
     import pandas as pd
     from io import BytesIO
     from routes.admin import atualizar_motivos_pendencia_automatico
 
     try:
-        import_id = str(uuid.uuid4())[:8]
+        if not import_id:
+            import_id = str(uuid.uuid4())[:8]
         await db.import_status.insert_one({
             "import_id": import_id,
             "status": "processing",
@@ -232,7 +247,7 @@ async def process_import_background(content: bytes, filename: str, user_name: st
         total = len(df)
         await db.import_status.update_one(
             {"import_id": import_id},
-            {"$set": {"total": total}}
+            {"$set": {"total": total, "total_rows": total}}
         )
 
         column_mapping = get_column_mapping()
@@ -270,7 +285,7 @@ async def process_import_background(content: bytes, filename: str, user_name: st
                     progress = int(((idx + 1) / total) * 100)
                     await db.import_status.update_one(
                         {"import_id": import_id},
-                        {"$set": {"progress": progress, "inserted": inserted, "updated": updated, "skipped": skipped, "errors": errors}}
+                        {"$set": {"progress": progress, "processed": idx + 1, "inserted": inserted, "updated": updated, "skipped": skipped, "errors": errors}}
                     )
             except Exception as e:
                 errors += 1
@@ -330,14 +345,37 @@ async def import_pedidos(
     if not file.filename.endswith(('.xlsx', '.xls', '.csv')):
         raise HTTPException(status_code=400, detail="Formato de arquivo inválido. Use .xlsx, .xls ou .csv")
     content = await file.read()
-    background_tasks.add_task(process_import_background, content, file.filename, current_user['name'], current_user['email'])
-    return {"message": "Importação iniciada em background", "status": "processing"}
 
+    # Pré-calcular total de linhas e gerar import_id
+    import_id = str(uuid.uuid4())[:8]
+    total_rows = 0
+    try:
+        from io import BytesIO
+        import pandas as pd
+        if file.filename.endswith('.csv'):
+            # Para CSV, contar linhas rápido sem ler todo o conteúdo
+            total_rows = content.count(b'\n')
+        else:
+            # Para Excel, ler apenas header para estimar (openpyxl read_only)
+            try:
+                import openpyxl
+                wb = openpyxl.load_workbook(BytesIO(content), read_only=True, data_only=True)
+                ws = wb.active
+                total_rows = ws.max_row - 1 if ws.max_row else 0  # -1 para header
+                wb.close()
+            except Exception:
+                total_rows = 0  # Se falhar, será calculado na task
+    except Exception as e:
+        logger.error(f"Erro ao pré-calcular linhas: {e}")
+        total_rows = 0
 
-@router.get("/pedidos-erp/import-status")
-async def get_import_status(current_user: dict = Depends(get_current_user)):
-    status = await db.import_status.find({}, {"_id": 0}).sort("started_at", -1).to_list(5)
-    return status
+    background_tasks.add_task(process_import_background, content, file.filename, current_user['name'], current_user['email'], import_id)
+    return {
+        "message": "Importação iniciada em background",
+        "status": "processing",
+        "import_id": import_id,
+        "total_rows": total_rows
+    }
 
 
 # ============== ESTOQUE ==============

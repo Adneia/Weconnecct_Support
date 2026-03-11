@@ -117,12 +117,12 @@ const ImportarPedidos = () => {
       return;
     }
 
-    // Verificar tamanho do arquivo (max 10MB para evitar timeout do proxy)
-    const maxSizeMB = 10;
+    // Verificar tamanho do arquivo (max 100MB)
+    const maxSizeMB = 100;
     const fileSizeMB = file.size / (1024 * 1024);
     
     if (fileSizeMB > maxSizeMB) {
-      toast.error(`Arquivo muito grande (${fileSizeMB.toFixed(1)}MB). Máximo: ${maxSizeMB}MB. Exporte apenas os pedidos recentes (últimos 7-15 dias).`);
+      toast.error(`Arquivo muito grande (${fileSizeMB.toFixed(1)}MB). Máximo: ${maxSizeMB}MB.`);
       return;
     }
 
@@ -156,17 +156,20 @@ const ImportarPedidos = () => {
       );
 
       // Verificar se é processamento em background
-      if (response.data.status === 'processing' && response.data.import_id) {
-        toast.info('Importação iniciada em background. Aguarde...');
+      if (response.data.status === 'processing') {
+        const importId = response.data.import_id || 'unknown';
+        const totalRows = response.data.total_rows || 0;
+        toast.info(`Importação de ${totalRows} linhas iniciada. Aguarde...`);
         setResult({ 
           success: true, 
-          message: `Importação de ${response.data.total_rows} linhas iniciada em background.`,
+          message: `Importação de ${totalRows} linhas iniciada em background.`,
           isBackground: true,
-          importId: response.data.import_id
+          importId: importId,
+          totalRows: totalRows
         });
         
         // Iniciar polling para verificar status
-        pollImportStatus(response.data.import_id);
+        pollImportStatus(importId);
       } else {
         setResult({ success: true, message: response.data.message });
         toast.success('Importação concluída!');
@@ -197,6 +200,9 @@ const ImportarPedidos = () => {
 
   // Função para verificar status de importação em background
   const pollImportStatus = async (importId) => {
+    const maxRetries = 300; // 10 minutos máximo (2s * 300)
+    let retries = 0;
+
     const checkStatus = async () => {
       try {
         const response = await axios.get(
@@ -209,40 +215,58 @@ const ImportarPedidos = () => {
         if (data.status === 'completed') {
           setResult({ 
             success: true, 
-            message: `Importação concluída: ${data.imported} novos, ${data.updated} atualizados, ${data.skipped_old || 0} ignorados (>6 meses), ${data.errors} erros`,
+            message: `Importação concluída: ${data.inserted || 0} novos, ${data.updated || 0} atualizados, ${data.skipped || 0} ignorados, ${data.errors || 0} erros`,
             progress: 100,
             isComplete: true
           });
           toast.success('Importação concluída!');
           setUploading(false);
-          return true; // Para o polling
+          return true;
+        } else if (data.status === 'error') {
+          setResult({ 
+            success: false, 
+            message: `Erro na importação: ${data.error || 'Erro desconhecido'}`
+          });
+          toast.error('Erro na importação');
+          setUploading(false);
+          return true;
         } else {
-          // Ainda processando - atualizar progresso
-          const progress = data.progress || Math.round((data.processed / data.total_rows) * 100) || 0;
+          // Ainda processando
+          const processed = data.processed || 0;
+          const totalRows = data.total_rows || data.total || 0;
+          const progress = totalRows > 0 ? Math.round((processed / totalRows) * 100) : (data.progress || 0);
           setResult({ 
             success: true, 
-            message: `Processando... ${data.processed || 0} de ${data.total_rows} linhas`,
-            details: `${data.imported || 0} novos, ${data.updated || 0} atualizados`,
+            message: `Processando... ${processed} de ${totalRows} linhas`,
+            details: `${data.inserted || 0} novos, ${data.updated || 0} atualizados`,
             progress: progress,
-            totalRows: data.total_rows,
-            processed: data.processed || 0,
+            totalRows: totalRows,
+            processed: processed,
             isBackground: true
           });
-          return false; // Continua polling
+          return false;
         }
       } catch (error) {
         console.error('Erro ao verificar status:', error);
+        retries++;
+        if (retries >= maxRetries) {
+          setResult({ 
+            success: false, 
+            message: 'Timeout ao verificar status da importação. Verifique os dados.'
+          });
+          setUploading(false);
+          return true;
+        }
         return false;
       }
     };
     
-    // Verificar a cada 3 segundos
     const interval = setInterval(async () => {
       const completed = await checkStatus();
       if (completed) {
         clearInterval(interval);
       }
-    }, 2000); // Verificar a cada 2 segundos
+    }, 2000);
   };
 
   const clearFile = () => {

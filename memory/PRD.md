@@ -8,42 +8,39 @@ Sistema de controle de chamados (tickets) para a equipe de atendimento da WeConn
 - **Backend:** FastAPI + MongoDB (motor) + Pydantic
 - **Integração:** Google Sheets (gspread) para sincronização de atendimentos
 
-## Telas e Funcionalidades
-- Dashboard com estatísticas
-- Novo Chamado (formulário completo com busca de pedidos, auto-preenchimento, textos padrão)
-- Lista de Chamados (filtros avançados, exportação)
-- Importar Pedidos (upload Excel/CSV)
-- Gestão de Textos Padrão (CRUD com log de alterações)
-
-## Autenticação
-- JWT (email/senha)
-- Admin: adneia@weconnect360.com.br
-- Standard: leticia@weconnect360.com.br
-
 ## O que foi implementado
 
 ### Backend (COMPLETO)
 - Arquitetura modular com APIRouter (routes/, models/, utils/, data/)
 - CRUD completo de chamados com sincronização Google Sheets
-- Upload/importação de pedidos ERP
+- Upload/importação de pedidos ERP com polling de progresso
 - Dashboard com estatísticas avançadas
 - Gestão de textos padrão com log
 - Endpoints de busca: Entrega, CPF, Nome, Pedido, Galpão+Nota
+- Endpoint reabrir atendimento
 
-### Frontend - Refatoração do NovoChamado.js (COMPLETO - 10/03/2026)
-- **NovoChamado.js**: Reduzido de 4288 para 901 linhas (-79%)
-- **TextosCategoriaButtons.js**: Botões de texto por categoria (304 linhas)
-- **SecaoAnotacoes.js**: Seção de anotações com motivo, reversa, checkboxes (299 linhas)
-- **AcoesFormulario.js**: Botões de ação (Criar, Encerrar, Cancelar) (88 linhas)
-- **textos.js**: Todos os textos template extraídos (1025 linhas)
-- **textReplacer.js**: Utilitário unificado para substituição de placeholders (89 linhas)
-- **constants.js**: Constantes compartilhadas atualizadas
+### Frontend - Refatoração NovoChamado.js (COMPLETO - 10/03/2026)
+- NovoChamado.js: 4288 → 901 linhas (-79%)
+- TextosCategoriaButtons, SecaoAnotacoes, AcoesFormulario como componentes
+- textos.js, textReplacer.js, constants.js como utilidades
 
-### Testado e validado
-- Testing agent: 100% de sucesso em todos os fluxos
-- Busca, classificação, textos por categoria, anotações, ações
-- Edição de chamados existentes
-- Dashboard e lista de chamados
+### Ajustes implementados (11/03/2026)
+1. **Reabrir Atendimentos** - Botão "Reabrir" no formulário de edição + endpoint PUT /api/chamados/{id}/reabrir
+2. **Falha Fornecedor reorganizada** - Textos removidos da categoria, adicionados ao motivo "Aguardando" com:
+   - 1ª Reversa, 2ª Reversa (via API textos-padroes)
+   - Reversa com Assistência Técnica (Ventisol, OEX, Oderço, Hoopson) - textos locais
+   - Auto-detecção de fornecedor do pedido com highlight no botão correto
+3. **Data Último Ponto no Excel** - Coluna adicionada na exportação
+4. **Devoluções sem duplicar** - google_sheets.py verifica se já existe por numero_pedido e atualiza ao invés de inserir
+5. **Reversas próximas de vencer** - Badge na coluna Reversa da ListaChamados mostrando "Vence em Xd" ou "Vencida"
+6. **Categoria Comprovante de Entrega eliminada** - Textos movidos para motivo "Entregue" (comprovante API + Falha Transporte inline)
+
+### Bug fix de importação (11/03/2026)
+- Rota import-status movida antes de {numero_pedido} (conflito de rotas)
+- Backend retorna import_id + total_rows para polling funcionar
+- Frontend sempre usa polling quando status=processing (não mostra mais "concluída" prematuramente)
+- Limite de upload aumentado de 10MB para 100MB
+- Otimização: pré-cálculo de linhas usa openpyxl read_only ao invés de pandas
 
 ## Backlog Priorizado
 
