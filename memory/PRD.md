@@ -1,57 +1,50 @@
 # ELO - Sistema de Controle de Chamados WeConnect
 
 ## Problema Original
-Sistema de controle de chamados (tickets) para a equipe de atendimento da WeConnect. Gerencia fluxos de trabalho, base de pedidos e automatiza mudanças de status.
+Sistema de controle de chamados (tickets) para a equipe de atendimento da WeConnect. Gerencia atendimentos a clientes, integra com Google Sheets para devoluções, e suporta importação de dados via Excel.
 
 ## Arquitetura
 - **Frontend:** React + TailwindCSS + Shadcn/UI
 - **Backend:** FastAPI + MongoDB (motor) + Pydantic
-- **Integração:** Google Sheets (gspread) para sincronização de atendimentos
+- **Integrações:** Google Sheets (gspread), Importação Excel (pandas)
 
-## O que foi implementado
+## Funcionalidades Implementadas
 
-### Backend (COMPLETO)
-- Arquitetura modular com APIRouter (routes/, models/, utils/, data/)
-- CRUD completo de chamados com sincronização Google Sheets
-- Upload/importação de pedidos ERP com polling de progresso
-- Dashboard com estatísticas avançadas
-- Gestão de textos padrão com log
-- Endpoints de busca: Entrega, CPF, Nome, Pedido, Galpão+Nota
-- Endpoint reabrir atendimento
+### Core (MVP)
+- CRUD de chamados (criar, editar, listar, buscar)
+- Autenticação JWT com níveis de acesso (admin/standard)
+- Dashboard com gráficos e estatísticas
+- Lista de chamados com filtros avançados
+- Textos padrão por categoria
+- Gestão de reversas
+- Importação de pedidos ERP via Excel (.xlsx)
+- Exportação Excel de relatórios
+- Integração Google Sheets para devoluções
 
-### Frontend - Refatoração NovoChamado.js (COMPLETO - 10/03/2026)
-- NovoChamado.js: 4288 → 901 linhas (-79%)
-- TextosCategoriaButtons, SecaoAnotacoes, AcoesFormulario como componentes
-- textos.js, textReplacer.js, constants.js como utilidades
+### Sessão Anterior (6 ajustes)
+- Reabertura de chamados encerrados
+- Lógica de textos padrão (Falha Fornecedor → Aguardando, Reversa com Assistência)
+- Exportação Excel com data do último status
+- Gestão de devoluções sem duplicatas
+- Sinalização visual de reversas próximas ao vencimento
+- Limpeza de categorias (Entrega → Entregue/Falha de Transporte)
+- Refatoração do NovoChamado.js (4300 → 900 linhas)
+- Correção do bug de importação de Excel
 
-### Ajustes implementados (11/03/2026)
-1. **Reabrir Atendimentos** - Botão "Reabrir" no formulário de edição + endpoint PUT /api/chamados/{id}/reabrir
-2. **Falha Fornecedor reorganizada** - Textos removidos da categoria, adicionados ao motivo "Aguardando" com:
-   - 1ª Reversa, 2ª Reversa (via API textos-padroes)
-   - Reversa com Assistência Técnica (Ventisol, OEX, Oderço, Hoopson) - textos locais
-   - Auto-detecção de fornecedor do pedido com highlight no botão correto
-3. **Data Último Ponto no Excel** - Coluna adicionada na exportação
-4. **Devoluções sem duplicar** - google_sheets.py verifica se já existe por numero_pedido e atualiza ao invés de inserir
-5. **Reversas próximas de vencer** - Badge na coluna Reversa da ListaChamados mostrando "Vence em Xd" ou "Vencida"
-6. **Categoria Comprovante de Entrega eliminada** - Textos movidos para motivo "Entregue" (comprovante API + Falha Transporte inline)
+### Sessão Atual — 5 Ajustes Março 2026
+- **AJUSTE 1:** Fluxo automático Motivo de Pendência baseado em mapeamento Status do Pedido → Motivo
+- **AJUSTE 2:** Limpar "Verificar" ao mudar Motivo de Pendência
+- **AJUSTE 3:** Filtro de Parceiro/Canal com seleção múltipla (checkboxes)
+- **AJUSTE 4:** Card "Total na Base" independente de filtros (substitui card antigo)
+- **AJUSTE 5:** Exibir data do status (Dt.Ult.Ponto de Controle) na coluna STATUS PEDIDO
 
-### Bug fix de importação (11/03/2026)
-- Rota import-status movida antes de {numero_pedido} (conflito de rotas)
-- Backend retorna import_id + total_rows para polling funcionar
-- Frontend sempre usa polling quando status=processing (não mostra mais "concluída" prematuramente)
-- Limite de upload aumentado de 10MB para 100MB
-- Otimização: pré-cálculo de linhas usa openpyxl read_only ao invés de pandas
+## Backlog / Próximas Tarefas
+- P2: Interface conversacional (chatbot)
+- P2: Integração com APIs de Rastreio (Correios / Total Express)
+- P3: Geração de Relatórios nativa
+- P3: Integração com Canais de Entrada (Outlook, Zendesk)
+- P3: Integração com IA para sugestão de categorias e resumos
 
-## Backlog Priorizado
-
-### P1 - Próximas
-- Implementar fluxo completo de Devoluções (Reversas)
-
-### P2
-- Interface conversacional (chatbot)
-- Integração com APIs de Rastreio (Correios / Total Express)
-
-### P3
-- Geração de Relatórios nativa
-- Integração com Canais de Entrada (Outlook, Zendesk)
-- Integração com IA para sugestão de categorias e resumos
+## Credenciais de Teste
+- Admin: adneia@weconnect360.com.br / 20wead
+- Standard: leticia@weconnect360.com.br / Teste123
