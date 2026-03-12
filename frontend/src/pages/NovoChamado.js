@@ -188,7 +188,7 @@ const NovoAtendimento = () => {
         setSearchValue(atd.numero_pedido);
         setSearchType('entrega');
         try {
-          const pedidoResponse = await axios.get(`${API_URL}/api/pedidos/${atd.numero_pedido}`, { headers: getAuthHeader() });
+          const pedidoResponse = await axios.get(`${API_URL}/api/pedidos-erp/${atd.numero_pedido}`, { headers: getAuthHeader() });
           if (pedidoResponse.data) {
             setPedidoErp(pedidoResponse.data);
             setTransportadoraDetectada(getTransportadoraRastreio(pedidoResponse.data.transportadora));
