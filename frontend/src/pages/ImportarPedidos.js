@@ -287,6 +287,22 @@ const ImportarPedidos = () => {
     link.click();
   };
 
+  const [corrigindo, setCorrigindo] = useState(false);
+  const [correcaoResult, setCorrecaoResult] = useState(null);
+
+  const corrigirNumeros = async () => {
+    if (!window.confirm('Isso vai corrigir números de pedido com ".0" no final (ex: 117552503.0 → 117552503). Continuar?')) return;
+    setCorrigindo(true);
+    setCorrecaoResult(null);
+    try {
+      const response = await axios.post(`${API_URL}/api/admin/corrigir-numero-pedido`, {}, { headers: getAuthHeader() });
+      setCorrecaoResult(response.data);
+      toast.success(`Correção concluída: ${response.data.pedidos_numero_corrigido} pedidos e ${response.data.campos_corrigidos} campos corrigidos`);
+    } catch (error) {
+      toast.error('Erro ao corrigir números');
+    } finally { setCorrigindo(false); }
+  };
+
   return (
     <div className="space-y-6" data-testid="importar-pedidos-page">
       {/* Page Header */}
@@ -500,6 +516,45 @@ const ImportarPedidos = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Correção de Números */}
+      <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-md bg-amber-100 dark:bg-amber-900/30">
+                <AlertCircle className="h-5 w-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="font-medium text-amber-700 dark:text-amber-400">Corrigir Números da Base</p>
+                <p className="text-sm text-amber-600/80 dark:text-amber-400/80">
+                  Remove sufixo ".0" de campos numéricos importados do Excel (CPF, entrega, telefone, etc.)
+                </p>
+                {correcaoResult && (
+                  <div className="mt-2 text-xs space-y-1">
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">
+                      {correcaoResult.pedidos_numero_corrigido} entregas corrigidas
+                    </Badge>
+                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300 ml-2">
+                      {correcaoResult.campos_corrigidos} campos corrigidos
+                    </Badge>
+                  </div>
+                )}
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              onClick={corrigirNumeros}
+              disabled={corrigindo}
+              className="border-amber-300 text-amber-700 hover:bg-amber-100 shrink-0"
+              data-testid="btn-corrigir-numeros"
+            >
+              {corrigindo ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {corrigindo ? 'Corrigindo...' : 'Corrigir Números'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Future Integration Notice */}
       <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20">
