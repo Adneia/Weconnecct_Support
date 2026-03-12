@@ -157,7 +157,11 @@ def extract_pedido_data(row, column_mapping, original_columns):
             if name_lower in original_columns:
                 value = row.get(name_lower)
                 if pd.notna(value):
-                    pedido_data[field] = str(value).strip()
+                    str_value = str(value).strip()
+                    # Remover .0 de números inteiros lidos como float pelo pandas
+                    if str_value.endswith('.0') and str_value[:-2].isdigit():
+                        str_value = str_value[:-2]
+                    pedido_data[field] = str_value
                 break
     return pedido_data
 

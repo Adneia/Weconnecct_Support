@@ -73,6 +73,56 @@ async def get_total_na_base(current_user: dict = Depends(get_current_user)):
     }
 
 
+@router.post("/admin/corrigir-numero-pedido")
+async def corrigir_numero_pedido(current_user: dict = Depends(get_current_user)):
+    """
+    Corrige numero_pedido com sufixo '.0' causado pela importação de Excel.
+    Pandas converte inteiros para float quando a coluna tem NaN, resultando em '117552503.0'.
+    """
+    # Corrigir pedidos_erp
+    pedidos_com_ponto = await db.pedidos_erp.find(
+        {"numero_pedido": {"$regex": r"\.\d+$"}},
+        {"_id": 1, "numero_pedido": 1}
+    ).to_list(200000)
+
+    corrigidos_pedidos = 0
+    for p in pedidos_com_ponto:
+        num = p["numero_pedido"]
+        if num.endswith(".0") and num[:-2].isdigit():
+            novo = num[:-2]
+            await db.pedidos_erp.update_one(
+                {"_id": p["_id"]},
+                {"$set": {"numero_pedido": novo}}
+            )
+            corrigidos_pedidos += 1
+
+    # Corrigir outros campos numéricos que podem ter .0
+    campos_numericos = ["cpf_cliente", "cep", "fone_cliente", "nota_fiscal",
+                        "pedido_cliente", "pedido_externo", "codigo_item_bseller",
+                        "quantidade", "codigo_fornecedor"]
+    corrigidos_campos = 0
+    for campo in campos_numericos:
+        docs = await db.pedidos_erp.find(
+            {campo: {"$regex": r"^\d+\.0$"}},
+            {"_id": 1, campo: 1}
+        ).to_list(200000)
+        for d in docs:
+            val = d[campo]
+            if val.endswith(".0") and val[:-2].isdigit():
+                await db.pedidos_erp.update_one(
+                    {"_id": d["_id"]},
+                    {"$set": {campo: val[:-2]}}
+                )
+                corrigidos_campos += 1
+
+    return {
+        "success": True,
+        "pedidos_numero_corrigido": corrigidos_pedidos,
+        "campos_corrigidos": corrigidos_campos,
+        "total_analisados": len(pedidos_com_ponto)
+    }
+
+
 @router.post("/admin/padronizar-parceiros")
 async def padronizar_parceiros_endpoint(current_user: dict = Depends(get_current_user)):
     try:
