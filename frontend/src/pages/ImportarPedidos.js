@@ -289,6 +289,8 @@ const ImportarPedidos = () => {
 
   const [corrigindo, setCorrigindo] = useState(false);
   const [correcaoResult, setCorrecaoResult] = useState(null);
+  const [importandoBackup, setImportandoBackup] = useState(false);
+  const [backupResult, setBackupResult] = useState(null);
 
   const corrigirNumeros = async () => {
     if (!window.confirm('Isso vai corrigir números de pedido com ".0" no final (ex: 117552503.0 → 117552503). Continuar?')) return;
@@ -301,6 +303,32 @@ const ImportarPedidos = () => {
     } catch (error) {
       toast.error('Erro ao corrigir números');
     } finally { setCorrigindo(false); }
+  };
+
+  const importarBackup = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!window.confirm(`Importar backup "${file.name}"? Isso vai atualizar registros existentes e criar novos conforme o arquivo.`)) {
+      e.target.value = '';
+      return;
+    }
+    setImportandoBackup(true);
+    setBackupResult(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await axios.post(`${API_URL}/api/admin/importar-backup`, formData, {
+        headers: { ...getAuthHeader(), 'Content-Type': 'multipart/form-data' },
+        timeout: 300000
+      });
+      setBackupResult(response.data);
+      toast.success(`Backup importado: ${response.data.resumo.atualizados} atualizados, ${response.data.resumo.criados} criados`);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Erro ao importar backup');
+    } finally {
+      setImportandoBackup(false);
+      e.target.value = '';
+    }
   };
 
   return (
@@ -516,6 +544,57 @@ const ImportarPedidos = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Importar Backup de Atendimentos */}
+      <Card className="border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-md bg-blue-100 dark:bg-blue-900/30">
+                <FileSpreadsheet className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="font-medium text-blue-700 dark:text-blue-400">Importar Backup de Atendimentos</p>
+                <p className="text-sm text-blue-600/80 dark:text-blue-400/80">
+                  Atualiza atendimentos existentes e cria novos a partir do arquivo Excel de backup
+                </p>
+                {backupResult && (
+                  <div className="mt-2 text-xs space-y-1 flex flex-wrap gap-2">
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">
+                      {backupResult.resumo.atualizados} atualizados
+                    </Badge>
+                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300">
+                      {backupResult.resumo.criados} criados
+                    </Badge>
+                    <Badge variant="outline" className="bg-gray-50 text-gray-600 border-gray-300">
+                      {backupResult.resumo.sem_mudanca} sem mudança
+                    </Badge>
+                    {backupResult.resumo.erros > 0 && (
+                      <Badge variant="outline" className="bg-red-50 text-red-700 border-red-300">
+                        {backupResult.resumo.erros} erros
+                      </Badge>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+            <label className="shrink-0">
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={importarBackup}
+                className="hidden"
+                disabled={importandoBackup}
+                data-testid="input-importar-backup"
+              />
+              <div className={`inline-flex items-center justify-center rounded-md border border-blue-300 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 cursor-pointer ${importandoBackup ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                {importandoBackup ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
+                {importandoBackup ? 'Importando...' : 'Selecionar Backup'}
+              </div>
+            </label>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Correção de Números */}
       <Card className="border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/20">

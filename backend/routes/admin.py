@@ -9,6 +9,8 @@ from data.motivo_pendencia_mapping import get_motivo_from_status, MOTIVOS_AUTO_A
 
 import uuid
 import logging
+import pandas as pd
+import io
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api")
@@ -161,6 +163,152 @@ async def migrar_ajustes_marco2026(current_user: dict = Depends(get_current_user
             "com_data": total_com_data,
             "sem_data": total_sem_data,
         }
+    }
+
+
+@router.post("/admin/importar-backup")
+async def importar_backup(
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Importa backup Excel e atualiza registros existentes + cria novos.
+    Compara cada linha do backup com a base e aplica diferenças.
+    """
+    contents = await file.read()
+    df = pd.read_excel(io.BytesIO(contents))
+
+    # Normalizar colunas
+    df.columns = [c.strip() for c in df.columns]
+
+    stats = {"atualizados": 0, "criados": 0, "sem_mudanca": 0, "erros": [], "detalhes": []}
+
+    for _, row in df.iterrows():
+        entrega = str(row.get('Entrega', '')).replace('.0', '').strip()
+        if not entrega or entrega == 'nan' or entrega == '-':
+            continue
+
+        try:
+            # Buscar chamado existente
+            chamado = await db.chamados.find_one({"numero_pedido": entrega})
+
+            # Extrair dados do backup
+            anot_backup = str(row.get('Anotações', '')).strip()
+            if anot_backup == 'nan': anot_backup = ''
+            mp_backup = str(row.get('Motivo_Pendencia', '')).strip()
+            if mp_backup == 'nan': mp_backup = ''
+            pend_backup = str(row.get('Pendente', '')).strip().upper()
+            ver_backup = str(row.get('Verificar', '')).strip().upper()
+            ret_backup = str(row.get('Retornar', '')).strip().upper()
+            rev_backup = str(row.get('Reversa', '')).strip()
+            if rev_backup == 'nan': rev_backup = ''
+            cat_backup = str(row.get('Categoria', '')).strip()
+            if cat_backup == 'nan': cat_backup = ''
+            mot_backup = str(row.get('Motivo', '')).strip()
+            if mot_backup == 'nan': mot_backup = ''
+            nome_backup = str(row.get('Nome', '')).strip()
+            if nome_backup == 'nan': nome_backup = ''
+            parceiro_backup = str(row.get('Parceiro', '')).strip()
+            if parceiro_backup == 'nan': parceiro_backup = ''
+            solic_backup = str(row.get('Solicitação', '')).replace('.0', '').strip()
+            if solic_backup == 'nan': solic_backup = ''
+            data_str = str(row.get('Data', ''))[:10]
+
+            if chamado:
+                # ATUALIZAR existente
+                update = {}
+                if anot_backup and anot_backup != str(chamado.get('anotacoes', '')).strip():
+                    update['anotacoes'] = anot_backup
+                if mp_backup and mp_backup != str(chamado.get('motivo_pendencia', '')).strip():
+                    update['motivo_pendencia'] = mp_backup
+                if pend_backup in ['SIM', 'NÃO', 'NAO']:
+                    pend_val = pend_backup == 'SIM'
+                    if pend_val != chamado.get('pendente', True):
+                        update['pendente'] = pend_val
+                if ver_backup == 'SIM' and not chamado.get('verificar_adneia', False):
+                    update['verificar_adneia'] = True
+                if ret_backup == 'SIM' and not chamado.get('retornar_chamado', False):
+                    update['retornar_chamado'] = True
+                if rev_backup and rev_backup != str(chamado.get('codigo_reversa', '') or '').strip():
+                    update['codigo_reversa'] = rev_backup
+                if cat_backup and cat_backup != str(chamado.get('categoria', '')).strip():
+                    update['categoria'] = cat_backup
+                if mot_backup and mot_backup != str(chamado.get('motivo', '')).strip():
+                    update['motivo'] = mot_backup
+
+                if update:
+                    await db.chamados.update_one({"_id": chamado["_id"]}, {"$set": update})
+                    stats["atualizados"] += 1
+                    stats["detalhes"].append({"entrega": entrega, "acao": "ATUALIZADO", "campos": list(update.keys())})
+                else:
+                    stats["sem_mudanca"] += 1
+            else:
+                # CRIAR novo
+                try:
+                    parts = data_str.split('-')
+                    data = datetime(int(parts[0]), int(parts[1]), int(parts[2]), 12, 0, 0, tzinfo=timezone.utc)
+                except Exception:
+                    data = datetime.now(timezone.utc)
+
+                last = await db.chamados.find_one(sort=[("id_atendimento", -1)])
+                if last and last.get('id_atendimento'):
+                    try:
+                        num = int(last['id_atendimento'].split('-')[-1]) + 1
+                    except Exception:
+                        num = 1
+                else:
+                    num = 1
+                id_atendimento = f"ATD-2026-{num:04d}"
+
+                novo = {
+                    "id": str(uuid.uuid4()),
+                    "id_atendimento": id_atendimento,
+                    "numero_pedido": entrega,
+                    "solicitacao": solic_backup,
+                    "categoria": cat_backup,
+                    "motivo": mot_backup,
+                    "parceiro": parceiro_backup,
+                    "motivo_pendencia": mp_backup,
+                    "nome_cliente": nome_backup,
+                    "anotacoes": anot_backup,
+                    "data_abertura": data,
+                    "pendente": pend_backup != 'NÃO' and pend_backup != 'NAO',
+                    "retornar_chamado": ret_backup == 'SIM',
+                    "verificar_adneia": ver_backup == 'SIM',
+                    "codigo_reversa": rev_backup or None,
+                    "atendente": current_user.get('name', ''),
+                }
+
+                pedido = await db.pedidos_erp.find_one({"numero_pedido": entrega}, {"_id": 0})
+                if pedido:
+                    novo['cpf_cliente'] = pedido.get('cpf_cliente')
+                    novo['produto'] = pedido.get('produto')
+                    novo['transportadora'] = pedido.get('transportadora')
+                    novo['status_pedido'] = pedido.get('status_pedido')
+                    novo['canal_vendas'] = pedido.get('canal_vendas')
+
+                await db.chamados.insert_one(novo)
+                stats["criados"] += 1
+                stats["detalhes"].append({"entrega": entrega, "acao": "CRIADO", "id": id_atendimento})
+
+        except Exception as e:
+            stats["erros"].append({"entrega": entrega, "erro": str(e)[:100]})
+
+    # Limitar detalhes na resposta
+    if len(stats["detalhes"]) > 100:
+        stats["detalhes"] = stats["detalhes"][:100]
+        stats["detalhes"].append({"nota": f"... e mais registros (total: {stats['atualizados'] + stats['criados']})"})
+
+    return {
+        "success": True,
+        "resumo": {
+            "atualizados": stats["atualizados"],
+            "criados": stats["criados"],
+            "sem_mudanca": stats["sem_mudanca"],
+            "erros": len(stats["erros"])
+        },
+        "detalhes": stats["detalhes"],
+        "erros": stats["erros"][:20]
     }
 
 
