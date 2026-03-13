@@ -37,6 +37,11 @@ async def sync_all_to_sheets(current_user: dict = Depends(get_current_user)):
         from google_sheets import sheets_client
         import time
 
+        # Garantir inicialização
+        if not sheets_client.is_initialized():
+            if not sheets_client.initialize():
+                return {"success": False, "error": "Falha ao conectar com Google Sheets. Verifique as credenciais."}
+
         chamados = await db.chamados.find({"pendente": True}, {"_id": 0}).to_list(5000)
 
         # Buscar pedidos ERP em lote
