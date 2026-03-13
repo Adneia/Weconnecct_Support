@@ -1,14 +1,116 @@
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File
 from datetime import datetime, timezone
+from typing import List, Optional
+from pydantic import BaseModel
 
 from utils.database import db
 from utils.auth import get_current_user
 from data.motivo_pendencia_mapping import get_motivo_from_status, MOTIVOS_AUTO_ATUALIZAVEIS, STATUS_NAO_ALTERAR
 
+import uuid
 import logging
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api")
+
+
+class RegistroManual(BaseModel):
+    numero_pedido: str
+    solicitacao: str
+    categoria: str
+    motivo: str
+    parceiro: str
+    motivo_pendencia: str
+    nome_cliente: str
+    data_abertura: str  # formato: DD/MM/YYYY
+    anotacoes: str = ""
+
+
+@router.post("/admin/inserir-registros-manuais")
+async def inserir_registros_manuais(
+    registros: List[RegistroManual],
+    current_user: dict = Depends(get_current_user)
+):
+    """Insere registros manuais de backup com data específica e sync Google Sheets."""
+    resultados = []
+    for r in registros:
+        # Parse data
+        try:
+            parts = r.data_abertura.split('/')
+            data = datetime(int(parts[2]), int(parts[1]), int(parts[0]), 12, 0, 0, tzinfo=timezone.utc)
+        except Exception:
+            data = datetime.now(timezone.utc)
+
+        # Verificar duplicata
+        existente = await db.chamados.find_one(
+            {"numero_pedido": r.numero_pedido, "pendente": True}, {"_id": 0, "id_atendimento": 1}
+        )
+        if existente:
+            resultados.append({
+                "numero_pedido": r.numero_pedido,
+                "status": "DUPLICADO",
+                "id_atendimento": existente.get("id_atendimento")
+            })
+            continue
+
+        # Gerar ID
+        last = await db.chamados.find_one(sort=[("id_atendimento", -1)])
+        if last and last.get('id_atendimento'):
+            try:
+                num = int(last['id_atendimento'].split('-')[-1]) + 1
+            except Exception:
+                num = 1
+        else:
+            num = 1
+        id_atendimento = f"ATD-2026-{num:04d}"
+
+        chamado = {
+            "id": str(uuid.uuid4()),
+            "id_atendimento": id_atendimento,
+            "numero_pedido": r.numero_pedido,
+            "solicitacao": r.solicitacao,
+            "categoria": r.categoria,
+            "motivo": r.motivo,
+            "parceiro": r.parceiro,
+            "motivo_pendencia": r.motivo_pendencia,
+            "nome_cliente": r.nome_cliente,
+            "anotacoes": r.anotacoes or f"Registro manual - backup instabilidade {r.data_abertura}",
+            "data_abertura": data,
+            "pendente": True,
+            "retornar_chamado": False,
+            "verificar_adneia": False,
+            "atendente": current_user.get('name', ''),
+        }
+
+        # Buscar dados do pedido ERP
+        pedido = await db.pedidos_erp.find_one({"numero_pedido": r.numero_pedido}, {"_id": 0})
+        if pedido:
+            chamado['cpf_cliente'] = pedido.get('cpf_cliente')
+            chamado['produto'] = pedido.get('produto')
+            chamado['transportadora'] = pedido.get('transportadora')
+            chamado['status_pedido'] = pedido.get('status_pedido')
+            chamado['canal_vendas'] = pedido.get('canal_vendas')
+
+        await db.chamados.insert_one(chamado)
+        del chamado['_id']
+
+        # Sync Google Sheets
+        try:
+            from routes.google_sheets_routes import sync_chamado_to_sheets
+            await sync_chamado_to_sheets(chamado)
+            gs_status = "synced"
+        except Exception as e:
+            gs_status = f"error: {str(e)[:50]}"
+
+        resultados.append({
+            "numero_pedido": r.numero_pedido,
+            "nome_cliente": r.nome_cliente,
+            "id_atendimento": id_atendimento,
+            "status": "CRIADO",
+            "google_sheets": gs_status
+        })
+
+    return {"success": True, "total": len(registros), "resultados": resultados}
 
 
 @router.post("/admin/atualizar-motivos")
