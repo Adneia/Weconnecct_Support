@@ -32,9 +32,11 @@ async def initialize_sheets(current_user: dict = Depends(get_current_user)):
 
 @router.post("/google-sheets/sync-all")
 async def sync_all_to_sheets(current_user: dict = Depends(get_current_user)):
-    """Sincroniza TODOS os chamados pendentes com o Google Sheets (add novos, update existentes)."""
+    """Sincroniza TODOS os chamados pendentes com o Google Sheets usando batch operations."""
     try:
         from google_sheets import sheets_client
+        import time
+
         chamados = await db.chamados.find({"pendente": True}, {"_id": 0}).to_list(5000)
 
         # Buscar pedidos ERP em lote
@@ -44,47 +46,80 @@ async def sync_all_to_sheets(current_user: dict = Depends(get_current_user)):
         ).to_list(len(pedido_numbers)) if pedido_numbers else []
         pedidos_dict = {p['numero_pedido']: p for p in pedidos_raw}
 
-        # Verificar quais já existem no Sheet
-        try:
-            worksheet = sheets_client._get_atendimentos_worksheet()
-            all_values = worksheet.get_all_values()
-            entregas_no_sheet = set()
-            for row in all_values[1:]:
-                if len(row) > 2 and row[2]:
-                    entregas_no_sheet.add(row[2].strip())
-        except Exception:
-            entregas_no_sheet = set()
+        # Ler todos os dados do Sheet de uma vez
+        worksheet = sheets_client._get_atendimentos_worksheet()
+        all_values = worksheet.get_all_values()
+
+        # Mapear entrega -> row number (comparação normalizada)
+        entrega_to_row = {}
+        for i, row in enumerate(all_values):
+            if i == 0 or len(row) < 3:
+                continue
+            entrega_sheet = str(row[2]).strip().replace('.0', '')
+            if entrega_sheet:
+                entrega_to_row[entrega_sheet] = i + 1  # 1-indexed
 
         added = 0
         updated = 0
         errors = 0
+        batch_updates = []
+
+        field_to_col = {
+            'categoria': 7, 'motivo': 8, 'pendente': 9,
+            'motivo_pendencia': 10, 'verificar_adneia': 11,
+            'retornar_chamado': 12, 'reversa_codigo': 14, 'anotacoes': 15,
+        }
 
         for chamado in chamados:
-            entrega = chamado.get('numero_pedido', '')
-            pedido = pedidos_dict.get(entrega)
-            try:
-                if entrega in entregas_no_sheet:
-                    # Já existe, atualizar
-                    sheets_client.update_atendimento(entrega, {
-                        "anotacoes": chamado.get('anotacoes', ''),
-                        "motivo_pendencia": chamado.get('motivo_pendencia', ''),
-                        "categoria": chamado.get('categoria', ''),
-                        "motivo": chamado.get('motivo', ''),
-                        "pendente": "SIM" if chamado.get('pendente') else "NÃO",
-                        "verificar_adneia": "SIM" if chamado.get('verificar_adneia') else "",
-                        "retornar_chamado": "SIM" if chamado.get('retornar_chamado') else "",
-                        "reversa_codigo": chamado.get('codigo_reversa', '') or '',
+            entrega = str(chamado.get('numero_pedido', '')).strip()
+            if not entrega:
+                continue
+
+            row_num = entrega_to_row.get(entrega)
+
+            if row_num:
+                # UPDATE existente via batch
+                updates_map = {
+                    'categoria': chamado.get('categoria', ''),
+                    'motivo': chamado.get('motivo', ''),
+                    'pendente': 'SIM' if chamado.get('pendente') else 'NÃO',
+                    'motivo_pendencia': chamado.get('motivo_pendencia', ''),
+                    'verificar_adneia': 'SIM' if chamado.get('verificar_adneia') else 'NÃO',
+                    'retornar_chamado': 'SIM' if chamado.get('retornar_chamado') else 'NÃO',
+                    'reversa_codigo': chamado.get('codigo_reversa', '') or '',
+                    'anotacoes': chamado.get('anotacoes', ''),
+                }
+                for field, value in updates_map.items():
+                    col = field_to_col[field]
+                    batch_updates.append({
+                        'range': f"{chr(64 + col)}{row_num}",
+                        'values': [[value or '']]
                     })
-                    updated += 1
-                else:
-                    # Não existe, adicionar
+                updated += 1
+            else:
+                # ADD novo
+                try:
+                    pedido = pedidos_dict.get(entrega)
                     sheets_client.add_atendimento(chamado, pedido)
                     added += 1
-            except Exception as e:
-                errors += 1
-                if errors <= 3:
-                    logger.error(f"Erro sync {entrega}: {e}")
+                    time.sleep(1)  # Rate limit
+                except Exception as e:
+                    errors += 1
+                    logger.error(f"Erro add {entrega}: {e}")
+
+        # Aplicar todas as atualizações em batch (em blocos de 500 para evitar timeout)
+        if batch_updates:
+            chunk_size = 500
+            for i in range(0, len(batch_updates), chunk_size):
+                chunk = batch_updates[i:i+chunk_size]
+                try:
+                    worksheet.batch_update(chunk)
+                except Exception as e:
+                    errors += 1
+                    logger.error(f"Erro batch update chunk {i}: {e}")
+                time.sleep(2)  # Rate limit entre chunks
 
         return {"success": True, "added": added, "updated": updated, "errors": errors, "total": len(chamados)}
     except Exception as e:
+        logger.error(f"Erro sync-all: {e}")
         return {"success": False, "error": str(e)}
