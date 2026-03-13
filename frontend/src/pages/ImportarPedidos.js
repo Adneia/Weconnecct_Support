@@ -291,6 +291,8 @@ const ImportarPedidos = () => {
   const [correcaoResult, setCorrecaoResult] = useState(null);
   const [importandoBackup, setImportandoBackup] = useState(false);
   const [backupResult, setBackupResult] = useState(null);
+  const [sincronizando, setSincronizando] = useState(false);
+  const [syncResult, setSyncResult] = useState(null);
 
   const corrigirNumeros = async () => {
     if (!window.confirm('Isso vai corrigir números de pedido com ".0" no final (ex: 117552503.0 → 117552503). Continuar?')) return;
@@ -329,6 +331,26 @@ const ImportarPedidos = () => {
       setImportandoBackup(false);
       e.target.value = '';
     }
+  };
+
+  const sincronizarSheets = async () => {
+    if (!window.confirm('Sincronizar todos os atendimentos pendentes com o Google Sheets? Isso pode demorar alguns minutos.')) return;
+    setSincronizando(true);
+    setSyncResult(null);
+    try {
+      const response = await axios.post(`${API_URL}/api/google-sheets/sync-all`, {}, {
+        headers: getAuthHeader(),
+        timeout: 300000
+      });
+      setSyncResult(response.data);
+      if (response.data.success) {
+        toast.success(`Sync concluído: ${response.data.added} adicionados, ${response.data.updated} atualizados`);
+      } else {
+        toast.error(response.data.error || 'Erro no sync');
+      }
+    } catch (error) {
+      toast.error('Erro ao sincronizar com Google Sheets');
+    } finally { setSincronizando(false); }
   };
 
   return (
@@ -630,6 +652,50 @@ const ImportarPedidos = () => {
             >
               {corrigindo ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               {corrigindo ? 'Corrigindo...' : 'Corrigir Números'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Sincronizar Google Sheets */}
+      <Card className="border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/20">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-md bg-green-100 dark:bg-green-900/30">
+                <FileSpreadsheet className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <p className="font-medium text-green-700 dark:text-green-400">Sincronizar Google Sheets</p>
+                <p className="text-sm text-green-600/80 dark:text-green-400/80">
+                  Envia todos os atendimentos pendentes para o Google Sheets (adiciona novos e atualiza existentes)
+                </p>
+                {syncResult && (
+                  <div className="mt-2 text-xs flex flex-wrap gap-2">
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">
+                      {syncResult.added} adicionados
+                    </Badge>
+                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300">
+                      {syncResult.updated} atualizados
+                    </Badge>
+                    {syncResult.errors > 0 && (
+                      <Badge variant="outline" className="bg-red-50 text-red-700 border-red-300">
+                        {syncResult.errors} erros
+                      </Badge>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              onClick={sincronizarSheets}
+              disabled={sincronizando}
+              className="border-green-300 text-green-700 hover:bg-green-100 shrink-0"
+              data-testid="btn-sync-sheets"
+            >
+              {sincronizando ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {sincronizando ? 'Sincronizando...' : 'Sincronizar'}
             </Button>
           </div>
         </CardContent>
