@@ -225,13 +225,23 @@ async def list_chamados(
             c['dias_aberto'] = (now - data_abertura).days if c.get('pendente', True) else 0
         except Exception:
             c['dias_aberto'] = 0
-        if c.get('numero_pedido'):
-            pedido = await db.pedidos_erp.find_one({"numero_pedido": c['numero_pedido']}, {"_id": 0, "status_pedido": 1, "data_status": 1})
+        if not c.get('codigo_reversa') and c.get('reversa_codigo'):
+            c['codigo_reversa'] = c['reversa_codigo']
+
+    # Bulk query para pedidos_erp (evita N+1)
+    pedido_numbers = [c.get('numero_pedido') for c in chamados if c.get('numero_pedido')]
+    if pedido_numbers:
+        pedidos = await db.pedidos_erp.find(
+            {"numero_pedido": {"$in": pedido_numbers}},
+            {"_id": 0, "numero_pedido": 1, "status_pedido": 1, "data_status": 1}
+        ).to_list(len(pedido_numbers))
+        pedidos_dict = {p['numero_pedido']: p for p in pedidos}
+        for c in chamados:
+            pedido = pedidos_dict.get(c.get('numero_pedido'))
             if pedido:
                 c['status_pedido'] = pedido.get('status_pedido', '')
                 c['data_ultimo_status'] = pedido.get('data_status', '')
-        if not c.get('codigo_reversa') and c.get('reversa_codigo'):
-            c['codigo_reversa'] = c['reversa_codigo']
+
     return chamados
 
 

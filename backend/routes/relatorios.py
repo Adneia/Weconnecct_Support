@@ -17,11 +17,32 @@ async def get_relatorio_ag_compras(current_user: dict = Depends(get_current_user
     for f in fornecedores:
         fornecedores_dict[f.get('nome', '').lower()] = f.get('dias_extras_padrao', 5)
 
+    # Bulk query pedidos (evita N+1)
+    pedido_numbers = [c.get('numero_pedido') for c in chamados if c.get('numero_pedido')]
+    pedidos_raw = await db.pedidos_erp.find(
+        {"numero_pedido": {"$in": pedido_numbers}}, {"_id": 0}
+    ).to_list(len(pedido_numbers)) if pedido_numbers else []
+    pedidos_dict = {p['numero_pedido']: p for p in pedidos_raw}
+
+    # Bulk query estoque
+    codigo_items = []
+    for chamado in chamados:
+        pedido = pedidos_dict.get(chamado.get('numero_pedido'))
+        if pedido:
+            ci = pedido.get('codigo_item_bseller', '')
+            if ci:
+                ci_str = str(ci)
+                if ci_str.endswith('.0'):
+                    ci_str = ci_str[:-2]
+                codigo_items.append(ci_str)
+    estoques_raw = await db.estoque_sigeq.find(
+        {"id_item": {"$in": codigo_items}}, {"_id": 0}
+    ).to_list(len(codigo_items)) if codigo_items else []
+    estoques_dict = {e['id_item']: e for e in estoques_raw}
+
     resultado = []
     for chamado in chamados:
-        pedido = await db.pedidos_erp.find_one(
-            {"numero_pedido": chamado.get('numero_pedido')}, {"_id": 0}
-        )
+        pedido = pedidos_dict.get(chamado.get('numero_pedido'))
         if not pedido:
             continue
         status_pedido = pedido.get('status_pedido', '').lower()
@@ -47,9 +68,10 @@ async def get_relatorio_ag_compras(current_user: dict = Depends(get_current_user
         codigo_item = pedido.get('codigo_item_bseller', '')
         estoque_disponivel = None
         if codigo_item:
-            if str(codigo_item).endswith('.0'):
-                codigo_item = str(codigo_item)[:-2]
-            estoque = await db.estoque_sigeq.find_one({"id_item": str(codigo_item)}, {"_id": 0})
+            ci_str = str(codigo_item)
+            if ci_str.endswith('.0'):
+                ci_str = ci_str[:-2]
+            estoque = estoques_dict.get(ci_str)
             if estoque:
                 estoque_disponivel = estoque.get('disp_venda', 0)
 
@@ -82,11 +104,16 @@ async def get_relatorio_ag_logistica(current_user: dict = Depends(get_current_us
         {"motivo_pendencia": "Ag. Logística", "pendente": True}, {"_id": 0}
     ).to_list(5000)
 
+    # Bulk query pedidos (evita N+1)
+    pedido_numbers = [c.get('numero_pedido') for c in chamados if c.get('numero_pedido')]
+    pedidos_raw = await db.pedidos_erp.find(
+        {"numero_pedido": {"$in": pedido_numbers}}, {"_id": 0}
+    ).to_list(len(pedido_numbers)) if pedido_numbers else []
+    pedidos_dict = {p['numero_pedido']: p for p in pedidos_raw}
+
     resultado = []
     for chamado in chamados:
-        pedido = await db.pedidos_erp.find_one(
-            {"numero_pedido": chamado.get('numero_pedido')}, {"_id": 0}
-        )
+        pedido = pedidos_dict.get(chamado.get('numero_pedido'))
         if not pedido:
             continue
         status_pedido = pedido.get('status_pedido', '').lower()
