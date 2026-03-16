@@ -634,6 +634,90 @@ async def padronizar_motivos_inconsistentes(current_user: dict = Depends(get_cur
         return {"success": False, "message": str(e)}
 
 
+@router.post("/admin/corrigir-motivos-inconsistentes")
+async def corrigir_motivos_inconsistentes(current_user: dict = Depends(get_current_user)):
+    """
+    Corrige chamados pendentes cujo motivo_pendencia não corresponde ao status_pedido
+    conforme o mapeamento do Ajuste 1. Ex: status 'PROCESSAMENTO NA FILAL' deveria ser 
+    'Enviado', mas está como 'Entregue'.
+    """
+    stats = {
+        "verificados": 0,
+        "corrigidos": 0,
+        "ignorados_sem_pedido": 0,
+        "ignorados_sem_mapeamento": 0,
+        "ignorados_motivo_manual": 0,
+        "ja_corretos": 0,
+        "detalhes": []
+    }
+
+    chamados = await db.chamados.find(
+        {"pendente": True},
+        {"_id": 1, "numero_pedido": 1, "motivo_pendencia": 1, "id_atendimento": 1}
+    ).to_list(10000)
+    stats["verificados"] = len(chamados)
+
+    # Batch: buscar todos os pedidos de uma vez para evitar N+1
+    numeros = [c["numero_pedido"] for c in chamados if c.get("numero_pedido")]
+    pedidos_cursor = db.pedidos_erp.find(
+        {"numero_pedido": {"$in": numeros}},
+        {"_id": 0, "numero_pedido": 1, "status_pedido": 1}
+    )
+    pedidos_map = {}
+    async for p in pedidos_cursor:
+        pedidos_map[p["numero_pedido"]] = p.get("status_pedido", "")
+
+    for chamado in chamados:
+        numero = chamado.get("numero_pedido", "")
+        motivo_atual = chamado.get("motivo_pendencia", "")
+
+        status_pedido = pedidos_map.get(numero)
+        if not status_pedido:
+            stats["ignorados_sem_pedido"] += 1
+            continue
+
+        # Verificar se status é cancelado
+        if status_pedido in STATUS_NAO_ALTERAR:
+            stats["ignorados_sem_mapeamento"] += 1
+            continue
+
+        motivo_correto = get_motivo_from_status(status_pedido)
+        if not motivo_correto:
+            stats["ignorados_sem_mapeamento"] += 1
+            continue
+
+        if motivo_atual == motivo_correto:
+            stats["ja_corretos"] += 1
+            continue
+
+        # Só corrigir se o motivo atual for auto-atualizável OU "Entregue" (caso do bug de backup)
+        motivos_corrigiveis = list(MOTIVOS_AUTO_ATUALIZAVEIS)
+        if motivo_atual not in motivos_corrigiveis:
+            stats["ignorados_motivo_manual"] += 1
+            continue
+
+        # Corrigir
+        update_fields = {"motivo_pendencia": motivo_correto}
+        if chamado.get("verificar_adneia"):
+            update_fields["verificar_adneia"] = False
+
+        await db.chamados.update_one(
+            {"_id": chamado["_id"]},
+            {"$set": update_fields}
+        )
+        stats["corrigidos"] += 1
+        if len(stats["detalhes"]) < 50:
+            stats["detalhes"].append({
+                "entrega": numero,
+                "id_atendimento": chamado.get("id_atendimento", ""),
+                "de": motivo_atual,
+                "para": motivo_correto,
+                "status_pedido": status_pedido
+            })
+
+    return {"success": True, "message": f"{stats['corrigidos']} motivos corrigidos", "stats": stats}
+
+
 async def atualizar_motivos_pendencia_automatico():
     """
     AJUSTE 1 — Fluxo automático de Motivo de Pendência.

@@ -293,6 +293,8 @@ const ImportarPedidos = () => {
   const [backupResult, setBackupResult] = useState(null);
   const [sincronizando, setSincronizando] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
+  const [corrigindoMotivos, setCorrigindoMotivos] = useState(false);
+  const [motivosResult, setMotivosResult] = useState(null);
 
   const corrigirNumeros = async () => {
     if (!window.confirm('Isso vai corrigir números de pedido com ".0" no final (ex: 117552503.0 → 117552503). Continuar?')) return;
@@ -331,6 +333,22 @@ const ImportarPedidos = () => {
       setImportandoBackup(false);
       e.target.value = '';
     }
+  };
+
+  const corrigirMotivos = async () => {
+    if (!window.confirm('Isso vai verificar todos os chamados pendentes e corrigir o Motivo de Pendência quando não corresponder ao Status do Pedido (ex: status "PROCESSAMENTO NA FILAL" com motivo "Entregue" será corrigido para "Enviado"). Continuar?')) return;
+    setCorrigindoMotivos(true);
+    setMotivosResult(null);
+    try {
+      const response = await axios.post(`${API_URL}/api/admin/corrigir-motivos-inconsistentes`, {}, {
+        headers: getAuthHeader(),
+        timeout: 120000
+      });
+      setMotivosResult(response.data);
+      toast.success(`Correção concluída: ${response.data.stats.corrigidos} motivos corrigidos`);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Erro ao corrigir motivos');
+    } finally { setCorrigindoMotivos(false); }
   };
 
   const sincronizarSheets = async () => {
@@ -658,6 +676,57 @@ const ImportarPedidos = () => {
       </Card>
 
       {/* Sincronizar Google Sheets */}
+      <Card className="border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-950/20">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-md bg-purple-100 dark:bg-purple-900/30">
+                <CheckCircle className="h-5 w-5 text-purple-600" />
+              </div>
+              <div>
+                <p className="font-medium text-purple-700 dark:text-purple-400">Corrigir Motivos Inconsistentes</p>
+                <p className="text-sm text-purple-600/80 dark:text-purple-400/80">
+                  Verifica chamados pendentes cujo Motivo de Pendência não corresponde ao Status do Pedido e corrige automaticamente
+                </p>
+                {motivosResult && (
+                  <div className="mt-2 text-xs flex flex-wrap gap-2">
+                    <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-300">
+                      {motivosResult.stats.verificados} verificados
+                    </Badge>
+                    <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">
+                      {motivosResult.stats.corrigidos} corrigidos
+                    </Badge>
+                    <Badge variant="outline" className="bg-gray-50 text-gray-600 border-gray-300">
+                      {motivosResult.stats.ja_corretos} já corretos
+                    </Badge>
+                    {motivosResult.stats.detalhes?.length > 0 && (
+                      <div className="w-full mt-2 max-h-32 overflow-y-auto text-xs border rounded p-2 bg-white dark:bg-gray-900">
+                        {motivosResult.stats.detalhes.map((d, i) => (
+                          <div key={i} className="py-0.5">
+                            <span className="font-mono">{d.entrega}</span>: {d.de} → <span className="font-medium text-green-700">{d.para}</span> <span className="text-gray-400">({d.status_pedido})</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              onClick={corrigirMotivos}
+              disabled={corrigindoMotivos}
+              className="border-purple-300 text-purple-700 hover:bg-purple-100 shrink-0"
+              data-testid="btn-corrigir-motivos"
+            >
+              {corrigindoMotivos ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {corrigindoMotivos ? 'Corrigindo...' : 'Corrigir Motivos'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Sincronizar Google Sheets (original) */}
       <Card className="border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/20">
         <CardContent className="p-4">
           <div className="flex items-center justify-between gap-4">

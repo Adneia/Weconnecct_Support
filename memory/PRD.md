@@ -38,12 +38,24 @@ Sistema de controle de chamados (tickets) para a equipe de atendimento da WeConn
 - **AJUSTE 4:** Card "Total na Base" independente de filtros (substitui card antigo)
 - **AJUSTE 5:** Exibir data do status (Dt.Ult.Ponto de Controle) na coluna STATUS PEDIDO
 
+### Sessão Atual — Correções de Produção (Mar 2026)
+- **Correção de Importação Excel (.0):** Botão "Corrigir Números" na tela Base ELO
+- **Sistema de Backup/Restauração:** Botão "Selecionar Backup" para importar Excel de backup
+- **Otimização Sync Google Sheets:** Reescrita para operações em lote (batch_update)
+- **Prevenção de Duplicatas:** Validação HTTP 409 no backend
+- **Funcionalidade de Exclusão:** Botão Excluir no formulário + notificação admin
+- **Correção de Motivos Inconsistentes:** Botão "Corrigir Motivos" que verifica e corrige motivo_pendencia conforme mapeamento Status→Motivo
+- **Correção de Status Inconsistentes:** Validação para impedir encerramento com motivos não-finalizadores
+
 ## Backlog / Próximas Tarefas
+- P0: Deploy em produção e execução dos scripts de correção
+- P1: Análise dos requisitos restantes do Prompt_Completo_ELO_Marco2026.md
 - P2: Interface conversacional (chatbot)
 - P2: Integração com APIs de Rastreio (Correios / Total Express)
 - P3: Geração de Relatórios nativa
 - P3: Integração com Canais de Entrada (Outlook, Zendesk)
 - P3: Integração com IA para sugestão de categorias e resumos
+- P3: Mover botões de admin para Painel de Administração dedicado
 
 ## Credenciais de Teste
 - Admin: adneia@weconnect360.com.br / 20wead
