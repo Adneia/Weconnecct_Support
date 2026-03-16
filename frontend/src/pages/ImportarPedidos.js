@@ -15,7 +15,7 @@ import {
   TableRow,
 } from '../components/ui/table';
 import { toast } from 'sonner';
-import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, Loader2, X, Download } from 'lucide-react';
+import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, AlertTriangle, Loader2, X, Download } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -295,6 +295,7 @@ const ImportarPedidos = () => {
   const [syncResult, setSyncResult] = useState(null);
   const [corrigindoMotivos, setCorrigindoMotivos] = useState(false);
   const [motivosResult, setMotivosResult] = useState(null);
+  const [limpandoTestes, setLimpandoTestes] = useState(false);
 
   const corrigirNumeros = async () => {
     if (!window.confirm('Isso vai corrigir números de pedido com ".0" no final (ex: 117552503.0 → 117552503). Continuar?')) return;
@@ -349,6 +350,20 @@ const ImportarPedidos = () => {
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Erro ao corrigir motivos');
     } finally { setCorrigindoMotivos(false); }
+  };
+
+  const limparDadosTeste = async () => {
+    if (!window.confirm('Isso vai EXCLUIR todos os registros de teste (TESTE-*, TEST_*) que migraram do preview. Continuar?')) return;
+    setLimpandoTestes(true);
+    try {
+      const response = await axios.post(`${API_URL}/api/admin/limpar-dados-teste`, {}, {
+        headers: getAuthHeader(),
+        timeout: 60000
+      });
+      toast.success(response.data.message);
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Erro ao limpar dados de teste');
+    } finally { setLimpandoTestes(false); }
   };
 
   const sincronizarSheets = async () => {
@@ -721,6 +736,35 @@ const ImportarPedidos = () => {
             >
               {corrigindoMotivos ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
               {corrigindoMotivos ? 'Corrigindo...' : 'Corrigir Motivos'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Limpar Dados de Teste */}
+      <Card className="border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-950/20">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-md bg-red-100 dark:bg-red-900/30">
+                <AlertTriangle className="h-5 w-5 text-red-600" />
+              </div>
+              <div>
+                <p className="font-medium text-red-700 dark:text-red-400">Limpar Dados de Teste</p>
+                <p className="text-sm text-red-600/80 dark:text-red-400/80">
+                  Remove registros de teste (TESTE-*, TEST_*) que migraram do preview
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              onClick={limparDadosTeste}
+              disabled={limpandoTestes}
+              className="border-red-300 text-red-700 hover:bg-red-100 shrink-0"
+              data-testid="btn-limpar-testes"
+            >
+              {limpandoTestes ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {limpandoTestes ? 'Limpando...' : 'Limpar Testes'}
             </Button>
           </div>
         </CardContent>

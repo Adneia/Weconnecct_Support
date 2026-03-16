@@ -782,3 +782,37 @@ async def atualizar_motivos_pendencia_automatico():
 
     logger.info(f"Atualização automática concluída: {stats}")
     return stats
+
+
+
+@router.post("/admin/limpar-dados-teste")
+async def limpar_dados_teste(current_user: dict = Depends(get_current_user)):
+    """Remove todos os registros de teste (TESTE-*, TEST_*) que migraram do preview."""
+    import re
+    pattern = re.compile(r'^(TESTE|TEST)', re.IGNORECASE)
+    
+    # Buscar chamados de teste
+    chamados_teste = await db.chamados.find(
+        {"$or": [
+            {"numero_pedido": {"$regex": "^TESTE", "$options": "i"}},
+            {"numero_pedido": {"$regex": "^TEST_", "$options": "i"}},
+        ]},
+        {"_id": 1, "numero_pedido": 1, "id_atendimento": 1}
+    ).to_list(1000)
+    
+    ids_removidos = []
+    for c in chamados_teste:
+        ids_removidos.append({"numero_pedido": c.get("numero_pedido"), "id_atendimento": c.get("id_atendimento")})
+        await db.chamados.delete_one({"_id": c["_id"]})
+    
+    # Limpar histórico relacionado
+    for item in ids_removidos:
+        chamado_id = item.get("id_atendimento", "")
+        if chamado_id:
+            await db.historico.delete_many({"chamado_id": chamado_id})
+    
+    return {
+        "success": True,
+        "message": f"{len(ids_removidos)} registros de teste removidos",
+        "removidos": ids_removidos
+    }
