@@ -18,6 +18,45 @@ router = APIRouter(prefix="/api")
 
 # ============== HELPERS ==============
 
+async def notificar_inicio_atendimentos(user: dict):
+    """Envia notificação para Adnéia quando um atendente criar o primeiro chamado do dia."""
+    try:
+        hoje = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        user_email = user.get('email', '')
+        # Se for a própria Adnéia, não notificar
+        if 'adneia' in user_email.lower():
+            return
+        # Verificar se já notificou hoje para este atendente
+        notif_existente = await db.notifications.find_one({
+            "tipo": "inicio_atendimentos",
+            "atendente_email": user_email,
+            "data_referencia": hoje.isoformat()
+        })
+        if notif_existente:
+            return
+        # Verificar se é o primeiro chamado do dia deste atendente
+        chamados_hoje = await db.chamados.count_documents({
+            "criado_por_id": user.get('id'),
+            "data_abertura": {"$gte": hoje.isoformat()}
+        })
+        if chamados_hoje <= 1:  # É o primeiro (o que acabou de ser criado)
+            notificacao = {
+                "id": str(uuid.uuid4()),
+                "tipo": "inicio_atendimentos",
+                "destinatario_email": "adneia@weconnect360.com.br",
+                "atendente_email": user_email,
+                "titulo": "Atendimentos Iniciados",
+                "mensagem": f"{user.get('name', 'Atendente')} iniciou os atendimentos do dia.",
+                "lida": False,
+                "data_criacao": datetime.now(timezone.utc).isoformat(),
+                "data_referencia": hoje.isoformat()
+            }
+            await db.notifications.insert_one(notificacao)
+            logger.info(f"Notificação de início enviada para Adnéia: {user.get('name')} iniciou atendimentos")
+    except Exception as e:
+        logger.error(f"Erro ao notificar início de atendimentos: {e}")
+
+
 async def generate_atendimento_id():
     now = datetime.now(timezone.utc)
     year = now.year
@@ -150,6 +189,10 @@ async def create_chamado(
     hist_dict['data_hora'] = hist_dict['data_hora'].isoformat()
     await db.historico.insert_one(hist_dict)
     background_tasks.add_task(sync_to_google_sheets, chamado_dict, pedido)
+    
+    # Notificar Adnéia quando um atendente iniciar os atendimentos do dia
+    background_tasks.add_task(notificar_inicio_atendimentos, current_user)
+    
     return {
         "id": chamado.id,
         "id_atendimento": id_atendimento,

@@ -28,8 +28,8 @@ SCOPES = [
 # G=Categoria, H=Motivo, I=Pendente, J=Motivo_Pendencia, K=Verificar, L=Retornar,
 # M=DT_Encerramento, N=Reversa, O=Anotações, P=Status_Pedido, Q=Nota, R=Chave_Acesso, S=Filial
 ATENDIMENTO_COLUMNS = [
-    'ID_Atendimento',   # A - ID do atendimento (ATD-2026-XXXX)
-    'Data',             # B - Data de abertura (DD/MM/AAAA)
+    'Data',             # A - Data de abertura (DD/MM/AAAA)
+    'ID_Atendimento',   # B - ID do atendimento (ATD-2026-XXXX)
     'Parceiro',         # C - Canal (CSU, Livelo, LL Loyalty, etc)
     'Entrega',          # D - Código da entrega (numero_pedido)
     'Solicitação',      # E - Número da solicitação
@@ -191,10 +191,10 @@ class GoogleSheetsClient:
             else:
                 data_formatted = data_abertura.strftime('%d/%m/%Y') if data_abertura else ''
             
-            # Prepare row data matching column structure (com ID_Atendimento na posição A)
+            # Prepare row data matching column structure (A=Data, B=ID_Atendimento, C=Parceiro...)
             row = [
-                atendimento.get('id_atendimento', ''),           # A - ID_Atendimento
-                data_formatted,                                   # B - Data
+                data_formatted,                                   # A - Data
+                atendimento.get('id_atendimento', ''),           # B - ID_Atendimento
                 atendimento.get('parceiro', '') or atendimento.get('canal_vendas', ''),  # C - Parceiro
                 atendimento.get('numero_pedido', ''),            # D - Entrega
                 atendimento.get('solicitacao', ''),              # E - Solicitação
@@ -321,11 +321,11 @@ class GoogleSheetsClient:
             row_num = cell.row
             
             # Map update fields to column indices (1-indexed for gspread)
-            # Nova estrutura: A=ID_Atendimento, B=Data, C=Parceiro, D=Entrega, E=Solicitação, F=Nome, G=CPF,
+            # Estrutura: A=Data, B=ID_Atendimento, C=Parceiro, D=Entrega, E=Solicitação, F=Nome, G=CPF,
             # H=Categoria, I=Motivo, J=Pendente, K=Motivo_Pendencia, L=Verificar, M=Retornar,
             # N=DT_Encerramento, O=Reversa, P=Anotações, Q=Status_Pedido, R=Nota, S=Chave_Acesso, T=Filial, U=Tempo
             field_to_col = {
-                'id_atendimento': 1,      # A
+                'id_atendimento': 2,      # B
                 'parceiro': 3,            # C
                 'numero_pedido': 4,       # D - Entrega
                 'solicitacao': 5,         # E

@@ -84,12 +84,12 @@ async def sync_all_to_sheets(current_user: dict = Depends(get_current_user)):
 
             if row_num:
                 # UPDATE existente via batch
-                # Atualizar ID_Atendimento na coluna A se estiver vazio
+                # Atualizar ID_Atendimento na coluna B se estiver vazio
                 existing_row = all_values[row_num - 1] if row_num <= len(all_values) else []
                 id_atd = chamado.get('id_atendimento', '')
-                if id_atd and (len(existing_row) < 1 or not existing_row[0].strip()):
+                if id_atd and (len(existing_row) < 2 or not existing_row[1].strip()):
                     batch_updates.append({
-                        'range': f"A{row_num}",
+                        'range': f"B{row_num}",
                         'values': [[id_atd]]
                     })
 

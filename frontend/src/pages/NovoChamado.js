@@ -645,13 +645,24 @@ const NovoAtendimento = () => {
                     <p className="font-medium flex items-center gap-1 cursor-pointer hover:text-primary" onClick={() => copyToClipboard(pedidoErp.nome_cliente || '')} title="Copiar nome">
                       {pedidoErp.nome_cliente || '-'} <Copy className="h-3 w-3 text-muted-foreground" />
                     </p>
-                    {pedidoErp.cpf_cliente && <p className="text-muted-foreground">CPF: {pedidoErp.cpf_cliente}</p>}
-                    {pedidoErp.email_cliente && (
-                      <p className="text-muted-foreground flex items-center gap-1 cursor-pointer hover:text-primary" onClick={() => copyToClipboard(pedidoErp.email_cliente)} title="Copiar e-mail">
-                        <Mail className="h-3 w-3" /> {pedidoErp.email_cliente} <Copy className="h-3 w-3 text-muted-foreground" />
+                    {pedidoErp.cpf_cliente && (
+                      <p className="text-muted-foreground cursor-pointer hover:text-primary flex items-center gap-1" onClick={() => copyToClipboard(pedidoErp.cpf_cliente)} title="Copiar CPF">
+                        CPF: {pedidoErp.cpf_cliente} <Copy className="h-3 w-3 text-muted-foreground" />
                       </p>
                     )}
-                    {pedidoErp.fone_cliente && <p className="text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" /> {pedidoErp.fone_cliente}</p>}
+                    {(() => {
+                      const email = pedidoErp.email_cliente || 'atendimento@weconnect360.com.br';
+                      return (
+                        <p className="text-muted-foreground flex items-center gap-1 cursor-pointer hover:text-primary" onClick={() => copyToClipboard(email)} title="Copiar e-mail">
+                          <Mail className="h-3 w-3" /> {email} <Copy className="h-3 w-3 text-muted-foreground" />
+                        </p>
+                      );
+                    })()}
+                    {pedidoErp.fone_cliente && (
+                      <p className="text-muted-foreground flex items-center gap-1 cursor-pointer hover:text-primary" onClick={() => copyToClipboard(pedidoErp.fone_cliente)} title="Copiar telefone">
+                        <Phone className="h-3 w-3" /> {pedidoErp.fone_cliente} <Copy className="h-3 w-3 text-muted-foreground" />
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -682,7 +693,11 @@ const NovoAtendimento = () => {
                     {(pedidoErp.estoque_disponivel !== undefined && pedidoErp.estoque_disponivel !== null) && (
                       <p className={`font-medium ${Number(pedidoErp.estoque_disponivel) > 0 ? 'text-green-600' : 'text-red-600'}`}>Estoque Disp.: {pedidoErp.estoque_disponivel}</p>
                     )}
-                    {pedidoErp.preco_final && <p className="text-muted-foreground">Valor: R$ {parseFloat(pedidoErp.preco_final).toFixed(2)}</p>}
+                    {pedidoErp.preco_final && (
+                      <p className="text-muted-foreground cursor-pointer hover:text-primary flex items-center gap-1" onClick={() => copyToClipboard(parseFloat(pedidoErp.preco_final).toFixed(2))} title="Copiar valor">
+                        Valor: R$ {parseFloat(pedidoErp.preco_final).toFixed(2)} <Copy className="h-3 w-3 text-muted-foreground" />
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="space-y-2">

@@ -46,8 +46,11 @@ Sistema de controle de chamados (tickets) para a equipe de atendimento da WeConn
 - **Funcionalidade de Exclusão:** Botão Excluir no formulário + notificação admin
 - **Correção de Motivos Inconsistentes:** Botão "Corrigir Motivos" que verifica e corrige motivo_pendencia conforme mapeamento Status→Motivo
 - **Correção de Status Inconsistentes:** Validação para impedir encerramento com motivos não-finalizadores
-- **Google Sheets — ID_Atendimento:** Adicionada coluna A com ID do atendimento. Sync-all popula IDs existentes.
-- **Card — Botões de Copiar:** Nome, e-mail, produto e CEP (8 dígitos com zero à esquerda) são copiáveis ao clicar
+- **Google Sheets — ID_Atendimento:** Adicionada coluna B com ID do atendimento (A=Data, B=ID). Sync-all popula IDs existentes.
+- **Card — Botões de Copiar:** Nome, CPF, e-mail, telefone, produto, valor e CEP (8 dígitos com zero à esquerda) são copiáveis ao clicar
+- **E-mail Padrão:** Quando não há e-mail cadastrado, exibe atendimento@weconnect360.com.br
+- **Notificação Início Atendimentos:** Primeiro chamado do dia de cada atendente gera notificação para Adnéia
+- **Limpar Filtro:** Reseta todos os filtros (incluindo searchType e localStorage)
 
 ## Backlog / Próximas Tarefas
 - P0: Deploy em produção e execução dos scripts de correção

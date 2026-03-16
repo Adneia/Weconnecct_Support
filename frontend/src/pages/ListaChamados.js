@@ -219,6 +219,8 @@ const ListaAtendimentos = () => {
   const clearFilters = () => {
     setFilters({ pendente: '', categoria: '', retornar_chamado: '', verificar_adneia: '', motivo_pendencia: '', parceiro: [] });
     setGlobalFilter('');
+    setSearchType('todos');
+    localStorage.removeItem(FILTERS_STORAGE_KEY);
   };
 
   const hasActiveFilters = Object.values(filters).some(v => Array.isArray(v) ? v.length > 0 : v !== '') || globalFilter;
