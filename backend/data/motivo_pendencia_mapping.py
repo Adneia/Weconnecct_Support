@@ -52,7 +52,7 @@ STATUS_PEDIDO_TO_MOTIVO = {
 STATUS_NAO_ALTERAR = ["Entrega cancelada", "CANCELADO"]
 
 # Motivos que permitem atualização automática
-MOTIVOS_AUTO_ATUALIZAVEIS = ["Ag. Compras", "Ag. Logística", "Enviado"]
+MOTIVOS_AUTO_ATUALIZAVEIS = ["Ag. Compras", "Ag. Logística", "Enviado", "Entregue"]
 
 
 def get_motivo_from_status(status_pedido: str) -> str | None:

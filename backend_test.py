@@ -7,7 +7,7 @@ import io
 from datetime import datetime
 
 class WeConnectAPITester:
-    def __init__(self, base_url="https://ticket-mgmt-2.preview.emergentagent.com"):
+    def __init__(self, base_url="https://elo-admin.preview.emergentagent.com"):
         self.base_url = base_url
         self.token = None
         self.user_id = None
