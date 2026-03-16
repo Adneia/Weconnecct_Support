@@ -224,7 +224,17 @@ async def importar_backup(
                 if pend_backup in ['SIM', 'NÃO', 'NAO']:
                     pend_val = pend_backup == 'SIM'
                     if pend_val != chamado.get('pendente', True):
-                        update['pendente'] = pend_val
+                        # Validar: só encerrar se motivo for finalizador
+                        if not pend_val:
+                            motivos_finalizadores = ["Entregue", "Estornado", "Atendido", "Em devolução", "Devolvido", "Encerrado"]
+                            motivo_check = mp_backup or str(chamado.get('motivo_pendencia', ''))
+                            if motivo_check not in motivos_finalizadores:
+                                # Não encerrar - manter pendente
+                                pass
+                            else:
+                                update['pendente'] = pend_val
+                        else:
+                            update['pendente'] = pend_val
                 if ver_backup == 'SIM' and not chamado.get('verificar_adneia', False):
                     update['verificar_adneia'] = True
                 if ret_backup == 'SIM' and not chamado.get('retornar_chamado', False):
