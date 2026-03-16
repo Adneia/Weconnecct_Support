@@ -58,9 +58,9 @@ async def sync_all_to_sheets(current_user: dict = Depends(get_current_user)):
         # Mapear entrega -> row number (comparação normalizada)
         entrega_to_row = {}
         for i, row in enumerate(all_values):
-            if i == 0 or len(row) < 3:
+            if i == 0 or len(row) < 4:
                 continue
-            entrega_sheet = str(row[2]).strip().replace('.0', '')
+            entrega_sheet = str(row[3]).strip().replace('.0', '')  # Coluna D = Entrega
             if entrega_sheet:
                 entrega_to_row[entrega_sheet] = i + 1  # 1-indexed
 
@@ -70,9 +70,9 @@ async def sync_all_to_sheets(current_user: dict = Depends(get_current_user)):
         batch_updates = []
 
         field_to_col = {
-            'categoria': 7, 'motivo': 8, 'pendente': 9,
-            'motivo_pendencia': 10, 'verificar_adneia': 11,
-            'retornar_chamado': 12, 'reversa_codigo': 14, 'anotacoes': 15,
+            'categoria': 8, 'motivo': 9, 'pendente': 10,
+            'motivo_pendencia': 11, 'verificar_adneia': 12,
+            'retornar_chamado': 13, 'reversa_codigo': 15, 'anotacoes': 16,
         }
 
         for chamado in chamados:
@@ -84,6 +84,15 @@ async def sync_all_to_sheets(current_user: dict = Depends(get_current_user)):
 
             if row_num:
                 # UPDATE existente via batch
+                # Atualizar ID_Atendimento na coluna A se estiver vazio
+                existing_row = all_values[row_num - 1] if row_num <= len(all_values) else []
+                id_atd = chamado.get('id_atendimento', '')
+                if id_atd and (len(existing_row) < 1 or not existing_row[0].strip()):
+                    batch_updates.append({
+                        'range': f"A{row_num}",
+                        'values': [[id_atd]]
+                    })
+
                 updates_map = {
                     'categoria': chamado.get('categoria', ''),
                     'motivo': chamado.get('motivo', ''),

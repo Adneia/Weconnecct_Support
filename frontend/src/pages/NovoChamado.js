@@ -642,9 +642,15 @@ const NovoAtendimento = () => {
                 <div className="space-y-2">
                   <h4 className="font-medium text-sm flex items-center gap-2"><User className="h-4 w-4" /> Cliente</h4>
                   <div className="pl-6 space-y-1 text-sm">
-                    <p className="font-medium">{pedidoErp.nome_cliente || '-'}</p>
+                    <p className="font-medium flex items-center gap-1 cursor-pointer hover:text-primary" onClick={() => copyToClipboard(pedidoErp.nome_cliente || '')} title="Copiar nome">
+                      {pedidoErp.nome_cliente || '-'} <Copy className="h-3 w-3 text-muted-foreground" />
+                    </p>
                     {pedidoErp.cpf_cliente && <p className="text-muted-foreground">CPF: {pedidoErp.cpf_cliente}</p>}
-                    {pedidoErp.email_cliente && <p className="text-muted-foreground flex items-center gap-1"><Mail className="h-3 w-3" /> {pedidoErp.email_cliente}</p>}
+                    {pedidoErp.email_cliente && (
+                      <p className="text-muted-foreground flex items-center gap-1 cursor-pointer hover:text-primary" onClick={() => copyToClipboard(pedidoErp.email_cliente)} title="Copiar e-mail">
+                        <Mail className="h-3 w-3" /> {pedidoErp.email_cliente} <Copy className="h-3 w-3 text-muted-foreground" />
+                      </p>
+                    )}
                     {pedidoErp.fone_cliente && <p className="text-muted-foreground flex items-center gap-1"><Phone className="h-3 w-3" /> {pedidoErp.fone_cliente}</p>}
                   </div>
                 </div>
@@ -652,7 +658,11 @@ const NovoAtendimento = () => {
                   <h4 className="font-medium text-sm flex items-center gap-2"><MapPin className="h-4 w-4" /> Endereço</h4>
                   <div className="pl-6 space-y-1 text-sm">
                     {pedidoErp.cidade && pedidoErp.uf ? <p className="font-medium">{pedidoErp.cidade} - {pedidoErp.uf}</p> : <p className="text-muted-foreground">-</p>}
-                    {pedidoErp.cep && <p className="text-muted-foreground">CEP: {pedidoErp.cep}</p>}
+                    {pedidoErp.cep && (
+                      <p className="text-muted-foreground cursor-pointer hover:text-primary flex items-center gap-1" onClick={() => copyToClipboard(String(pedidoErp.cep).padStart(8, '0'))} title="Copiar CEP">
+                        CEP: {String(pedidoErp.cep).padStart(8, '0')} <Copy className="h-3 w-3 text-muted-foreground" />
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -661,7 +671,9 @@ const NovoAtendimento = () => {
                 <div className="space-y-2">
                   <h4 className="font-medium text-sm flex items-center gap-2"><ShoppingBag className="h-4 w-4" /> Produto</h4>
                   <div className="pl-6 space-y-1 text-sm">
-                    <p className="font-medium">{pedidoErp.produto || '-'}</p>
+                    <p className="font-medium cursor-pointer hover:text-primary flex items-center gap-1" onClick={() => copyToClipboard(pedidoErp.produto || '')} title="Copiar produto">
+                      {pedidoErp.produto || '-'} <Copy className="h-3 w-3 text-muted-foreground" />
+                    </p>
                     {pedidoErp.departamento && <p className="text-muted-foreground">Marca: {pedidoErp.departamento}</p>}
                     {pedidoErp.codigo_item_bseller && <p className="text-muted-foreground">ID: {pedidoErp.codigo_item_bseller}</p>}
                     {pedidoErp.codigo_item_vtex && <p className="text-muted-foreground">SKU: {pedidoErp.codigo_item_vtex}</p>}
