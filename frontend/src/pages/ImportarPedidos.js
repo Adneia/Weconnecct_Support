@@ -293,6 +293,7 @@ const ImportarPedidos = () => {
   const [backupResult, setBackupResult] = useState(null);
   const [sincronizando, setSincronizando] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
+  const [syncProgress, setSyncProgress] = useState('');
   const [corrigindoMotivos, setCorrigindoMotivos] = useState(false);
   const [motivosResult, setMotivosResult] = useState(null);
   const [limpandoTestes, setLimpandoTestes] = useState(false);
@@ -366,24 +367,72 @@ const ImportarPedidos = () => {
     } finally { setLimpandoTestes(false); }
   };
 
-  const sincronizarSheets = async () => {
-    if (!window.confirm('Sincronizar todos os atendimentos pendentes com o Google Sheets? Isso pode demorar alguns minutos.')) return;
+  const reconstruirPlanilha = async () => {
+    if (!window.confirm('ATENÇÃO: Isso vai LIMPAR toda a planilha e reescrever TODOS os chamados do zero no formato correto (com ID). Isso resolve problemas de colunas desalinhadas. Continuar?')) return;
     setSincronizando(true);
     setSyncResult(null);
+    setSyncProgress('Iniciando reconstrução...');
     try {
-      const response = await axios.post(`${API_URL}/api/google-sheets/sync-all`, {}, {
+      await axios.post(`${API_URL}/api/google-sheets/rebuild`, {}, {
         headers: getAuthHeader(),
-        timeout: 300000
+        timeout: 10000
       });
-      setSyncResult(response.data);
-      if (response.data.success) {
-        toast.success(`Sync concluído: ${response.data.added} adicionados, ${response.data.updated} atualizados`);
-      } else {
-        toast.error(response.data.error || 'Erro no sync');
-      }
+      const pollInterval = setInterval(async () => {
+        try {
+          const status = await axios.get(`${API_URL}/api/google-sheets/sync-status`, { headers: getAuthHeader() });
+          const data = status.data;
+          setSyncProgress(data.progress || '');
+          if (!data.running) {
+            clearInterval(pollInterval);
+            setSincronizando(false);
+            if (data.result) {
+              setSyncResult(data.result);
+              toast.success(`Reconstrução concluída: ${data.result.added} registros escritos`);
+            } else if (data.error) {
+              toast.error(data.error);
+            }
+          }
+        } catch { /* ignore */ }
+      }, 3000);
     } catch (error) {
-      toast.error('Erro ao sincronizar com Google Sheets');
-    } finally { setSincronizando(false); }
+      const msg = error.response?.data?.error || 'Erro ao iniciar reconstrução';
+      toast.error(msg);
+      setSincronizando(false);
+    }
+  };
+
+  const sincronizarSheets = async () => {
+    if (!window.confirm('Sincronizar todos os atendimentos pendentes com o Google Sheets? Isso roda em background — você pode continuar trabalhando.')) return;
+    setSincronizando(true);
+    setSyncResult(null);
+    setSyncProgress('Iniciando...');
+    try {
+      await axios.post(`${API_URL}/api/google-sheets/sync-all`, {}, {
+        headers: getAuthHeader(),
+        timeout: 10000
+      });
+      // Poll para acompanhar o progresso
+      const pollInterval = setInterval(async () => {
+        try {
+          const status = await axios.get(`${API_URL}/api/google-sheets/sync-status`, { headers: getAuthHeader() });
+          const data = status.data;
+          setSyncProgress(data.progress || '');
+          if (!data.running) {
+            clearInterval(pollInterval);
+            setSincronizando(false);
+            if (data.result) {
+              setSyncResult(data.result);
+              toast.success(`Sync concluído: ${data.result.added} adicionados, ${data.result.updated} atualizados`);
+            } else if (data.error) {
+              toast.error(data.error);
+            }
+          }
+        } catch { /* ignore poll errors */ }
+      }, 3000);
+    } catch (error) {
+      toast.error('Erro ao iniciar sincronização');
+      setSincronizando(false);
+    }
   };
 
   return (
@@ -781,8 +830,11 @@ const ImportarPedidos = () => {
               <div>
                 <p className="font-medium text-green-700 dark:text-green-400">Sincronizar Google Sheets</p>
                 <p className="text-sm text-green-600/80 dark:text-green-400/80">
-                  Envia todos os atendimentos pendentes para o Google Sheets (adiciona novos e atualiza existentes)
+                  Envia todos os atendimentos pendentes para o Google Sheets (roda em background — você pode continuar trabalhando)
                 </p>
+                {sincronizando && syncProgress && (
+                  <p className="mt-1 text-xs text-green-600 font-medium animate-pulse">{syncProgress}</p>
+                )}
                 {syncResult && (
                   <div className="mt-2 text-xs flex flex-wrap gap-2">
                     <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">
@@ -800,16 +852,28 @@ const ImportarPedidos = () => {
                 )}
               </div>
             </div>
-            <Button
-              variant="outline"
-              onClick={sincronizarSheets}
-              disabled={sincronizando}
-              className="border-green-300 text-green-700 hover:bg-green-100 shrink-0"
-              data-testid="btn-sync-sheets"
-            >
-              {sincronizando ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              {sincronizando ? 'Sincronizando...' : 'Sincronizar'}
-            </Button>
+            <div className="flex gap-2 shrink-0">
+              <Button
+                variant="outline"
+                onClick={sincronizarSheets}
+                disabled={sincronizando}
+                className="border-green-300 text-green-700 hover:bg-green-100"
+                data-testid="btn-sync-sheets"
+              >
+                {sincronizando ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                {sincronizando ? 'Sincronizando...' : 'Sincronizar'}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={reconstruirPlanilha}
+                disabled={sincronizando}
+                className="border-orange-300 text-orange-700 hover:bg-orange-100"
+                data-testid="btn-rebuild-sheets"
+              >
+                {sincronizando ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                Reconstruir
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
