@@ -48,7 +48,7 @@ const TextosPadroes = () => {
   const [logAlteracoes, setLogAlteracoes] = useState([]);
   const [logCount, setLogCount] = useState(0);
   const [showLogDialog, setShowLogDialog] = useState(false);
-  const [filtroMotivo, setFiltroMotivo] = useState('');
+  const [filtroMotivo, setFiltroMotivo] = useState('Ag. Compras');
 
   const { getAuthHeader, user } = useAuth();
   
@@ -251,16 +251,6 @@ const TextosPadroes = () => {
 
       {/* Filtro por Motivo de Pendência */}
       <div className="flex gap-2 flex-wrap">
-        <button
-          onClick={() => setFiltroMotivo('')}
-          className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
-            filtroMotivo === ''
-              ? 'bg-primary text-primary-foreground border-primary'
-              : 'bg-background border-border hover:bg-muted'
-          }`}
-        >
-          Todos
-        </button>
         {MOTIVOS_PENDENCIA.map(motivo => (
           <button
             key={motivo}
