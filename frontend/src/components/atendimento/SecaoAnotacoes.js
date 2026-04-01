@@ -11,7 +11,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../ui/select';
-import { Plus } from 'lucide-react';
+import { Plus, ChevronDown, ChevronUp } from 'lucide-react';
+import { useState } from 'react';
 import { MOTIVOS_PENDENCIA, MOTIVOS_FINALIZADORES } from './constants';
 
 const MotivoPendenciaTextos = ({ motivoPendencia, selectedMotivoPendencia, onLoadTextoMotivoPendencia, onLoadTextoPadrao, onLoadTextoReversaAssistencia, onLoadTextoFalhaFornecedor, onLoadTextoComprovante, onLoadTextoFalhaTransporte, parceiro, pedidoErp, selectedAssistenciaAguardando }) => {
@@ -199,6 +200,39 @@ const MotivoPendenciaTextos = ({ motivoPendencia, selectedMotivoPendencia, onLoa
     );
   }
 
+  if (motivoPendencia === 'Enviado') {
+    const transportadora = pedidoErp?.transportadora || '';
+    const matchTransp = (name) => transportadora.toLowerCase().includes(name.toLowerCase());
+    const transpDestaque = matchTransp('Total') ? 'Total Express' : matchTransp('J&T') ? 'J&T Express' : matchTransp('ASAP') ? 'ASAP Log' : matchTransp('Correios') ? 'Correios' : null;
+
+    return (
+      <div className="mt-3 p-3 rounded-lg bg-sky-50 dark:bg-sky-950/30 border border-sky-200 dark:border-sky-800 space-y-2">
+        <Label className="text-sm font-medium text-sky-800 dark:text-sky-200">
+          Textos Padrão - Enviado {transpDestaque && <span className="ml-1 text-xs font-normal">★ {transpDestaque}</span>}
+        </Label>
+        <div className="flex flex-wrap gap-2">
+          {[
+            { label: 'Total Express', key: 'Enviado - Total Express' },
+            { label: 'J&T Express',   key: 'Enviado - J&T Express'   },
+            { label: 'ASAP Log',      key: 'Enviado - ASAP Log'      },
+            { label: 'Correios',      key: 'Enviado - Correios'      },
+          ].map(({ label, key }) => (
+            <Button
+              key={key}
+              type="button"
+              size="sm"
+              variant={selectedMotivoPendencia === key ? 'default' : transpDestaque === label ? 'secondary' : 'outline'}
+              className={transpDestaque === label ? 'ring-2 ring-sky-400' : ''}
+              onClick={() => onLoadTextoMotivoPendencia(key)}
+            >
+              {transpDestaque === label && '★ '}{label}
+            </Button>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return null;
 };
 
@@ -241,6 +275,8 @@ const SecaoAnotacoes = ({
     if (fieldErrors.anotacoes) onFieldErrorClear('anotacoes');
   };
 
+  const [reversaAberta, setReversaAberta] = useState(!!codigoReversa);
+
   return (
     <Card className={fieldErrors.anotacoes ? 'border-red-500' : ''} data-testid="secao-anotacoes">
       <CardHeader className="pb-3">
@@ -257,19 +293,28 @@ const SecaoAnotacoes = ({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Dados da Reversa */}
-        <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 space-y-3">
-          <Label className="text-sm font-medium text-blue-800 dark:text-blue-200">Dados da Reversa</Label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs text-muted-foreground">Número da Reversa</Label>
-              <Input value={codigoReversa} onChange={(e) => onCodigoReversaChange(e.target.value)} placeholder="Digite o código da reversa" className="mt-1" data-testid="input-numero-reversa" />
+        {/* Dados da Reversa - colapsável */}
+        <div className="rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+          <button
+            type="button"
+            className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-blue-800 dark:text-blue-200"
+            onClick={() => setReversaAberta(v => !v)}
+          >
+            <span>Dados da Reversa {codigoReversa && <span className="ml-2 text-xs font-normal text-blue-600">({codigoReversa})</span>}</span>
+            {reversaAberta ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+          {reversaAberta && (
+            <div className="px-3 pb-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs text-muted-foreground">Número da Reversa</Label>
+                <Input value={codigoReversa} onChange={(e) => onCodigoReversaChange(e.target.value)} placeholder="Digite o código da reversa" className="mt-1" data-testid="input-numero-reversa" />
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground">Data de Vencimento</Label>
+                <Input type="date" value={dataVencimentoReversa} onChange={(e) => onDataVencimentoReversaChange(e.target.value)} className="mt-1" data-testid="input-data-vencimento-reversa" />
+              </div>
             </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">Data de Vencimento</Label>
-              <Input type="date" value={dataVencimentoReversa} onChange={(e) => onDataVencimentoReversaChange(e.target.value)} className="mt-1" data-testid="input-data-vencimento-reversa" />
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Motivo da Pendência */}
