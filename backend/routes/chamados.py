@@ -168,10 +168,13 @@ async def create_chamado(
         chamado.canal_vendas = pedido.get('canal_vendas')
         if not chamado.parceiro:
             chamado.parceiro = pedido.get('canal_vendas')
-        # AJUSTE 1 - Regra permanente: preencher motivo automaticamente ao criar
-        if not chamado.motivo_pendencia:
-            novo_motivo = get_motivo_from_status(pedido.get('status_pedido', ''))
-            if novo_motivo:
+        # AJUSTE 1 - Regra permanente: preencher/atualizar motivo pelo status ERP ao criar
+        novo_motivo = get_motivo_from_status(pedido.get('status_pedido', ''))
+        if novo_motivo:
+            # Se motivo está vazio OU se o motivo atual ainda é um motivo automático (não finalizado),
+            # atualiza para refletir o status ERP mais atual
+            motivos_auto = ["Ag. Compras", "Ag. Logística", "Enviado", "Entregue", ""]
+            if not chamado.motivo_pendencia or chamado.motivo_pendencia in motivos_auto:
                 chamado.motivo_pendencia = novo_motivo
     chamado_dict = chamado.model_dump()
     chamado_dict['data_abertura'] = chamado_dict['data_abertura'].isoformat()
@@ -351,6 +354,9 @@ async def update_chamado(
         motivo_atual = motivo_no_payload or existing.get('motivo_pendencia', '')
         if motivo_atual and motivo_atual not in motivos_finalizadores:
             update_data['motivo_pendencia'] = "Encerrado"
+        # Garantir que status_cliente reflete o motivo final ao encerrar
+        if not update_data.get('status_cliente') and motivo_atual:
+            update_data['status_cliente'] = update_data.get('motivo_pendencia', motivo_atual)
     if update_data:
         await db.chamados.update_one({"id": chamado_id}, {"$set": update_data})
         if 'status_atendimento' in update_data or 'status_chamado' in update_data or 'pendente' in update_data:
