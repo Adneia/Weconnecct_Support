@@ -276,7 +276,7 @@ async def list_chamados(
     if pedido_numbers:
         pedidos = await db.pedidos_erp.find(
             {"numero_pedido": {"$in": pedido_numbers}},
-            {"_id": 0, "numero_pedido": 1, "status_pedido": 1, "data_status": 1}
+            {"_id": 0, "numero_pedido": 1, "status_pedido": 1, "data_status": 1, "nome_cliente": 1, "cpf_cliente": 1}
         ).to_list(len(pedido_numbers))
         pedidos_dict = {p['numero_pedido']: p for p in pedidos}
         for c in chamados:
@@ -284,6 +284,11 @@ async def list_chamados(
             if pedido:
                 c['status_pedido'] = pedido.get('status_pedido', '')
                 c['data_ultimo_status'] = pedido.get('data_status', '')
+                # Sempre buscar nome/CPF do ERP para garantir consistência entre duplicatas
+                if pedido.get('nome_cliente'):
+                    c['nome_cliente'] = pedido.get('nome_cliente')
+                if pedido.get('cpf_cliente'):
+                    c['cpf_cliente'] = pedido.get('cpf_cliente')
 
     return chamados
 
@@ -342,7 +347,8 @@ async def update_chamado(
     if 'pendente' in update_data and not update_data['pendente'] and existing.get('pendente', True):
         update_data['data_fechamento'] = datetime.now(timezone.utc).isoformat()
         motivos_finalizadores = ["Entregue", "Estornado", "Atendido", "Em devolução", "Devolvido", "Encerrado"]
-        motivo_atual = update_data.get('motivo_pendencia') or existing.get('motivo_pendencia', '')
+        motivo_no_payload = update_data.get('motivo_pendencia')
+        motivo_atual = motivo_no_payload or existing.get('motivo_pendencia', '')
         if motivo_atual and motivo_atual not in motivos_finalizadores:
             update_data['motivo_pendencia'] = "Encerrado"
     if update_data:
@@ -451,6 +457,53 @@ async def delete_chamado(chamado_id: str, current_user: dict = Depends(get_curre
 
     logger.info(f"Atendimento {id_atendimento} excluído por {current_user['name']}")
     return {"success": True, "message": f"Atendimento {id_atendimento} excluído com sucesso"}
+
+
+# ============== MESCLAR ==============
+
+@router.post("/chamados/{id_principal}/mesclar", response_model=dict)
+async def mesclar_chamados(
+    id_principal: str,
+    data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    id_secundario = data.get('id_secundario')
+    if not id_secundario:
+        raise HTTPException(status_code=400, detail="id_secundario é obrigatório")
+
+    principal = await db.chamados.find_one({"id_atendimento": id_principal}, {"_id": 0})
+    secundario = await db.chamados.find_one({"id_atendimento": id_secundario}, {"_id": 0})
+
+    if not principal:
+        raise HTTPException(status_code=404, detail=f"Chamado {id_principal} não encontrado")
+    if not secundario:
+        raise HTTPException(status_code=404, detail=f"Chamado {id_secundario} não encontrado")
+
+    now = datetime.now(timezone.utc)
+    data_str = now.strftime("%d/%m/%Y %H:%M")
+
+    sol_sec = (secundario.get('solicitacao') or '').strip()
+    anot_sec = (secundario.get('anotacoes') or '').strip()
+
+    merge_note = (
+        f"\n[{data_str}] *** ATENDIMENTO {id_secundario} FOI MESCLADO *** "
+        f"Cliente acionou via a seguinte solicitação: {sol_sec} "
+        f"E consta as seguintes anotações: {anot_sec}"
+    )
+
+    anotacoes_atual = principal.get('anotacoes') or ''
+    updates = {"anotacoes": anotacoes_atual + merge_note}
+
+    # Se secundário tem reversa e principal não, transfere
+    if secundario.get('codigo_reversa') and not principal.get('codigo_reversa'):
+        updates['codigo_reversa'] = secundario.get('codigo_reversa')
+        updates['data_vencimento_reversa'] = secundario.get('data_vencimento_reversa', '')
+
+    await db.chamados.update_one({"id_atendimento": id_principal}, {"$set": updates})
+    await db.chamados.delete_one({"id_atendimento": id_secundario})
+
+    logger.info(f"Atendimento {id_secundario} mesclado em {id_principal} por {current_user['name']}")
+    return {"success": True, "message": f"Atendimento {id_secundario} mesclado em {id_principal}"}
 
 
 # ============== HISTORICO ==============

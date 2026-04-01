@@ -38,7 +38,7 @@ import {
 import { Checkbox } from '../components/ui/checkbox';
 import { Separator } from '../components/ui/separator';
 import { toast } from 'sonner';
-import { Search, Plus, Filter, X, Clock, CheckCircle, AlertCircle, FileText, RotateCcw, Download, FileSpreadsheet, CheckSquare, ExternalLink, Copy, ChevronDown } from 'lucide-react';
+import { Search, Plus, Filter, X, Clock, CheckCircle, AlertCircle, FileText, RotateCcw, Download, FileSpreadsheet, CheckSquare, ExternalLink, Copy, ChevronDown, GitMerge, ArrowLeftRight } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
@@ -96,6 +96,11 @@ const ListaAtendimentos = () => {
   
   const [totalNaBase, setTotalNaBase] = useState(null);
   
+  // Estados para mesclar atendimentos
+  const [showMergeDialog, setShowMergeDialog] = useState(false);
+  const [mergeData, setMergeData] = useState(null); // { principal, secundario }
+  const [merging, setMerging] = useState(false);
+
   // Estados para finalização de atendimentos
   const [showFinalizarDialog, setShowFinalizarDialog] = useState(false);
   const [canaisSemAtividade, setCanaisSemAtividade] = useState([]);
@@ -554,6 +559,59 @@ const ListaAtendimentos = () => {
     return proximoDia.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
   };
 
+  // Mapa de duplicatas: numero_pedido → lista de atendimentos pendentes
+  const duplicatasMap = atendimentos
+    .filter(a => a.pendente && a.numero_pedido)
+    .reduce((acc, a) => {
+      const key = a.numero_pedido;
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(a);
+      return acc;
+    }, {});
+  // Só conta como duplicata quando há 2+ pendentes para o mesmo pedido
+  const pedidosDuplicados = new Set(
+    Object.entries(duplicatasMap)
+      .filter(([, lista]) => lista.length >= 2)
+      .map(([key]) => key)
+  );
+
+  const handleOpenMerge = (e, atd) => {
+    e.stopPropagation();
+    const duplicatas = duplicatasMap[atd.numero_pedido] || [];
+    const outro = duplicatas.find(d => d.id !== atd.id);
+    if (!outro) return;
+    // Mais antigo como principal, mais novo como secundário
+    const [principal, secundario] = new Date(atd.data_abertura) <= new Date(outro.data_abertura)
+      ? [atd, outro] : [outro, atd];
+    setMergeData({ principal, secundario });
+    setShowMergeDialog(true);
+  };
+
+  const handleInvertMerge = () => {
+    if (!mergeData) return;
+    setMergeData({ principal: mergeData.secundario, secundario: mergeData.principal });
+  };
+
+  const handleConfirmMerge = async () => {
+    if (!mergeData) return;
+    setMerging(true);
+    try {
+      await axios.post(
+        `${API_URL}/api/chamados/${mergeData.principal.id_atendimento}/mesclar`,
+        { id_secundario: mergeData.secundario.id_atendimento },
+        { headers: getAuthHeader() }
+      );
+      toast.success(`${mergeData.secundario.id_atendimento} mesclado em ${mergeData.principal.id_atendimento}`);
+      setShowMergeDialog(false);
+      setMergeData(null);
+      fetchAtendimentos();
+    } catch (err) {
+      toast.error('Erro ao mesclar atendimentos');
+    } finally {
+      setMerging(false);
+    }
+  };
+
   // Stats
   const totalPendentes = atendimentos.filter(a => a.pendente).length;
   const totalResolvidos = atendimentos.filter(a => !a.pendente).length;
@@ -649,6 +707,58 @@ const ListaAtendimentos = () => {
           </Button>
         </div>
       </div>
+
+      {/* Dialog de Mesclar Atendimentos */}
+      <Dialog open={showMergeDialog} onOpenChange={setShowMergeDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <GitMerge className="h-5 w-5 text-amber-500" />
+              Mesclar Atendimentos
+            </DialogTitle>
+            <DialogDescription>
+              Dois atendimentos do mesmo pedido serão unificados. O secundário será removido e suas informações adicionadas às anotações do principal.
+            </DialogDescription>
+          </DialogHeader>
+          {mergeData && (
+            <div className="space-y-4 py-2">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="border rounded-lg p-3 bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800">
+                  <p className="text-xs font-semibold text-green-700 dark:text-green-400 mb-1">PRINCIPAL (mantido)</p>
+                  <p className="font-mono text-sm font-bold">{mergeData.principal.id_atendimento}</p>
+                  <p className="text-xs text-muted-foreground">{mergeData.principal.motivo_pendencia || '-'}</p>
+                  <p className="text-xs text-muted-foreground truncate">{mergeData.principal.solicitacao || '-'}</p>
+                </div>
+                <div className="border rounded-lg p-3 bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800">
+                  <p className="text-xs font-semibold text-red-700 dark:text-red-400 mb-1">SECUNDÁRIO (removido)</p>
+                  <p className="font-mono text-sm font-bold">{mergeData.secundario.id_atendimento}</p>
+                  <p className="text-xs text-muted-foreground">{mergeData.secundario.motivo_pendencia || '-'}</p>
+                  <p className="text-xs text-muted-foreground truncate">{mergeData.secundario.solicitacao || '-'}</p>
+                </div>
+              </div>
+              <button
+                onClick={handleInvertMerge}
+                className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground mx-auto"
+              >
+                <ArrowLeftRight className="h-3 w-3" />
+                Inverter principal e secundário
+              </button>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowMergeDialog(false)} disabled={merging}>
+              Cancelar
+            </Button>
+            <Button
+              className="bg-amber-500 hover:bg-amber-600 text-white"
+              onClick={handleConfirmMerge}
+              disabled={merging}
+            >
+              {merging ? 'Mesclando...' : 'Confirmar Mesclagem'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog de Finalização de Atendimentos */}
       <Dialog open={showFinalizarDialog} onOpenChange={setShowFinalizarDialog}>
@@ -1001,19 +1111,30 @@ const ListaAtendimentos = () => {
                     >
                       {/* Coluna Abrir - botão para abrir atendimento */}
                       <TableCell className="p-1">
-                        <a 
-                          href={editUrl}
-                          onClick={(e) => {
-                            if (!e.ctrlKey && !e.metaKey && e.button === 0) {
-                              e.preventDefault();
-                              navigate(editUrl);
-                            }
-                          }}
-                          className="p-1.5 rounded hover:bg-primary/10 inline-flex items-center justify-center"
-                          title="Abrir atendimento (Ctrl+Click abre em nova aba)"
-                        >
-                          <ExternalLink className="h-4 w-4 text-primary" />
-                        </a>
+                        <div className="flex items-center gap-0.5">
+                          <a
+                            href={editUrl}
+                            onClick={(e) => {
+                              if (!e.ctrlKey && !e.metaKey && e.button === 0) {
+                                e.preventDefault();
+                                navigate(editUrl);
+                              }
+                            }}
+                            className="p-1.5 rounded hover:bg-primary/10 inline-flex items-center justify-center"
+                            title="Abrir atendimento (Ctrl+Click abre em nova aba)"
+                          >
+                            <ExternalLink className="h-4 w-4 text-primary" />
+                          </a>
+                          {atd.pendente && pedidosDuplicados.has(atd.numero_pedido) && (
+                            <button
+                              onClick={(e) => handleOpenMerge(e, atd)}
+                              className="p-1.5 rounded hover:bg-amber-100 inline-flex items-center justify-center"
+                              title="Mesclar atendimentos duplicados"
+                            >
+                              <GitMerge className="h-4 w-4 text-amber-500" />
+                            </button>
+                          )}
+                        </div>
                       </TableCell>
                       {/* Coluna Entrega - copiável ao clicar */}
                       <TableCell 

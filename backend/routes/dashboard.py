@@ -216,11 +216,43 @@ async def get_dashboard_visao_geral(
     ]
     por_canal_raw = await db.chamados.aggregate(pipeline_por_canal).to_list(50)
     por_canal = [{"canal": item['_id'] or 'Sem Canal', "ar": item['total'], "a": item['pendentes'], "f": item['fechados']} for item in por_canal_raw]
+    taxa_contato = round((total / total_pedidos) * 100, 1) if total_pedidos > 0 else 0
+    taxa_pendencia = round((pendentes / total_pedidos) * 100, 1) if total_pedidos > 0 else 0
+    taxa_resolucao = round((resolvidos / total) * 100, 1) if total > 0 else 0
+
+    # SLA: % resolved within 1, 3, 7 days
+    ms_to_days = 1000 * 60 * 60 * 24
+    pipeline_sla = [
+        {"$match": {"pendente": False, "data_fechamento": {"$ne": None}, "data_abertura": {"$ne": None}}},
+        {"$project": {"tempo_ms": {"$subtract": [{"$dateFromString": {"dateString": "$data_fechamento"}}, {"$dateFromString": {"dateString": "$data_abertura"}}]}}},
+        {"$group": {
+            "_id": None,
+            "total": {"$sum": 1},
+            "em_1d": {"$sum": {"$cond": [{"$lte": ["$tempo_ms", ms_to_days * 1]}, 1, 0]}},
+            "em_3d": {"$sum": {"$cond": [{"$lte": ["$tempo_ms", ms_to_days * 3]}, 1, 0]}},
+            "em_7d": {"$sum": {"$cond": [{"$lte": ["$tempo_ms", ms_to_days * 7]}, 1, 0]}}
+        }}
+    ]
+    sla_raw = await db.chamados.aggregate(pipeline_sla).to_list(1)
+    sla_data = {"em_1d": 0, "em_3d": 0, "em_7d": 0}
+    if sla_raw and sla_raw[0]["total"] > 0:
+        sla_t = sla_raw[0]["total"]
+        sla_data = {
+            "em_1d": round(sla_raw[0]["em_1d"] / sla_t * 100, 1),
+            "em_3d": round(sla_raw[0]["em_3d"] / sla_t * 100, 1),
+            "em_7d": round(sla_raw[0]["em_7d"] / sla_t * 100, 1)
+        }
+
+    # Update por_mes to include taxa_contato
+    for m in por_mes:
+        m["taxa_contato"] = round(m["total"] / total_pedidos * 100, 2) if total_pedidos > 0 else 0
     return {
         "total": total, "pendentes": pendentes, "resolvidos": resolvidos,
         "tempo_medio": tempo_medio, "dias_mais_antigo": dias_mais_antigo,
         "data_mais_antigo": data_mais_antigo, "id_mais_antigo": id_mais_antigo,
-        "total_pedidos": total_pedidos, "por_mes": por_mes, "por_dia": por_dia,
+        "total_pedidos": total_pedidos, "taxa_contato": taxa_contato,
+        "taxa_pendencia": taxa_pendencia, "taxa_resolucao": taxa_resolucao, "sla_data": sla_data,
+        "por_mes": por_mes, "por_dia": por_dia,
         "por_canal": por_canal, "por_canal_dia": por_canal_dia,
         "dias_headers": dias_headers, "totais_por_dia": totais_por_dia
     }
@@ -234,7 +266,21 @@ async def get_dashboard_volume_canal(periodo_dias: int = 30, current_user: dict 
     pipeline_canal = [{"$match": base_match}, {"$group": {"_id": {"$ifNull": ["$parceiro", "$canal_vendas"]}, "count": {"$sum": 1}}}, {"$sort": {"count": -1}}]
     por_canal = await db.chamados.aggregate(pipeline_canal).to_list(50)
     total = sum(c['count'] for c in por_canal)
-    ranking = [{"canal": c['_id'] or 'Não informado', "total": c['count'], "percentual": round((c['count']/total)*100, 1) if total > 0 else 0} for c in por_canal if c['_id']]
+    # Enriquecer ranking com % vendas (atendimentos / pedidos do canal)
+    ranking = []
+    for c in por_canal:
+        if not c['_id']:
+            continue
+        canal_name = c['_id']
+        n_pedidos_canal = await db.pedidos_erp.count_documents({"canal_vendas": canal_name})
+        pct_vendas = round((c['count'] / n_pedidos_canal) * 100, 2) if n_pedidos_canal > 0 else 0
+        ranking.append({
+            "canal": canal_name,
+            "total": c['count'],
+            "percentual": round((c['count'] / total) * 100, 1) if total > 0 else 0,
+            "n_pedidos": n_pedidos_canal,
+            "pct_vendas": pct_vendas
+        })
     por_mes_canal = []
     for i in range(5, -1, -1):
         mes_ref = now - timedelta(days=i*30)
@@ -265,16 +311,22 @@ async def get_dashboard_classificacao(periodo_dias: int = 30, canal: Optional[st
     pend_categoria = await db.chamados.aggregate(pipeline_pend_cat).to_list(50)
     pipeline_motivo = [{"$match": {**base_match, "pendente": True}}, {"$group": {"_id": "$motivo_pendencia", "count": {"$sum": 1}}}, {"$sort": {"count": -1}}]
     pend_motivo = await db.chamados.aggregate(pipeline_motivo).to_list(50)
-    pipeline_prod = [{"$match": base_match}, {"$group": {"_id": "$produto", "count": {"$sum": 1}}}, {"$sort": {"count": -1}}, {"$limit": 10}]
+    pipeline_prod = [{"$match": {**base_match, "produto": {"$nin": [None, "", "nan", "N/A"]}}}, {"$group": {"_id": "$produto", "count": {"$sum": 1}}}, {"$sort": {"count": -1}}, {"$limit": 10}]
     top_produtos = await db.chamados.aggregate(pipeline_prod).to_list(10)
-    pipeline_forn = [{"$match": base_match}, {"$group": {"_id": "$codigo_fornecedor", "count": {"$sum": 1}}}, {"$sort": {"count": -1}}]
+    pipeline_forn = [{"$match": {**base_match, "codigo_fornecedor": {"$nin": [None, "", "nan", "N/A"]}}}, {"$group": {"_id": "$codigo_fornecedor", "count": {"$sum": 1}}}, {"$sort": {"count": -1}}]
     por_fornecedor = await db.chamados.aggregate(pipeline_forn).to_list(50)
+    total_pedidos = await db.pedidos_erp.count_documents({})
+    # Calcular total de pendentes para proporcional de pend_categoria
+    total_pendentes = sum(c['count'] for c in pend_categoria)
+    # Criar mapa categoria -> total para calcular taxa de pendencia por categoria
+    cat_total_map = {c['_id']: c['count'] for c in por_categoria if c['_id']}
     return {
-        "por_categoria": [{"categoria": c['_id'] or 'N/A', "total": c['count']} for c in por_categoria],
-        "pend_categoria": [{"categoria": c['_id'] or 'N/A', "total": c['count']} for c in pend_categoria],
-        "pend_motivo": [{"motivo": c['_id'] or 'N/A', "total": c['count']} for c in pend_motivo],
-        "top_produtos": [{"produto": c['_id'] or 'N/A', "total": c['count']} for c in top_produtos],
-        "por_fornecedor": [{"fornecedor": c['_id'] or 'N/A', "total": c['count']} for c in por_fornecedor]
+        "total_pedidos": total_pedidos,
+        "por_categoria": [{"categoria": c['_id'] or 'N/A', "total": c['count'], "pct_pedidos": round((c['count'] / total_pedidos) * 100, 1) if total_pedidos > 0 else 0} for c in por_categoria],
+        "pend_categoria": [{"categoria": c['_id'] or 'N/A', "total": c['count'], "pct_pendentes": round((c['count'] / total_pendentes) * 100, 1) if total_pendentes > 0 else 0, "pct_categoria": round((c['count'] / cat_total_map.get(c['_id'], c['count'])) * 100, 1)} for c in pend_categoria],
+        "pend_motivo": [{"motivo": c['_id'] or 'N/A', "total": c['count'], "pct_pedidos": round((c['count'] / total_pedidos) * 100, 2) if total_pedidos > 0 else 0} for c in pend_motivo],
+        "top_produtos": [{"produto": c['_id'], "total": c['count']} for c in top_produtos if c['_id']],
+        "por_fornecedor": [{"fornecedor": c['_id'], "total": c['count']} for c in por_fornecedor if c['_id']]
     }
 
 
@@ -321,10 +373,14 @@ async def get_dashboard_pendencias(periodo_dias: int = 30, canal: Optional[str] 
     for p in pendentes:
         data_abertura = parse_date_safe(p.get('data_abertura'))
         p['dias_aberto'] = (now - data_abertura).days
+    total_pedidos = await db.pedidos_erp.count_documents({})
+    taxa_pendencia = round((total / total_pedidos) * 100, 1) if total_pedidos > 0 else 0
     return {
         "total": total,
+        "total_pedidos": total_pedidos,
+        "taxa_pendencia": taxa_pendencia,
         "por_categoria": [{"categoria": c['_id'] or 'N/A', "total": c['count']} for c in por_categoria],
-        "por_motivo": [{"motivo": c['_id'] or 'N/A', "total": c['count']} for c in por_motivo],
+        "por_motivo": [{"motivo": c['_id'] or 'N/A', "total": c['count'], "pct_pedidos": round((c['count'] / total_pedidos) * 100, 2) if total_pedidos > 0 else 0} for c in por_motivo],
         "por_canal": [{"canal": c['_id'] or 'N/A', "total": c['count']} for c in por_canal if c['_id']],
         "detalhes": pendentes[:50]
     }
@@ -358,7 +414,46 @@ async def get_dashboard_estornos(periodo_dias: int = 30, current_user: dict = De
                 {"$or": [{"parceiro": c['_id']}, {"canal_vendas": c['_id']}]}
             )
             canal_data.append({"canal": c['_id'], "estornos": c['count'], "percentual": round((c['count']/total_canal)*100, 2) if total_canal > 0 else 0})
-    return {"total": total_estornos, "percentual_geral": percentual_geral, "por_mes": por_mes, "por_canal": sorted(canal_data, key=lambda x: x['percentual'], reverse=True)}
+    total_pedidos = await db.pedidos_erp.count_documents({})
+    taxa_estornos_pedidos = round((total_estornos / total_pedidos) * 100, 2) if total_pedidos > 0 else 0
+
+    # Calcular valor total dos estornos (preco_final + frete dos pedidos correspondentes)
+    def parse_brl(v):
+        if not v: return 0.0
+        try:
+            return float(str(v).replace('.', '').replace(',', '.'))
+        except:
+            return 0.0
+
+    estorno_nums = [c['numero_pedido'] async for c in db.chamados.find(base_match, {"numero_pedido": 1}) if c.get('numero_pedido')]
+    pedidos_valores = await db.pedidos_erp.find({"numero_pedido": {"$in": estorno_nums}}, {"preco_final": 1, "frete": 1}).to_list(5000)
+    valor_total = sum(parse_brl(p.get('preco_final')) + parse_brl(p.get('frete')) for p in pedidos_valores)
+
+    # Valor por mês
+    valor_por_mes = []
+    for item in por_mes:
+        mes_match = {**base_match}
+        # reusar mesma lógica de mês já calculada em por_mes seria ideal, mas simplificamos com o mesmo loop
+        valor_por_mes.append({"mes": item["mes"], "valor": 0.0})  # placeholder; substituído abaixo
+
+    valor_por_mes = []
+    for i in range(5, -1, -1):
+        mes_ref = now - timedelta(days=i*30)
+        mes_inicio = mes_ref.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        mes_fim = (mes_inicio.replace(month=mes_inicio.month % 12 + 1, day=1) if mes_inicio.month < 12 else mes_inicio.replace(year=mes_inicio.year + 1, month=1, day=1)) - timedelta(seconds=1)
+        mes_estorno_match = {**base_match, "data_abertura": {"$gte": mes_inicio.isoformat(), "$lte": mes_fim.isoformat()}}
+        mes_nums = [c['numero_pedido'] async for c in db.chamados.find(mes_estorno_match, {"numero_pedido": 1}) if c.get('numero_pedido')]
+        mes_pedidos = await db.pedidos_erp.find({"numero_pedido": {"$in": mes_nums}}, {"preco_final": 1, "frete": 1}).to_list(1000)
+        mes_valor = sum(parse_brl(p.get('preco_final')) + parse_brl(p.get('frete')) for p in mes_pedidos)
+        valor_por_mes.append({"mes": mes_ref.strftime("%b/%y"), "valor": round(mes_valor, 2)})
+
+    return {
+        "total": total_estornos, "percentual_geral": percentual_geral,
+        "total_pedidos": total_pedidos, "taxa_estornos_pedidos": taxa_estornos_pedidos,
+        "valor_total": round(valor_total, 2),
+        "por_mes": por_mes, "valor_por_mes": valor_por_mes,
+        "por_canal": sorted(canal_data, key=lambda x: x['percentual'], reverse=True)
+    }
 
 
 @router.get("/dashboard/v2/reincidencia")

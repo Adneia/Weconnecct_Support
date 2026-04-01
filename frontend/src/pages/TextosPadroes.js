@@ -27,6 +27,17 @@ import { Plus, Edit, Trash2, FileText, Copy, Check, Bell, History, Eye } from 'l
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
+const MOTIVOS_PENDENCIA = [
+  "Ag. Compras",
+  "Ag. Logística",
+  "Ag. Transportadora",
+  "Ag. Parceiro",
+  "Ag. Devolução",
+  "Enviado",
+  "Aguardando",
+  "Ag. Confirmação da Entrega",
+];
+
 const TextosPadroes = () => {
   const [textos, setTextos] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -37,6 +48,7 @@ const TextosPadroes = () => {
   const [logAlteracoes, setLogAlteracoes] = useState([]);
   const [logCount, setLogCount] = useState(0);
   const [showLogDialog, setShowLogDialog] = useState(false);
+  const [filtroMotivo, setFiltroMotivo] = useState('');
 
   const { getAuthHeader, user } = useAuth();
   
@@ -202,12 +214,16 @@ const TextosPadroes = () => {
     );
   }
 
+  const textosFiltrados = filtroMotivo
+    ? textos.filter(t => t.motivo_pendencia === filtroMotivo)
+    : textos;
+
   return (
     <div className="space-y-6" data-testid="textos-padroes-page">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight font-['Plus_Jakarta_Sans']">Textos Padrões</h1>
-          <p className="text-muted-foreground text-sm">{textos.length} textos cadastrados</p>
+          <p className="text-muted-foreground text-sm">{textosFiltrados.length} textos{filtroMotivo ? ` para ${filtroMotivo}` : ' cadastrados'}</p>
         </div>
         <div className="flex gap-2">
           {isAdmin && (
@@ -233,20 +249,55 @@ const TextosPadroes = () => {
         </div>
       </div>
 
+      {/* Filtro por Motivo de Pendência */}
+      <div className="flex gap-2 flex-wrap">
+        <button
+          onClick={() => setFiltroMotivo('')}
+          className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+            filtroMotivo === ''
+              ? 'bg-primary text-primary-foreground border-primary'
+              : 'bg-background border-border hover:bg-muted'
+          }`}
+        >
+          Todos
+        </button>
+        {MOTIVOS_PENDENCIA.map(motivo => (
+          <button
+            key={motivo}
+            onClick={() => setFiltroMotivo(motivo)}
+            className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+              filtroMotivo === motivo
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-background border-border hover:bg-muted'
+            }`}
+          >
+            {motivo}
+          </button>
+        ))}
+      </div>
+
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50 w-40">Motivo</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50 w-48">Categoria</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Texto</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50 w-32 text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {textos.map((texto) => (
+                {textosFiltrados.map((texto) => (
                   <TableRow key={texto.categoria} data-testid={`row-${texto.categoria}`}>
+                    <TableCell>
+                      {texto.motivo_pendencia ? (
+                        <Badge className="bg-blue-100 text-blue-800 text-xs">{texto.motivo_pendencia}</Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">—</span>
+                      )}
+                    </TableCell>
                     <TableCell className="font-medium">
                       <Badge variant="outline">{texto.categoria}</Badge>
                     </TableCell>

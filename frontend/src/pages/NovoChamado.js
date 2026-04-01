@@ -430,6 +430,8 @@ const NovoAtendimento = () => {
     setLoading(true);
     try {
       await axios.put(`${API_URL}/api/chamados/${atendimentoId}`, {
+        ...formData,
+        motivo_pendencia: motivoPendencia,
         pendente: false, retornar_chamado: false, verificar_adneia: false, anotacoes: novasAnotacoes
       }, { headers: getAuthHeader() });
       toast.success('Atendimento encerrado com sucesso!');

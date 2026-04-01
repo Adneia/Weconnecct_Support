@@ -97,12 +97,50 @@ const Dashboard = () => {
   );
 
   // ABA 1 - VISÃO GERAL
+  const getTaxaColor = (taxa) => {
+    if (taxa <= 0) return 'text-muted-foreground';
+    if (taxa < 5) return 'text-emerald-600';
+    if (taxa < 10) return 'text-amber-600';
+    return 'text-red-600';
+  };
+
   const TabVisaoGeral = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <StatCard title="Total" value={visaoGeral?.total || 0} subtitle="no período" icon={FileText} color="blue" />
-        <StatCard title="Pendentes" value={visaoGeral?.pendentes || 0} subtitle="em aberto" icon={Clock} color="amber" 
-          onClick={() => navigate('/chamados?pendente=true')} />
+        {/* Total + Taxa de Contato */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total</CardTitle>
+            <FileText className="h-4 w-4 text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{visaoGeral?.total || 0}</div>
+            <p className="text-xs text-muted-foreground mt-1">no período</p>
+            {visaoGeral?.total_pedidos > 0 && (
+              <p className={`text-xs font-medium mt-1 ${getTaxaColor(visaoGeral?.taxa_contato)}`}>
+                {visaoGeral?.taxa_contato}% dos pedidos
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Pendentes + % sobre pedidos */}
+        <Card className="cursor-pointer hover:bg-accent/50 transition-colors" onClick={() => navigate('/chamados?pendente=true')}>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Pendentes</CardTitle>
+            <Clock className="h-4 w-4 text-amber-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{visaoGeral?.pendentes || 0}</div>
+            <p className="text-xs text-muted-foreground mt-1">em aberto</p>
+            {visaoGeral?.total_pedidos > 0 && (
+              <p className={`text-xs font-medium mt-1 ${getTaxaColor(visaoGeral?.taxa_pendencia)}`}>
+                {visaoGeral?.taxa_pendencia}% dos pedidos
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
         <StatCard title="Resolvidos" value={visaoGeral?.resolvidos || 0} subtitle="finalizados" icon={CheckCircle} color="emerald" />
         <StatCard title="Tempo Médio" value={`${visaoGeral?.tempo_medio || 0}d`} subtitle="para resolver" icon={TrendingUp} color="blue" />
         <Card>
@@ -117,21 +155,76 @@ const Dashboard = () => {
         </Card>
         <StatCard title="Base ELO" value={visaoGeral?.total_pedidos?.toLocaleString() || 0} subtitle="pedidos" icon={Database} color="purple" />
       </div>
-      
+
+      {/* Segunda linha: indicadores proporcionais */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Taxa de Resolução</CardTitle>
+            <CheckCircle className="h-4 w-4 text-emerald-500" />
+          </CardHeader>
+          <CardContent>
+            <div className={`text-3xl font-bold ${visaoGeral?.taxa_resolucao >= 70 ? 'text-emerald-600' : visaoGeral?.taxa_resolucao >= 40 ? 'text-amber-600' : 'text-red-600'}`}>
+              {visaoGeral?.taxa_resolucao || 0}%
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">dos atendimentos resolvidos</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">SLA ≤ 1 dia</CardTitle>
+            <Gauge className="h-4 w-4 text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            <div className={`text-3xl font-bold ${visaoGeral?.sla_data?.em_1d >= 60 ? 'text-emerald-600' : visaoGeral?.sla_data?.em_1d >= 30 ? 'text-amber-600' : 'text-red-600'}`}>
+              {visaoGeral?.sla_data?.em_1d || 0}%
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">resolvidos em até 1 dia</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">SLA ≤ 3 dias</CardTitle>
+            <Gauge className="h-4 w-4 text-indigo-500" />
+          </CardHeader>
+          <CardContent>
+            <div className={`text-3xl font-bold ${visaoGeral?.sla_data?.em_3d >= 70 ? 'text-emerald-600' : visaoGeral?.sla_data?.em_3d >= 50 ? 'text-amber-600' : 'text-red-600'}`}>
+              {visaoGeral?.sla_data?.em_3d || 0}%
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">resolvidos em até 3 dias</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">SLA ≤ 7 dias</CardTitle>
+            <Gauge className="h-4 w-4 text-purple-500" />
+          </CardHeader>
+          <CardContent>
+            <div className={`text-3xl font-bold ${visaoGeral?.sla_data?.em_7d >= 80 ? 'text-emerald-600' : visaoGeral?.sla_data?.em_7d >= 60 ? 'text-amber-600' : 'text-red-600'}`}>
+              {visaoGeral?.sla_data?.em_7d || 0}%
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">resolvidos em até 7 dias</p>
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Atendimentos por Mês</CardTitle>
-            <CardDescription>Últimos 6 meses</CardDescription>
+            <CardDescription>Volume e % sobre pedidos (últimos 6 meses)</CardDescription>
           </CardHeader>
           <CardContent className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={visaoGeral?.por_mes || []}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
-                <YAxis tick={{ fontSize: 11 }} />
+                <YAxis yAxisId="left" tick={{ fontSize: 11 }} />
+                <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11 }} unit="%" domain={[0, 'auto']} />
                 <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }} />
-                <Line type="monotone" dataKey="total" stroke="#8b5cf6" strokeWidth={2} dot={{ fill: '#8b5cf6' }} />
+                <Legend />
+                <Line yAxisId="left" type="monotone" dataKey="total" name="Atendimentos" stroke="#8b5cf6" strokeWidth={2} dot={{ fill: '#8b5cf6' }} />
+                <Line yAxisId="right" type="monotone" dataKey="taxa_contato" name="% Pedidos" stroke="#10b981" strokeWidth={2} dot={{ fill: '#10b981' }} strokeDasharray="5 5" />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
@@ -144,15 +237,15 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent className="h-72">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={visaoGeral?.por_dia || []}>
+              <LineChart data={visaoGeral?.por_dia || []}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis dataKey="data" tick={{ fontSize: 10 }} />
                 <YAxis tick={{ fontSize: 11 }} />
                 <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--card))', border: '1px solid hsl(var(--border))' }} />
                 <Legend />
-                <Bar dataKey="abertos" name="Abertos" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="resolvidos" name="Resolvidos" fill="#10b981" radius={[4, 4, 0, 0]} />
-              </BarChart>
+                <Line type="monotone" dataKey="abertos" name="Abertos" stroke="#3b82f6" strokeWidth={2} dot={{ fill: '#3b82f6', r: 3 }} />
+                <Line type="monotone" dataKey="resolvidos" name="Resolvidos" stroke="#10b981" strokeWidth={2} dot={{ fill: '#10b981', r: 3 }} />
+              </LineChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
@@ -313,9 +406,16 @@ const Dashboard = () => {
                   </span>
                   <span className="font-medium">{item.canal}</span>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Badge variant="secondary">{item.total}</Badge>
-                  <span className="text-sm text-muted-foreground w-16 text-right">{item.percentual}%</span>
+                <div className="flex flex-col items-end gap-0.5">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">{item.total}</Badge>
+                    <span className="text-sm text-muted-foreground w-16 text-right">{item.percentual}% atend.</span>
+                  </div>
+                  {item.n_pedidos > 0 && (
+                    <span className="text-xs text-blue-600 font-medium">
+                      {item.pct_vendas}% vendas ({item.n_pedidos.toLocaleString()})
+                    </span>
+                  )}
                 </div>
               </div>
             ))}
@@ -359,12 +459,20 @@ const Dashboard = () => {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Por Categoria</CardTitle>
+            {classificacao?.total_pedidos > 0 && (
+              <CardDescription>% relativo a {classificacao.total_pedidos.toLocaleString()} pedidos</CardDescription>
+            )}
           </CardHeader>
           <CardContent className="space-y-2 max-h-80 overflow-y-auto">
             {classificacao?.por_categoria?.map((item) => (
               <div key={item.categoria} className="flex justify-between items-center p-2 rounded bg-muted/30">
                 <span className="text-sm">{item.categoria}</span>
-                <Badge>{item.total}</Badge>
+                <div className="flex items-center gap-2">
+                  <Badge>{item.total}</Badge>
+                  {classificacao?.total_pedidos > 0 && (
+                    <span className="text-xs text-muted-foreground w-12 text-right">{item.pct_pedidos}%</span>
+                  )}
+                </div>
               </div>
             ))}
           </CardContent>
@@ -373,12 +481,19 @@ const Dashboard = () => {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Pendentes por Categoria</CardTitle>
+            <CardDescription>% do total de pendentes | % da categoria</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2 max-h-80 overflow-y-auto">
             {classificacao?.pend_categoria?.map((item) => (
-              <div key={item.categoria} className="flex justify-between items-center p-2 rounded bg-amber-50 dark:bg-amber-950/30">
-                <span className="text-sm">{item.categoria}</span>
-                <Badge variant="outline" className="bg-amber-100 text-amber-800">{item.total}</Badge>
+              <div key={item.categoria} className="space-y-1">
+                <div className="flex justify-between items-center p-2 rounded bg-amber-50 dark:bg-amber-950/30">
+                  <span className="text-sm">{item.categoria}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge variant="outline" className="bg-amber-100 text-amber-800">{item.total}</Badge>
+                    <span className="text-xs text-amber-700 font-medium w-10 text-right">{item.pct_pendentes}%</span>
+                    <span className="text-xs text-red-600 font-medium w-14 text-right">{item.pct_categoria}% cat.</span>
+                  </div>
+                </div>
               </div>
             ))}
           </CardContent>
@@ -387,12 +502,22 @@ const Dashboard = () => {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Por Motivo da Pendência</CardTitle>
+            {classificacao?.total_pedidos > 0 && (
+              <CardDescription>% relativo a {classificacao.total_pedidos.toLocaleString()} pedidos</CardDescription>
+            )}
           </CardHeader>
           <CardContent className="space-y-2 max-h-80 overflow-y-auto">
             {classificacao?.pend_motivo?.map((item) => (
               <div key={item.motivo} className="flex justify-between items-center p-2 rounded bg-muted/30">
                 <span className="text-sm truncate mr-2">{item.motivo}</span>
-                <Badge variant="secondary">{item.total}</Badge>
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary">{item.total}</Badge>
+                  {classificacao?.total_pedidos > 0 && item.pct_pedidos !== undefined && (
+                    <span className={`text-xs font-medium w-14 text-right ${item.pct_pedidos >= 1 ? 'text-red-600' : item.pct_pedidos >= 0.5 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                      {item.pct_pedidos}%
+                    </span>
+                  )}
+                </div>
               </div>
             ))}
           </CardContent>
@@ -401,8 +526,11 @@ const Dashboard = () => {
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Top 10 Produtos</CardTitle>
+          <CardHeader className="flex flex-row items-start justify-between">
+            <div>
+              <CardTitle className="text-lg">Top 10 Produtos (Falha Fornecedor)</CardTitle>
+              <CardDescription>Ordenado por proporção chamados/vendidos</CardDescription>
+            </div>
           </CardHeader>
           <CardContent className="space-y-2 max-h-80 overflow-y-auto">
             {classificacao?.top_produtos?.map((item, idx) => (
@@ -420,6 +548,7 @@ const Dashboard = () => {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Por Fornecedor</CardTitle>
+            <CardDescription>Proporção chamados/vendidos</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2 max-h-80 overflow-y-auto">
             {classificacao?.por_fornecedor?.slice(0, 10).map((item) => (
@@ -481,7 +610,20 @@ const Dashboard = () => {
   const TabPendencias = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard title="Total Pendentes" value={pendencias?.total || 0} icon={Clock} color="amber" />
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total Pendentes</CardTitle>
+            <Clock className="h-4 w-4 text-amber-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{pendencias?.total || 0}</div>
+            {pendencias?.total_pedidos > 0 && (
+              <p className={`text-xs font-medium mt-1 ${getTaxaColor(pendencias?.taxa_pendencia)}`}>
+                {pendencias?.taxa_pendencia}% do total de pedidos
+              </p>
+            )}
+          </CardContent>
+        </Card>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -498,12 +640,34 @@ const Dashboard = () => {
         </Card>
         
         <Card>
-          <CardHeader><CardTitle className="text-lg">Por Motivo</CardTitle></CardHeader>
-          <CardContent className="space-y-2 max-h-60 overflow-y-auto">
+          <CardHeader>
+            <CardTitle className="text-lg">Por Motivo</CardTitle>
+            {pendencias?.total_pedidos > 0 && (
+              <CardDescription>% sobre {pendencias.total_pedidos.toLocaleString()} pedidos</CardDescription>
+            )}
+          </CardHeader>
+          <CardContent className="space-y-3 max-h-60 overflow-y-auto">
             {pendencias?.por_motivo?.map((item) => (
-              <div key={item.motivo} className="flex justify-between items-center p-2 rounded bg-muted/30">
-                <span className="text-sm truncate mr-2">{item.motivo}</span>
-                <Badge variant="secondary">{item.total}</Badge>
+              <div key={item.motivo} className="space-y-1">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm truncate mr-2">{item.motivo}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Badge variant="secondary">{item.total}</Badge>
+                    {pendencias?.total_pedidos > 0 && item.pct_pedidos !== undefined && (
+                      <span className={`text-xs font-medium w-14 text-right ${item.pct_pedidos >= 1 ? 'text-red-600' : item.pct_pedidos >= 0.5 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                        {item.pct_pedidos}%
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {pendencias?.total_pedidos > 0 && (
+                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${item.pct_pedidos >= 1 ? 'bg-red-500' : item.pct_pedidos >= 0.5 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                      style={{ width: `${Math.min(item.pct_pedidos * 20, 100)}%` }}
+                    />
+                  </div>
+                )}
               </div>
             ))}
           </CardContent>
@@ -570,9 +734,32 @@ const Dashboard = () => {
     <div className="space-y-6">
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <StatCard title="Total Estornos" value={estornos?.total || 0} icon={RotateCcw} color="red" />
-        <StatCard title="% Geral" value={`${estornos?.percentual_geral || 0}%`} subtitle="do total" icon={TrendingUp} color="orange" />
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">% Geral</CardTitle>
+            <TrendingUp className="h-4 w-4 text-orange-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{estornos?.percentual_geral || 0}%</div>
+            <p className="text-xs text-muted-foreground mt-1">do total</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Valor Total</CardTitle>
+            <span className="text-red-500 font-bold">$</span>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">
+              {estornos?.valor_total
+                ? `R$ ${estornos.valor_total.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                : 'R$ 0,00'}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">preço + frete</p>
+          </CardContent>
+        </Card>
       </div>
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
@@ -590,28 +777,47 @@ const Dashboard = () => {
             </ResponsiveContainer>
           </CardContent>
         </Card>
-        
+
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Ranking % por Canal</CardTitle>
-            <CardDescription>Maior taxa de estorno</CardDescription>
+            <CardTitle className="text-lg">Valor dos Estornos por Mês</CardTitle>
+            <CardDescription>Preço final + frete (R$)</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2 max-h-72 overflow-y-auto">
-            {estornos?.por_canal?.map((item, idx) => (
-              <div key={item.canal} className="flex items-center justify-between p-2 rounded bg-muted/30">
-                <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-red-100 text-red-800 text-xs flex items-center justify-center">{idx + 1}</span>
-                  <span className="text-sm">{item.canal}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline">{item.estornos}</Badge>
-                  <span className="text-sm font-medium text-red-600">{item.percentual}%</span>
-                </div>
-              </div>
-            ))}
+          <CardContent className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={estornos?.valor_por_mes || []}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <XAxis dataKey="mes" tick={{ fontSize: 11 }} />
+                <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => `R$${(v/1000).toFixed(0)}k`} />
+                <Tooltip formatter={(value) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Valor']} />
+                <Line type="monotone" dataKey="valor" name="Valor" stroke="#ef4444" strokeWidth={2} dot={{ fill: '#ef4444', r: 4 }} />
+              </LineChart>
+            </ResponsiveContainer>
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Ranking % por Canal</CardTitle>
+          <CardDescription>Maior taxa de estorno — clique para ver chamados</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2 max-h-72 overflow-y-auto">
+          {estornos?.por_canal?.map((item, idx) => (
+            <div key={item.canal} className="flex items-center justify-between p-2 rounded bg-muted/30 cursor-pointer hover:bg-muted/60"
+              onClick={() => navigate(`/chamados?canal=${encodeURIComponent(item.canal)}&categoria=Arrependimento`)}>
+              <div className="flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-red-100 text-red-800 text-xs flex items-center justify-center">{idx + 1}</span>
+                <span className="text-sm">{item.canal}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline">{item.estornos}</Badge>
+                <span className="text-sm font-medium text-red-600">{item.percentual}%</span>
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
     </div>
   );
 

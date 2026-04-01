@@ -458,8 +458,8 @@ const ImportarPedidos = () => {
           <div className="space-y-4 text-sm">
             {/* Alerta sobre tamanho */}
             <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800">
-              <p className="font-medium">⚠️ Tamanho máximo: 10MB</p>
-              <p className="text-xs mt-1">Para arquivos maiores, exporte apenas os pedidos dos últimos 7-15 dias ou divida em partes menores.</p>
+              <p className="font-medium">⚠️ Tamanho máximo: 100MB</p>
+              <p className="text-xs mt-1">Para melhores resultados, prefira arquivos dos últimos 30-60 dias. Arquivos muito grandes podem demorar mais para processar.</p>
             </div>
             
             <p>O sistema reconhece automaticamente o arquivo <strong>Tabelão de Pedidos Vendas</strong> do ERP. Colunas mapeadas:</p>

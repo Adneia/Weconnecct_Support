@@ -3,7 +3,7 @@ from typing import List
 
 from utils.database import db
 from utils.auth import get_current_user
-from data.textos_padroes import TEXTOS_PADROES, CATEGORIAS_EMERGENT
+from data.textos_padroes import TEXTOS_PADROES, CATEGORIAS_EMERGENT, MOTIVOS_PENDENCIA_TEXTOS, get_motivo_for_categoria
 from datetime import datetime, timezone
 
 router = APIRouter(prefix="/api")
@@ -42,11 +42,34 @@ async def get_texto_situacional(situacao: str, current_user: dict = Depends(get_
 
 @router.get("/textos-padroes-lista")
 async def list_all_textos(current_user: dict = Depends(get_current_user)):
-    textos_fixos = [{"categoria": k, "texto": v, "tipo": "sistema"} for k, v in TEXTOS_PADROES.items()]
+    textos_fixos = [
+        {"categoria": k, "texto": v, "tipo": "sistema", "motivo_pendencia": get_motivo_for_categoria(k)}
+        for k, v in TEXTOS_PADROES.items()
+    ]
     textos_custom = await db.textos_padroes.find({}, {"_id": 0}).sort("categoria", 1).to_list(200)
     for t in textos_custom:
         t["tipo"] = "customizado"
+        if "motivo_pendencia" not in t:
+            t["motivo_pendencia"] = ""
     return textos_fixos + textos_custom
+
+
+@router.get("/textos-por-motivo/{motivo}")
+async def get_textos_por_motivo(motivo: str, current_user: dict = Depends(get_current_user)):
+    textos = [
+        {"categoria": k, "texto": v, "motivo_pendencia": motivo}
+        for k, v in TEXTOS_PADROES.items()
+        if get_motivo_for_categoria(k) == motivo
+    ]
+    textos_custom = await db.textos_padroes.find({"motivo_pendencia": motivo}, {"_id": 0}).to_list(100)
+    for t in textos_custom:
+        t["tipo"] = "customizado"
+    return textos + textos_custom
+
+
+@router.get("/motivos-pendencia-textos")
+async def list_motivos_pendencia(current_user: dict = Depends(get_current_user)):
+    return {"motivos": MOTIVOS_PENDENCIA_TEXTOS}
 
 
 @router.post("/textos-padroes")

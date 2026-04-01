@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException, Depends
 from fastapi.security import HTTPAuthorizationCredentials
 from typing import List
 import bcrypt
+import uuid
+import logging
 
 from utils.database import db, JWT_SECRET, JWT_ALGORITHM, JWT_EXPIRATION_HOURS
 from utils.auth import get_current_user
@@ -9,6 +11,8 @@ from models.user import UserCreate, UserLogin, UserResponse, TokenResponse, Chan
 
 from datetime import datetime, timezone, timedelta
 import jwt
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api")
 
@@ -47,6 +51,37 @@ async def register(user_data: UserCreate):
     )
 
 
+async def notificar_login(user: dict):
+    """Notifica Adnéia quando um atendente faz login — 1x por dia por usuário."""
+    try:
+        email = user.get('email', '')
+        if 'adneia' in email.lower():
+            return
+        hoje = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        ja_notificou = await db.notifications.find_one({
+            "tipo": "login_atendente",
+            "atendente_email": email,
+            "data_referencia": hoje.isoformat()
+        })
+        if ja_notificou:
+            return
+        notificacao = {
+            "id": str(uuid.uuid4()),
+            "tipo": "login_atendente",
+            "destinatario_email": "adneia@weconnect360.com.br",
+            "atendente_email": email,
+            "titulo": "Atendente Online",
+            "mensagem": f"{user.get('name', 'Atendente')} entrou no sistema.",
+            "lida": False,
+            "data_criacao": datetime.now(timezone.utc).isoformat(),
+            "data_referencia": hoje.isoformat()
+        }
+        await db.notifications.insert_one(notificacao)
+        logger.info(f"Notificacao de login: {user.get('name')} entrou no sistema")
+    except Exception as e:
+        logger.error(f"Erro ao notificar login: {e}")
+
+
 @router.post("/auth/login", response_model=TokenResponse)
 async def login(credentials: UserLogin):
     user = await db.users.find_one({"email": credentials.email}, {"_id": 0})
@@ -54,6 +89,8 @@ async def login(credentials: UserLogin):
     if not user or not verify_password(credentials.password, password_hash):
         raise HTTPException(status_code=401, detail="Credenciais inválidas")
     token = create_token(user['id'], user['email'])
+    # Notificar Adnéia que um atendente entrou no sistema
+    await notificar_login(user)
     return TokenResponse(
         token=token,
         user=UserResponse(id=user['id'], email=user['email'], name=user['name'], created_at=user['created_at'])
