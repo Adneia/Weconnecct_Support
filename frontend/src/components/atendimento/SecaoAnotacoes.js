@@ -276,6 +276,7 @@ const SecaoAnotacoes = ({
   };
 
   const [reversaAberta, setReversaAberta] = useState(!!codigoReversa);
+  const [historicoExpandido, setHistoricoExpandido] = useState(false);
 
   return (
     <Card className={fieldErrors.anotacoes ? 'border-red-500' : ''} data-testid="secao-anotacoes">
@@ -384,12 +385,40 @@ const SecaoAnotacoes = ({
           </div>
 
           {/* Histórico de anotações */}
-          {formData.anotacoes && (
-            <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-900/50 border">
-              <Label className="text-xs text-muted-foreground mb-2 block">Histórico de Observações</Label>
-              <div className="text-sm whitespace-pre-wrap font-mono text-slate-700 dark:text-slate-300">{formData.anotacoes}</div>
-            </div>
-          )}
+          {formData.anotacoes && (() => {
+            const entradas = formData.anotacoes.split('\n\n').filter(e => e.trim());
+            const maisAnteriores = entradas.length - 1;
+            return (
+              <div className="rounded-lg bg-slate-50 dark:bg-slate-900/50 border overflow-hidden">
+                {/* Entrada mais recente — sempre visível */}
+                <div className="p-3">
+                  <div className="text-sm whitespace-pre-wrap font-mono text-slate-700 dark:text-slate-300">{entradas[0]}</div>
+                </div>
+                {/* Entradas anteriores — colapsáveis */}
+                {maisAnteriores > 0 && (
+                  <>
+                    {historicoExpandido && (
+                      <div className="px-3 pb-3 space-y-2 border-t border-slate-200 dark:border-slate-700 pt-2">
+                        {entradas.slice(1).map((entrada, i) => (
+                          <div key={i} className="text-sm whitespace-pre-wrap font-mono text-slate-700 dark:text-slate-300">{entrada}</div>
+                        ))}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      className="w-full flex items-center justify-center gap-1 px-3 py-1.5 text-xs text-slate-500 hover:text-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 border-t border-slate-200 dark:border-slate-700 transition-colors"
+                      onClick={() => setHistoricoExpandido(v => !v)}
+                    >
+                      {historicoExpandido
+                        ? <><ChevronUp className="h-3 w-3" /> Recolher</>
+                        : <><ChevronDown className="h-3 w-3" /> Ver mais {maisAnteriores} {maisAnteriores === 1 ? 'anotação anterior' : 'anotações anteriores'}</>
+                      }
+                    </button>
+                  </>
+                )}
+              </div>
+            );
+          })()}
           <input type="hidden" value={formData.anotacoes} />
         </div>
 

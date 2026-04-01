@@ -706,7 +706,7 @@ const NovoAtendimento = () => {
                       </p>
                     )}
                     {pedidoErp.cmv && (
-                      <p className="text-muted-foreground">
+                      <p className="text-red-600 dark:text-red-400 font-medium">
                         Preço de Custo: R$ {parseFloat(pedidoErp.cmv).toFixed(2)}
                       </p>
                     )}
