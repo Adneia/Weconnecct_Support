@@ -145,6 +145,7 @@ def get_column_mapping():
         'chave_nota': ['chave acesso'],
         'pedido_troca': ['pedido troca'],
         'codigo_fornecedor': ['cód. fornecedor', 'cód. fornecedor do sigeq230', 'codigo_fornecedor', 'cod. fornecedor', 'cod fornecedor', 'codfornecedor'],
+        'cmv': ['cmv'],
     }
 
 

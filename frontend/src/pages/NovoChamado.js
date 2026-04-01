@@ -705,6 +705,11 @@ const NovoAtendimento = () => {
                         Valor: R$ {parseFloat(pedidoErp.preco_final).toFixed(2)} <Copy className="h-3 w-3 text-muted-foreground" />
                       </p>
                     )}
+                    {pedidoErp.cmv && (
+                      <p className="text-muted-foreground">
+                        Preço de Custo: R$ {parseFloat(pedidoErp.cmv).toFixed(2)}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="space-y-2">

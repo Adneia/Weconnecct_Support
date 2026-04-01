@@ -276,7 +276,6 @@ const SecaoAnotacoes = ({
   };
 
   const [reversaAberta, setReversaAberta] = useState(!!codigoReversa);
-  const [textosAbertos, setTextosAbertos] = useState(false);
 
   return (
     <Card className={fieldErrors.anotacoes ? 'border-red-500' : ''} data-testid="secao-anotacoes">
@@ -342,40 +341,6 @@ const SecaoAnotacoes = ({
             <p className="text-xs text-muted-foreground mt-1">Status atual: {pedidoErp.status_pedido}</p>
           )}
 
-          {motivoPendencia && (
-            <div className="mt-2 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-              <button
-                type="button"
-                className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                onClick={() => setTextosAbertos(v => !v)}
-              >
-                <span className="text-slate-700 dark:text-slate-200">
-                  Textos Padrão
-                  {pedidoErp?.transportadora && (
-                    <span className="ml-2 text-xs font-normal text-slate-500">— ★ {pedidoErp.transportadora}</span>
-                  )}
-                </span>
-                {textosAbertos ? <ChevronUp className="h-4 w-4 text-slate-500" /> : <ChevronDown className="h-4 w-4 text-slate-500" />}
-              </button>
-              {textosAbertos && (
-                <div className="bg-white dark:bg-slate-900">
-                  <MotivoPendenciaTextos
-                    motivoPendencia={motivoPendencia}
-                    selectedMotivoPendencia={selectedMotivoPendencia}
-                    selectedAssistenciaAguardando={selectedAssistenciaAguardando}
-                    onLoadTextoMotivoPendencia={onLoadTextoMotivoPendencia}
-                    onLoadTextoPadrao={onLoadTextoPadrao}
-                    onLoadTextoReversaAssistencia={onLoadTextoReversaAssistencia}
-                    onLoadTextoFalhaFornecedor={onLoadTextoFalhaFornecedor}
-                    onLoadTextoComprovante={onLoadTextoComprovante}
-                    onLoadTextoFalhaTransporte={onLoadTextoFalhaTransporte}
-                    parceiro={parceiro}
-                    pedidoErp={pedidoErp}
-                  />
-                </div>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Campo para nova observação */}
