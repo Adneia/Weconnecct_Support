@@ -626,7 +626,10 @@ const NovoAtendimento = () => {
           <Card className="border-emerald-200 dark:border-emerald-800 bg-emerald-50/30 dark:bg-emerald-950/20" data-testid="pedido-info">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg flex items-center gap-2"><Package className="h-5 w-5 text-emerald-600" /> Pedido #{pedidoErp.numero_pedido}</CardTitle>
+                <div>
+                  <CardTitle className="text-lg flex items-center gap-2"><Package className="h-5 w-5 text-emerald-600" /> Pedido #{pedidoErp.numero_pedido}</CardTitle>
+                  {pedidoErp.nome_cliente && <p className="text-sm text-muted-foreground mt-0.5">{pedidoErp.nome_cliente}</p>}
+                </div>
                 <div className="flex items-center gap-2">
                   <div className="flex flex-col items-end gap-1">
                     <Badge className={getStatusBadgeColor(pedidoErp.status_pedido)}>{pedidoErp.status_pedido || 'Sem status'}</Badge>
