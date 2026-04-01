@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
@@ -15,7 +15,7 @@ import {
   TableRow,
 } from '../components/ui/table';
 import { toast } from 'sonner';
-import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, AlertTriangle, Loader2, X, Download } from 'lucide-react';
+import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, AlertTriangle, Loader2, X, Download, Copy, Trash2 } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -27,6 +27,38 @@ const ImportarPedidos = () => {
   const [dragActive, setDragActive] = useState(false);
 
   const { getAuthHeader } = useAuth();
+
+  // --- Duplicatas ---
+  const [duplicatasPreview, setDuplicatasPreview] = useState(null);
+  const [loadingDuplicatas, setLoadingDuplicatas] = useState(false);
+  const [corrigindoDuplicatas, setCorrigindoDuplicatas] = useState(false);
+
+  const buscarDuplicatas = async () => {
+    setLoadingDuplicatas(true);
+    setDuplicatasPreview(null);
+    try {
+      const { data } = await axios.get(`${API_URL}/api/admin/duplicatas/preview`, { headers: getAuthHeader() });
+      setDuplicatasPreview(data);
+    } catch (e) {
+      toast.error('Erro ao buscar duplicatas');
+    } finally {
+      setLoadingDuplicatas(false);
+    }
+  };
+
+  const corrigirDuplicatas = async () => {
+    if (!window.confirm(`Confirma fechar ${duplicatasPreview?.total_chamados_a_fechar} chamados duplicados?`)) return;
+    setCorrigindoDuplicatas(true);
+    try {
+      const { data } = await axios.post(`${API_URL}/api/admin/duplicatas/corrigir`, {}, { headers: getAuthHeader() });
+      toast.success(data.message);
+      setDuplicatasPreview(null);
+    } catch (e) {
+      toast.error('Erro ao corrigir duplicatas');
+    } finally {
+      setCorrigindoDuplicatas(false);
+    }
+  };
 
   const parseFile = async (file) => {
     return new Promise((resolve, reject) => {
@@ -875,6 +907,62 @@ const ImportarPedidos = () => {
               </Button>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Limpeza de Duplicatas */}
+      <Card className="border-orange-200 dark:border-orange-800">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Copy className="h-5 w-5 text-orange-600" />
+            Limpeza de Chamados Duplicados
+          </CardTitle>
+          <CardDescription>
+            Detecta chamados abertos com o mesmo número de pedido e fecha os mais antigos, mantendo apenas o mais recente.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="outline" onClick={buscarDuplicatas} disabled={loadingDuplicatas} className="border-orange-300 text-orange-700 hover:bg-orange-50">
+              {loadingDuplicatas ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Verificando...</> : 'Verificar Duplicatas'}
+            </Button>
+            {duplicatasPreview && duplicatasPreview.total_chamados_a_fechar > 0 && (
+              <Button variant="destructive" onClick={corrigirDuplicatas} disabled={corrigindoDuplicatas}>
+                {corrigindoDuplicatas ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Corrigindo...</> : <><Trash2 className="h-4 w-4 mr-2" />Fechar {duplicatasPreview.total_chamados_a_fechar} duplicados</>}
+              </Button>
+            )}
+          </div>
+
+          {duplicatasPreview && (
+            <div className="space-y-3">
+              {duplicatasPreview.total_chamados_a_fechar === 0 ? (
+                <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 p-3 rounded-lg border border-green-200">
+                  <CheckCircle className="h-4 w-4" />
+                  Nenhum chamado duplicado encontrado. Tudo certo!
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 text-sm text-orange-700 bg-orange-50 p-3 rounded-lg border border-orange-200">
+                    <AlertTriangle className="h-4 w-4" />
+                    <span><strong>{duplicatasPreview.total_pedidos_duplicados}</strong> pedidos com duplicata • <strong>{duplicatasPreview.total_chamados_a_fechar}</strong> chamados serão fechados</span>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto space-y-2">
+                    {duplicatasPreview.duplicatas.map((d) => (
+                      <div key={d.numero_pedido} className="p-3 rounded-lg border border-orange-100 bg-orange-50/50 text-sm">
+                        <p className="font-medium text-orange-800">Pedido #{d.numero_pedido} — {d.total_abertos} abertos</p>
+                        <div className="mt-1 space-y-1">
+                          <p className="text-green-700">✓ Manter: {d.manter.id_atendimento} — {d.manter.motivo_pendencia} — {d.manter.data_abertura?.split('T')[0]}</p>
+                          {d.fechar.map((c) => (
+                            <p key={c.id_atendimento} className="text-red-600">✗ Fechar: {c.id_atendimento} — {c.data_abertura?.split('T')[0]}</p>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
 

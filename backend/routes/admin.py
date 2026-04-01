@@ -810,9 +810,115 @@ async def limpar_dados_teste(current_user: dict = Depends(get_current_user)):
         chamado_id = item.get("id_atendimento", "")
         if chamado_id:
             await db.historico.delete_many({"chamado_id": chamado_id})
-    
+
     return {
         "success": True,
         "message": f"{len(ids_removidos)} registros de teste removidos",
         "removidos": ids_removidos
+    }
+
+
+# ============== LIMPEZA DE DUPLICATAS ==============
+
+@router.get("/admin/duplicatas/preview")
+async def preview_duplicatas(current_user: dict = Depends(get_current_user)):
+    """
+    Detecta chamados duplicados: mesmo numero_pedido com mais de 1 chamado aberto (pendente=True).
+    Retorna a lista para conferência antes de fechar.
+    """
+    # Agrupar chamados abertos por numero_pedido
+    pipeline = [
+        {"$match": {"pendente": True, "numero_pedido": {"$exists": True, "$ne": "", "$ne": None}}},
+        {"$sort": {"data_abertura": -1}},
+        {"$group": {
+            "_id": "$numero_pedido",
+            "count": {"$sum": 1},
+            "chamados": {"$push": {
+                "id_atendimento": "$id_atendimento",
+                "data_abertura": "$data_abertura",
+                "motivo_pendencia": "$motivo_pendencia",
+                "ultima_anotacao": "$ultima_anotacao",
+                "status_atendimento": "$status_atendimento",
+                "parceiro": "$parceiro",
+                "nome_cliente": "$nome_cliente",
+            }}
+        }},
+        {"$match": {"count": {"$gt": 1}}},
+        {"$sort": {"count": -1}},
+    ]
+    grupos = await db.chamados.aggregate(pipeline).to_list(500)
+
+    resultado = []
+    total_fechar = 0
+    for grupo in grupos:
+        numero_pedido = grupo["_id"]
+        chamados = grupo["chamados"]
+        # O mais recente (índice 0 pois ordenamos por data_abertura desc) fica aberto
+        # Os demais serão fechados
+        manter = chamados[0]
+        fechar = chamados[1:]
+        total_fechar += len(fechar)
+        resultado.append({
+            "numero_pedido": numero_pedido,
+            "total_abertos": grupo["count"],
+            "manter": manter,
+            "fechar": fechar,
+        })
+
+    return {
+        "total_pedidos_duplicados": len(resultado),
+        "total_chamados_a_fechar": total_fechar,
+        "duplicatas": resultado,
+    }
+
+
+@router.post("/admin/duplicatas/corrigir")
+async def corrigir_duplicatas(current_user: dict = Depends(get_current_user)):
+    """
+    Fecha automaticamente os chamados duplicados mais antigos.
+    Para cada numero_pedido com mais de 1 aberto, mantém o mais recente e fecha os demais.
+    """
+    pipeline = [
+        {"$match": {"pendente": True, "numero_pedido": {"$exists": True, "$ne": "", "$ne": None}}},
+        {"$sort": {"data_abertura": -1}},
+        {"$group": {
+            "_id": "$numero_pedido",
+            "count": {"$sum": 1},
+            "chamados": {"$push": {
+                "id_atendimento": "$id_atendimento",
+                "data_abertura": "$data_abertura",
+            }}
+        }},
+        {"$match": {"count": {"$gt": 1}}},
+    ]
+    grupos = await db.chamados.aggregate(pipeline).to_list(500)
+
+    fechados = []
+    agora = datetime.now(timezone.utc).isoformat()
+
+    for grupo in grupos:
+        chamados = grupo["chamados"]
+        # Manter o mais recente (índice 0), fechar os demais
+        fechar = chamados[1:]
+        for c in fechar:
+            cid = c["id_atendimento"]
+            await db.chamados.update_one(
+                {"id_atendimento": cid},
+                {"$set": {
+                    "pendente": False,
+                    "retornar_chamado": False,
+                    "verificar_adneia": False,
+                    "status_atendimento": "Fechado",
+                    "status_cliente": "Duplicata Fechada",
+                    "motivo_pendencia": "Duplicata Fechada",
+                    "data_fechamento": agora,
+                    "fechado_por": f"Script automático — duplicata ({current_user['name']})",
+                }}
+            )
+            fechados.append(cid)
+
+    return {
+        "success": True,
+        "message": f"{len(fechados)} chamados duplicados fechados.",
+        "fechados": fechados,
     }
