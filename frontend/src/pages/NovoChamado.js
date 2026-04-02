@@ -822,28 +822,6 @@ const NovoAtendimento = () => {
                   </div>
                 </div>
 
-                {/* Textos Reclame Aqui */}
-                {isReclameAqui() && (
-                  <div className="p-3 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800">
-                    <p className="text-sm font-medium text-red-700 dark:text-red-400 mb-2">Respostas Padrão - Reclame Aqui</p>
-                    <div className="flex flex-wrap gap-2">
-                      {Object.keys(TEXTOS_RECLAME_AQUI).map(tipo => (
-                        <button
-                          key={tipo}
-                          type="button"
-                          onClick={() => loadTextoReclameAqui(tipo)}
-                          className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
-                            selectedReclameAqui === tipo
-                              ? 'bg-red-600 text-white border-red-600'
-                              : 'bg-white dark:bg-slate-800 text-red-700 dark:text-red-400 border-red-300 dark:border-red-700 hover:bg-red-100 dark:hover:bg-red-900/30'
-                          }`}
-                        >
-                          {tipo}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
 
               </CardContent>
             </Card>
