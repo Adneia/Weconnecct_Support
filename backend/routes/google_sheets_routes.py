@@ -370,3 +370,142 @@ async def run_rebuild():
     except Exception as e:
         logger.error(f"Erro rebuild: {e}")
         sync_status.update({"running": False, "error": str(e), "progress": "Erro!"})
+
+
+@router.post("/google-sheets/import-from-sheets")
+async def import_from_sheets(background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
+    """Importa atualizações da planilha Google Sheets para o banco do Claude (Planilha → Claude)"""
+    global sync_status
+    if sync_status["running"]:
+        return {"success": False, "message": "Outra sincronização já está em andamento."}
+    sync_status = {"running": True, "progress": "Iniciando importação da planilha...", "result": None, "error": None}
+    background_tasks.add_task(run_import_from_sheets)
+    return {"success": True, "message": "Importação iniciada. Use /api/google-sheets/sync-status para acompanhar."}
+
+
+async def run_import_from_sheets():
+    global sync_status
+    try:
+        import gspread
+        from google.oauth2.service_account import Credentials
+        from pathlib import Path
+        from datetime import datetime, timezone
+
+        SPREADSHEET_ID = "1cqzY_i1lqvu8sySPFrMtucQfyTo1LYm04ZpxRZNDCBs"
+        CREDENTIALS_FILE = str(Path(__file__).parent.parent / "credentials.json")
+        SCOPES = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+
+        def parse_bool(v): return str(v).strip().upper() == "SIM"
+        def parse_date(v):
+            if not v or not str(v).strip(): return None
+            for fmt in ("%d/%m/%Y", "%Y-%m-%d"):
+                try:
+                    return datetime.strptime(str(v).strip(), fmt).replace(tzinfo=timezone.utc).isoformat()
+                except ValueError:
+                    continue
+            return None
+        def s(v): return str(v).strip() if v is not None else ""
+
+        sync_status["progress"] = "Conectando ao Google Sheets..."
+        creds = Credentials.from_service_account_file(CREDENTIALS_FILE, scopes=SCOPES)
+        client = gspread.authorize(creds)
+        ws = client.open_by_key(SPREADSHEET_ID).sheet1
+        all_rows = ws.get_all_records()
+        sync_status["progress"] = f"Planilha lida: {len(all_rows)} linhas. Carregando chamados..."
+        await asyncio.sleep(0)
+
+        # Indexar chamados do banco por id_atendimento
+        chamados_cursor = db.chamados.find({}, {"id": 1, "id_atendimento": 1, "anotacoes": 1, "pendente": 1,
+                                                "motivo_pendencia": 1, "verificar_adneia": 1,
+                                                "retornar_chamado": 1, "codigo_reversa": 1, "data_fechamento": 1})
+        chamados_list = await chamados_cursor.to_list(10000)
+        chamados_prod = {c["id_atendimento"]: c for c in chamados_list if c.get("id_atendimento")}
+        sync_status["progress"] = f"{len(chamados_prod)} chamados carregados. Comparando..."
+        await asyncio.sleep(0)
+
+        atualizados = 0
+        novos = 0
+        sem_diff = 0
+
+        for idx, row in enumerate(all_rows):
+            aid = s(row.get("ID_Atendimento", ""))
+            if not aid:
+                continue
+
+            prod = chamados_prod.get(aid)
+
+            # Novo atendimento — não existe no banco
+            if not prod:
+                pendente = parse_bool(row.get("Pendente", "NAO"))
+                motivo_pend = s(row.get("Motivo_Pendencia", ""))
+                novo = {
+                    "id_atendimento": aid,
+                    "numero_pedido": s(row.get("Entrega", "")),
+                    "parceiro": s(row.get("Parceiro", "")) or None,
+                    "solicitacao": s(row.get("Solicitação", "")) or None,
+                    "nome_cliente": s(row.get("Nome", "")) or None,
+                    "cpf_cliente": s(row.get("CPF", "")) or None,
+                    "categoria": s(row.get("Categoria", "")),
+                    "motivo": s(row.get("Motivo", "")) or None,
+                    "anotacoes": s(row.get("Anotações", "") or row.get("Anotacoes", "")) or None,
+                    "pendente": pendente,
+                    "motivo_pendencia": motivo_pend or None,
+                    "verificar_adneia": parse_bool(row.get("Verificar", "NAO")),
+                    "retornar_chamado": parse_bool(row.get("Retornar", "NAO")),
+                    "codigo_reversa": s(row.get("Reversa", "")) or None,
+                    "data_abertura": parse_date(row.get("Data", "")) or datetime.now(timezone.utc).isoformat(),
+                    "data_fechamento": parse_date(row.get("DT_Encerramento", "")),
+                    "atendente": "Importação Google Sheets",
+                    "criado_por_nome": "Importação Google Sheets",
+                }
+                await db.chamados.insert_one(novo)
+                novos += 1
+                continue
+
+            # Atualizar campos diferentes
+            updates = {}
+            anotacoes_sheet = s(row.get("Anotacoes", "") or row.get("Anotações", ""))
+            if anotacoes_sheet and anotacoes_sheet != s(prod.get("anotacoes", "")):
+                updates["anotacoes"] = anotacoes_sheet
+
+            pendente_sheet = parse_bool(row.get("Pendente", "NAO"))
+            if pendente_sheet != bool(prod.get("pendente", True)):
+                updates["pendente"] = pendente_sheet
+                if not pendente_sheet and not prod.get("data_fechamento"):
+                    updates["data_fechamento"] = datetime.now(timezone.utc).isoformat()
+
+            motivo_sheet = s(row.get("Motivo_Pendencia", ""))
+            if motivo_sheet != s(prod.get("motivo_pendencia", "")):
+                updates["motivo_pendencia"] = motivo_sheet or None
+
+            if parse_bool(row.get("Verificar", "NAO")) != bool(prod.get("verificar_adneia", False)):
+                updates["verificar_adneia"] = parse_bool(row.get("Verificar", "NAO"))
+
+            if parse_bool(row.get("Retornar", "NAO")) != bool(prod.get("retornar_chamado", False)):
+                updates["retornar_chamado"] = parse_bool(row.get("Retornar", "NAO"))
+
+            reversa_sheet = s(row.get("Reversa", ""))
+            if reversa_sheet and reversa_sheet != s(prod.get("codigo_reversa", "")):
+                updates["codigo_reversa"] = reversa_sheet
+
+            dt_enc = parse_date(row.get("DT_Encerramento", ""))
+            if dt_enc and not prod.get("data_fechamento"):
+                updates["data_fechamento"] = dt_enc
+
+            if updates:
+                await db.chamados.update_one({"id_atendimento": aid}, {"$set": updates})
+                atualizados += 1
+            else:
+                sem_diff += 1
+
+            if (idx + 1) % 200 == 0:
+                sync_status["progress"] = f"Processando... {idx+1}/{len(all_rows)} ({atualizados} atualizados, {novos} novos)"
+                await asyncio.sleep(0)
+
+        result = {"success": True, "added": novos, "updated": atualizados, "sem_diff": sem_diff, "errors": 0}
+        sync_status.update({"running": False, "progress": "Importação concluída!", "result": result})
+        logger.info(f"Import-from-sheets concluído: {result}")
+
+    except Exception as e:
+        logger.error(f"Erro import-from-sheets: {e}")
+        sync_status.update({"running": False, "error": str(e), "progress": "Erro!"})

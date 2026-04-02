@@ -326,6 +326,8 @@ const ImportarPedidos = () => {
   const [sincronizando, setSincronizando] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
   const [syncProgress, setSyncProgress] = useState('');
+  const [importandoSheets, setImportandoSheets] = useState(false);
+  const [importSheetsResult, setImportSheetsResult] = useState(null);
   const [corrigindoMotivos, setCorrigindoMotivos] = useState(false);
   const [motivosResult, setMotivosResult] = useState(null);
   const [limpandoTestes, setLimpandoTestes] = useState(false);
@@ -430,6 +432,34 @@ const ImportarPedidos = () => {
       const msg = error.response?.data?.error || 'Erro ao iniciar reconstrução';
       toast.error(msg);
       setSincronizando(false);
+    }
+  };
+
+  const importarDaPlanilha = async () => {
+    if (!window.confirm('Importar atualizações da planilha Google Sheets para o Claude? Isso atualiza anotações, pendências e status de todos os atendimentos.')) return;
+    setImportandoSheets(true);
+    setImportSheetsResult(null);
+    try {
+      await axios.post(`${API_URL}/api/google-sheets/import-from-sheets`, {}, { headers: getAuthHeader(), timeout: 10000 });
+      const pollInterval = setInterval(async () => {
+        try {
+          const status = await axios.get(`${API_URL}/api/google-sheets/sync-status`, { headers: getAuthHeader() });
+          const data = status.data;
+          if (!data.running) {
+            clearInterval(pollInterval);
+            setImportandoSheets(false);
+            if (data.result) {
+              setImportSheetsResult(data.result);
+              toast.success(`Importação concluída: ${data.result.added} novos, ${data.result.updated} atualizados`);
+            } else if (data.error) {
+              toast.error(data.error);
+            }
+          }
+        } catch { /* ignore */ }
+      }, 3000);
+    } catch {
+      toast.error('Erro ao iniciar importação');
+      setImportandoSheets(false);
     }
   };
 
@@ -884,28 +914,42 @@ const ImportarPedidos = () => {
                 )}
               </div>
             </div>
-            <div className="flex gap-2 shrink-0">
+            <div className="flex gap-2 shrink-0 flex-wrap">
+              <Button
+                variant="outline"
+                onClick={importarDaPlanilha}
+                disabled={importandoSheets || sincronizando}
+                className="border-blue-300 text-blue-700 hover:bg-blue-100"
+              >
+                {importandoSheets ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                {importandoSheets ? 'Importando...' : '↓ Planilha → Claude'}
+              </Button>
               <Button
                 variant="outline"
                 onClick={sincronizarSheets}
-                disabled={sincronizando}
+                disabled={sincronizando || importandoSheets}
                 className="border-green-300 text-green-700 hover:bg-green-100"
                 data-testid="btn-sync-sheets"
               >
                 {sincronizando ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                {sincronizando ? 'Sincronizando...' : 'Sincronizar'}
+                {sincronizando ? 'Sincronizando...' : '↑ Claude → Planilha'}
               </Button>
               <Button
                 variant="outline"
                 onClick={reconstruirPlanilha}
-                disabled={sincronizando}
+                disabled={sincronizando || importandoSheets}
                 className="border-orange-300 text-orange-700 hover:bg-orange-100"
                 data-testid="btn-rebuild-sheets"
               >
-                {sincronizando ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                 Reconstruir
               </Button>
             </div>
+            {importSheetsResult && (
+              <div className="flex gap-2 mt-2 flex-wrap">
+                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">{importSheetsResult.added} novos</Badge>
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-300">{importSheetsResult.updated} atualizados</Badge>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
