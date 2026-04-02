@@ -369,33 +369,6 @@ const SecaoAnotacoes = ({
 
         </div>
 
-        {/* Textos Reclame Aqui */}
-        {formData.solicitacao?.toLowerCase().includes('reclame') && (
-          <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40">
-            <button type="button" onClick={() => setReclameAberto(v => !v)}
-              className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300">
-              <span>Respostas Padrão <span className="ml-2 text-red-600 dark:text-red-400">— Reclame Aqui</span></span>
-              {reclameAberto ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            </button>
-            {reclameAberto && (
-              <div className="px-3 pb-3">
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {Object.keys(TEXTOS_RECLAME_AQUI).map(tipo => (
-                    <button key={tipo} type="button"
-                      onClick={() => { setSelectedReclame(tipo); if (onLoadTextoRaw) onLoadTextoRaw(TEXTOS_RECLAME_AQUI[tipo], tipo); }}
-                      className={selectedReclame === tipo
-                        ? 'px-3 py-1.5 text-sm rounded-md font-medium bg-red-600 text-white border border-red-600'
-                        : 'px-3 py-1.5 text-sm rounded-md font-medium border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-600'
-                      }>
-                      {tipo}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Textos padrão por motivo */}
         {motivoPendencia && textosMotivo.length > 0 && (() => {
           const transp = pedidoErp?.transportadora;
