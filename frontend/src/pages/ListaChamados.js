@@ -38,7 +38,7 @@ import {
 import { Checkbox } from '../components/ui/checkbox';
 import { Separator } from '../components/ui/separator';
 import { toast } from 'sonner';
-import { Search, Plus, Filter, X, Clock, CheckCircle, AlertCircle, FileText, RotateCcw, Download, FileSpreadsheet, CheckSquare, ExternalLink, Copy, ChevronDown, GitMerge, ArrowLeftRight } from 'lucide-react';
+import { Search, Plus, Filter, X, Clock, CheckCircle, AlertCircle, FileText, RotateCcw, Download, FileSpreadsheet, CheckSquare, ExternalLink, Copy, ChevronDown, GitMerge, ArrowLeftRight, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
@@ -50,23 +50,25 @@ const CATEGORIAS = [
 ];
 
 const MOTIVOS_PENDENCIA = [
-  "Ag. Compras",
-  "Ag. Logística", 
-  "Ag. Cliente",
-  "Enviado",
-  "Ag. Bseller",
   "Ag. Barrar",
-  "Aguardando",
-  "Em devolução",
+  "Ag. Bseller",
+  "Ag. Cliente",
+  "Ag. Compras",
   "Ag. Confirmação de Entrega",
+  "Ag. Fornecedor",
+  "Ag. Logística",
   "Ag. Parceiro",
   "Ag. Transportadora - Asap",
   "Ag. Transportadora - J&T",
   "Ag. Transportadora - Total",
+  "Aguardando",
+  "Em devolução",
+  "Enviado",
+  "Atendido",
+  "Devolvido",
+  "Encerrado",
   "Entregue",
   "Estornado",
-  "Atendido",
-  "Encerrado"
 ];
 
 const ATENDENTES = ["Letícia Martelo", "Adnéia Campos"];
@@ -100,6 +102,10 @@ const ListaAtendimentos = () => {
   const [showMergeDialog, setShowMergeDialog] = useState(false);
   const [mergeData, setMergeData] = useState(null); // { principal, secundario }
   const [merging, setMerging] = useState(false);
+
+  // Estado de ordenação da tabela
+  const [sortBy, setSortBy] = useState(null); // 'dias' | 'anotacao' | 'status_pedido'
+  const [sortDir, setSortDir] = useState('desc');
 
   // Estados para finalização de atendimentos
   const [showFinalizarDialog, setShowFinalizarDialog] = useState(false);
@@ -652,6 +658,53 @@ const ListaAtendimentos = () => {
   const abertoParaAmanha = totalPendentes;
   const proximoDiaUtil = getProximoDiaUtil();
 
+  // --- Ordenação de colunas ---
+  const handleSort = (col) => {
+    if (sortBy === col) {
+      setSortDir(d => d === 'desc' ? 'asc' : 'desc');
+    } else {
+      setSortBy(col);
+      setSortDir('desc'); // padrão: mais recente/maior primeiro
+    }
+  };
+
+  const parseAnotacaoDate = (anotacoes) => {
+    if (!anotacoes) return 0;
+    const linha = anotacoes.split('\n')[0];
+    const m = linha.match(/^\[(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\]/) ||
+              linha.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\s*[-–]/);
+    if (!m) return 0;
+    const dia = parseInt(m[1]), mes = parseInt(m[2]);
+    const ano = m[3] ? (parseInt(m[3]) < 100 ? 2000 + parseInt(m[3]) : parseInt(m[3])) : 2026;
+    return new Date(ano, mes - 1, dia).getTime();
+  };
+
+  const parseStatusDate = (data_ultimo_status) => {
+    if (!data_ultimo_status) return 0;
+    const d = data_ultimo_status;
+    if (d.includes('/')) {
+      const parts = d.split(' ')[0].split('/');
+      if (parts.length === 3) return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])).getTime();
+    }
+    try { const dt = new Date(d); if (!isNaN(dt)) return dt.getTime(); } catch {}
+    return 0;
+  };
+
+  const sortedAtendimentos = sortBy ? [...atendimentos].sort((a, b) => {
+    let valA = 0, valB = 0;
+    if (sortBy === 'dias') { valA = a.dias_aberto ?? 0; valB = b.dias_aberto ?? 0; }
+    else if (sortBy === 'anotacao') { valA = parseAnotacaoDate(a.anotacoes); valB = parseAnotacaoDate(b.anotacoes); }
+    else if (sortBy === 'status_pedido') { valA = parseStatusDate(a.data_ultimo_status); valB = parseStatusDate(b.data_ultimo_status); }
+    return sortDir === 'desc' ? valB - valA : valA - valB;
+  }) : atendimentos;
+
+  const SortIcon = ({ col }) => {
+    if (sortBy !== col) return <ArrowUpDown className="h-3 w-3 ml-1 opacity-40" />;
+    return sortDir === 'desc'
+      ? <ArrowDown className="h-3 w-3 ml-1 text-primary" />
+      : <ArrowUp className="h-3 w-3 ml-1 text-primary" />;
+  };
+
   if (loading) {
     return (
       <div className="space-y-6" data-testid="loading">
@@ -1079,16 +1132,34 @@ const ListaAtendimentos = () => {
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Cliente</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Parceiro / Solicitação</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Motivo Pend.</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50 min-w-[180px]">Última Anotação</TableHead>
+                  <TableHead
+                    className="text-xs uppercase tracking-wider font-medium bg-muted/50 min-w-[180px] cursor-pointer select-none hover:bg-muted/80 transition-colors"
+                    onClick={() => handleSort('anotacao')}
+                    title="Ordenar por data da última anotação"
+                  >
+                    <span className="flex items-center">Última Anotação<SortIcon col="anotacao" /></span>
+                  </TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Reversa</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Status Pedido</TableHead>
+                  <TableHead
+                    className="text-xs uppercase tracking-wider font-medium bg-muted/50 cursor-pointer select-none hover:bg-muted/80 transition-colors"
+                    onClick={() => handleSort('status_pedido')}
+                    title="Ordenar por data do status do pedido"
+                  >
+                    <span className="flex items-center">Status Pedido<SortIcon col="status_pedido" /></span>
+                  </TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Status</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Dias</TableHead>
+                  <TableHead
+                    className="text-xs uppercase tracking-wider font-medium bg-muted/50 cursor-pointer select-none hover:bg-muted/80 transition-colors"
+                    onClick={() => handleSort('dias')}
+                    title="Ordenar por dias em aberto"
+                  >
+                    <span className="flex items-center">Dias<SortIcon col="dias" /></span>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {atendimentos.length > 0 ? (
-                  atendimentos.map((atd) => {
+                {sortedAtendimentos.length > 0 ? (
+                  sortedAtendimentos.map((atd) => {
                     // Determinar qual filtro está ativo para passar na navegação
                     const activeFilter = filters.retornar_chamado === 'true' ? 'retornar' : 
                                         filters.verificar_adneia === 'true' ? 'verificar' : '';
