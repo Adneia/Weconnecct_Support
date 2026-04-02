@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from '../ui/select';
 import { Plus, ChevronDown, ChevronUp } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MOTIVOS_PENDENCIA, MOTIVOS_FINALIZADORES } from './constants';
 
 const MotivoPendenciaTextos = ({ motivoPendencia, selectedMotivoPendencia, onLoadTextoMotivoPendencia, onLoadTextoPadrao, onLoadTextoReversaAssistencia, onLoadTextoFalhaFornecedor, onLoadTextoComprovante, onLoadTextoFalhaTransporte, parceiro, pedidoErp, selectedAssistenciaAguardando }) => {
@@ -262,7 +262,22 @@ const SecaoAnotacoes = ({
   onLoadTextoComprovante,
   onLoadTextoFalhaTransporte,
   parceiro,
+  onLoadTextoRaw,
 }) => {
+  const [textosMotivo, setTextosMotivo] = useState([]);
+  const [textoSelecionado, setTextoSelecionado] = useState('');
+
+  useEffect(() => {
+    if (!motivoPendencia) { setTextosMotivo([]); return; }
+    const token = localStorage.getItem('token');
+    fetch(`/api/motivo-textos/${encodeURIComponent(motivoPendencia)}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+      .then(r => r.json())
+      .then(data => setTextosMotivo(data.grupos || []))
+      .catch(() => setTextosMotivo([]));
+  }, [motivoPendencia]);
+
   const addObservacao = (texto) => {
     if (!texto.trim()) return;
     const hoje = new Date().toLocaleDateString('pt-BR');
@@ -343,6 +358,36 @@ const SecaoAnotacoes = ({
           )}
 
         </div>
+
+        {/* Textos padrão por motivo */}
+        {motivoPendencia && textosMotivo.length > 0 && (
+          <div>
+            <select
+              className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              value={textoSelecionado}
+              onChange={e => {
+                const val = e.target.value;
+                if (!val) return;
+                setTextoSelecionado('');
+                const sepIdx = val.indexOf('||');
+                const causa = val.substring(0, sepIdx);
+                const titulo = val.substring(sepIdx + 2);
+                const grupo = textosMotivo.find(g => g.causa === causa);
+                const item = grupo?.textos.find(t => t.titulo === titulo);
+                if (item && onLoadTextoRaw) onLoadTextoRaw(item.texto, item.titulo);
+              }}
+            >
+              <option value="">Selecione o tipo de texto...</option>
+              {textosMotivo.map(grupo => (
+                <optgroup key={grupo.causa} label={grupo.causa}>
+                  {grupo.textos.map(t => (
+                    <option key={t.titulo} value={`${grupo.causa}||${t.titulo}`}>{t.titulo}</option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Campo para nova observação */}
         <div className="space-y-3">

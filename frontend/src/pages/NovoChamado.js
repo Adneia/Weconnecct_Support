@@ -320,6 +320,10 @@ const NovoAtendimento = () => {
     setTextoPadrao(replaceAllPlaceholders(TEXTOS_REVERSA_ASSISTENCIA[fornecedor] || '', getTextContext()));
     setSelectedAssistenciaAguardando(`Reversa Assistência - ${fornecedor}`); setShowTextoDialog(true);
   };
+  const handleLoadTextoRaw = (texto, _titulo) => {
+    setTextoPadrao(replaceAllPlaceholders(texto, getTextContext()));
+    setShowTextoDialog(true);
+  };
 
   const isReclameAqui = () => formData.solicitacao && formData.solicitacao.toLowerCase().includes('reclame');
 
@@ -867,6 +871,7 @@ const NovoAtendimento = () => {
               onLoadTextoComprovante={loadTextoComprovante}
               onLoadTextoFalhaTransporte={loadTextoFalhaTransporte}
               parceiro={formData.parceiro}
+              onLoadTextoRaw={handleLoadTextoRaw}
             />
 
             {/* Ações */}

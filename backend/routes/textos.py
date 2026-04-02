@@ -140,6 +140,22 @@ async def get_textos_padroes_log(current_user: dict = Depends(get_current_user))
     return await db.textos_padroes_log.find({}, {"_id": 0}).sort("data", -1).to_list(100)
 
 
+@router.get("/motivo-textos/{motivo}")
+async def get_textos_por_motivo_excel(motivo: str, current_user: dict = Depends(get_current_user)):
+    """Retorna textos agrupados por causa para um motivo de pendencia (fonte: Excel importado)"""
+    from urllib.parse import unquote
+    motivo_decoded = unquote(motivo)
+    cursor = db.textos_por_motivo.find({'motivo': motivo_decoded}, {'_id': 0})
+    textos = await cursor.to_list(200)
+    grupos = {}
+    for t in textos:
+        causa = t.get('causa', '')
+        if causa not in grupos:
+            grupos[causa] = []
+        grupos[causa].append({'titulo': t.get('titulo', ''), 'texto': t.get('texto', '')})
+    return {'motivo': motivo_decoded, 'grupos': [{'causa': c, 'textos': ts} for c, ts in grupos.items()]}
+
+
 @router.get("/textos-padroes-log/nao-visualizados")
 async def get_textos_padroes_log_count(current_user: dict = Depends(get_current_user)):
     if current_user['email'] != 'adneia@weconnect360.com.br':
