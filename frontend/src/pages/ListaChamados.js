@@ -493,6 +493,22 @@ const ListaAtendimentos = () => {
     });
   };
 
+  const copyToClipboardHTTP = (text, onSuccess, onError) => {
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(onSuccess).catch(onError);
+    } else {
+      const el = document.createElement('textarea');
+      el.value = text;
+      el.style.position = 'fixed';
+      el.style.opacity = '0';
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      onSuccess();
+    }
+  };
+
   // Função para copiar um texto específico
   const copyText = (text, label, e) => {
     if (e) e.stopPropagation();
@@ -500,11 +516,7 @@ const ListaAtendimentos = () => {
       toast.info('Nada para copiar');
       return;
     }
-    navigator.clipboard.writeText(text).then(() => {
-      toast.success(`${label} copiado!`);
-    }).catch(() => {
-      toast.error('Erro ao copiar');
-    });
+    copyToClipboardHTTP(text, () => toast.success(`${label} copiado!`), () => toast.error('Erro ao copiar'));
   };
 
   // Função para copiar todas as reversas dos atendimentos filtrados
@@ -512,18 +524,14 @@ const ListaAtendimentos = () => {
     const reversas = atendimentos
       .map(atd => atd.codigo_reversa || atd.reversa_codigo)
       .filter(r => r && r !== '-' && r.trim() !== '');
-    
+
     if (reversas.length === 0) {
       toast.info('Nenhuma reversa encontrada nos atendimentos filtrados');
       return;
     }
-    
+
     const textoReversas = reversas.join('\n');
-    navigator.clipboard.writeText(textoReversas).then(() => {
-      toast.success(`${reversas.length} reversa(s) copiada(s)!`);
-    }).catch(() => {
-      toast.error('Erro ao copiar reversas');
-    });
+    copyToClipboardHTTP(textoReversas, () => toast.success(`${reversas.length} reversa(s) copiada(s)!`), () => toast.error('Erro ao copiar reversas'));
   };
 
   const getCategoryBadgeColor = (categoria) => {

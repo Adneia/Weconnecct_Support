@@ -328,8 +328,19 @@ const NovoAtendimento = () => {
   const isReclameAqui = () => formData.solicitacao && formData.solicitacao.toLowerCase().includes('reclame');
 
   const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
-    toast.success('Texto copiado!');
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(text).then(() => toast.success('Texto copiado!')).catch(() => toast.error('Erro ao copiar'));
+    } else {
+      const el = document.createElement('textarea');
+      el.value = text;
+      el.style.position = 'fixed';
+      el.style.opacity = '0';
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      toast.success('Texto copiado!');
+    }
   };
 
   // --- Form Handlers ---
