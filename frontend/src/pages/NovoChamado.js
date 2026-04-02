@@ -334,12 +334,17 @@ const NovoAtendimento = () => {
       const el = document.createElement('textarea');
       el.value = text;
       el.style.position = 'fixed';
-      el.style.opacity = '0';
+      el.style.top = '-9999px';
+      el.style.left = '-9999px';
+      el.setAttribute('readonly', '');
       document.body.appendChild(el);
+      el.focus();
       el.select();
-      document.execCommand('copy');
+      el.setSelectionRange(0, text.length);
+      const ok = document.execCommand('copy');
       document.body.removeChild(el);
-      toast.success('Texto copiado!');
+      if (ok) toast.success('Texto copiado!');
+      else toast.error('Erro ao copiar');
     }
   };
 
