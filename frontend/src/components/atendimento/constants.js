@@ -10,7 +10,6 @@ export const CATEGORIAS = [
   "Falha Integração",
   "Falha Parceiro",
   "Falha Cadastro",
-  "Produto com Avaria",
   "Arrependimento",
   "Acompanhamento",
   "Assistência Técnica"

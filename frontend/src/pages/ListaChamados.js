@@ -45,7 +45,7 @@ const API_URL = process.env.REACT_APP_BACKEND_URL;
 
 const CATEGORIAS = [
   "Falha Produção", "Falha de Compras", "Falha Transporte",
-  "Produto com Avaria", "Divergência de Produto", "Arrependimento",
+  "Divergência de Produto", "Arrependimento",
   "Dúvida", "Reclamação", "Assistência Técnica", "Falha de Integração"
 ];
 
@@ -544,7 +544,7 @@ const ListaAtendimentos = () => {
       'Falha Produção': 'bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-400',
       'Falha de Compras': 'bg-orange-50 text-orange-700 dark:bg-orange-950/50 dark:text-orange-400',
       'Falha Transporte': 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400',
-      'Produto com Avaria': 'bg-pink-50 text-pink-700 dark:bg-pink-950/50 dark:text-pink-400',
+
       'Arrependimento': 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400',
       'Acompanhamento': 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/50 dark:text-cyan-400',
       'Reclame Aqui': 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400',
