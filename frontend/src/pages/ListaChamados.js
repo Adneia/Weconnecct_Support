@@ -1265,7 +1265,17 @@ const ListaAtendimentos = () => {
                         </div>
                       </TableCell>
                       {/* Coluna Status do Atendimento */}
-                      <TableCell>
+                      <TableCell
+                        className="cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                        onClick={(e) => {
+                          const partes = [];
+                          if (atd.retornar_chamado) partes.push('Retornar');
+                          if (atd.verificar_adneia) partes.push('Verificar');
+                          partes.push(atd.pendente ? 'Pendente' : 'Resolvido');
+                          copyText(partes.join(', '), 'Status', e);
+                        }}
+                        title="Clique para copiar"
+                      >
                         {atd.retornar_chamado && (
                           <Badge className="bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400 mr-1">
                             <RotateCcw className="h-3 w-3 mr-1" />
@@ -1288,7 +1298,11 @@ const ListaAtendimentos = () => {
                         )}
                       </TableCell>
                       {/* Coluna Dias */}
-                      <TableCell className={`text-sm ${atd.dias_aberto > 3 ? 'text-orange-600 font-medium' : ''}`}>
+                      <TableCell
+                        className={`text-sm cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950/30 ${atd.dias_aberto > 3 ? 'text-orange-600 font-medium' : ''}`}
+                        onClick={(e) => copyText(String(atd.dias_aberto ?? ''), 'Dias', e)}
+                        title="Clique para copiar"
+                      >
                         {atd.dias_aberto}
                       </TableCell>
                     </TableRow>
