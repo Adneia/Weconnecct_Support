@@ -365,9 +365,9 @@ const SecaoAnotacoes = ({
         {motivoPendencia && textosMotivo.length > 0 && (() => {
           const transp = pedidoErp?.transportadora;
           const transpNorm = transp ? transp.toLowerCase() : '';
-          const transpLabel = transpNorm.includes('total') ? 'Total Express'
-            : transpNorm.includes('j&t') || transpNorm.includes('jt') ? 'J&T Express'
-            : transpNorm.includes('asap') ? 'ASAP Log'
+          const transpLabel = (transpNorm.includes('total') || transpNorm.includes('tex')) ? 'Total Express'
+            : (transpNorm.includes('j&t') || transpNorm.includes('jt') || transpNorm.includes('j t')) ? 'J&T Express'
+            : (transpNorm.includes('asap') || transpNorm.includes('logistica e solucoes')) ? 'ASAP Log'
             : transpNorm.includes('correios') ? 'Correios'
             : transp || null;
           const titulosSelecionados = causaSelecionada
