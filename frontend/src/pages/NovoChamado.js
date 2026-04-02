@@ -778,17 +778,6 @@ const NovoAtendimento = () => {
                       placeholder="Nº da solicitação" data-testid="input-solicitacao" className={fieldErrors.solicitacao ? 'border-red-500 focus:ring-red-500' : ''} />
                   </div>
 
-                  {/* Reclame Aqui buttons */}
-                  {isReclameAqui() && (
-                    <div className="sm:col-span-2 lg:col-span-3 p-3 rounded-lg bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 space-y-2">
-                      <Label className="text-sm font-medium text-rose-800 dark:text-rose-200">Respostas Padrão - Reclame Aqui</Label>
-                      <div className="flex flex-wrap gap-2">
-                        {['Resposta Inicial', 'Mensagem WhatsApp', 'Solicitar Encerramento', 'Após Avaliação'].map(tipo => (
-                          <Button key={tipo} type="button" variant={selectedReclameAqui === tipo ? 'default' : 'outline'} size="sm" onClick={() => loadTextoReclameAqui(tipo)}>{tipo}</Button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
 
                   <div>
                     <Label>Parceiro/Canal</Label>
@@ -816,31 +805,6 @@ const NovoAtendimento = () => {
                   </div>
                 </div>
 
-                {/* Category-specific text buttons */}
-                {formData.categoria && (
-                  <div className="space-y-3 pt-2">
-                    <TextosCategoriaButtons
-                      categoria={formData.categoria}
-                      pedidoErp={pedidoErp}
-                      transportadoraDetectada={transportadoraDetectada}
-                      parceiro={formData.parceiro}
-                      selected={{
-                        avaria: selectedAvaria, falhaProducao: selectedFalhaProducao,
-                        falhaTransporte: selectedFalhaTransporte, falhaFornecedor: selectedFalhaFornecedor,
-                        arrependimento: selectedArrependimento, acompanhamento: selectedAcompanhamento,
-                        reclameAqui: selectedReclameAqui, assistencia: selectedAssistencia,
-                        comprovante: selectedComprovante,
-                      }}
-                      onLoadTexto={{
-                        avaria: loadTextoAvaria, falhaProducao: loadTextoFalhaProducao,
-                        falhaTransporte: loadTextoFalhaTransporte, falhaFornecedor: loadTextoFalhaFornecedor,
-                        arrependimento: loadTextoArrependimento, acompanhamento: loadTextoAcompanhamento,
-                        reclameAqui: loadTextoReclameAqui, assistencia: loadTextoAssistencia,
-                        comprovante: loadTextoComprovante, padrao: loadTextoPadrao,
-                      }}
-                    />
-                  </div>
-                )}
               </CardContent>
             </Card>
 

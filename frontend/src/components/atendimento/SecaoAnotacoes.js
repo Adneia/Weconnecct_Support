@@ -265,9 +265,11 @@ const SecaoAnotacoes = ({
   onLoadTextoRaw,
 }) => {
   const [textosMotivo, setTextosMotivo] = useState([]);
-  const [textoSelecionado, setTextoSelecionado] = useState('');
+  const [causaSelecionada, setCausaSelecionada] = useState('');
+  const [textosAbertos, setTextosAbertos] = useState(true);
 
   useEffect(() => {
+    setCausaSelecionada('');
     if (!motivoPendencia) { setTextosMotivo([]); return; }
     const token = localStorage.getItem('token');
     fetch(`/api/motivo-textos/${encodeURIComponent(motivoPendencia)}`, {
@@ -360,34 +362,66 @@ const SecaoAnotacoes = ({
         </div>
 
         {/* Textos padrão por motivo */}
-        {motivoPendencia && textosMotivo.length > 0 && (
-          <div>
-            <select
-              className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={textoSelecionado}
-              onChange={e => {
-                const val = e.target.value;
-                if (!val) return;
-                setTextoSelecionado('');
-                const sepIdx = val.indexOf('||');
-                const causa = val.substring(0, sepIdx);
-                const titulo = val.substring(sepIdx + 2);
-                const grupo = textosMotivo.find(g => g.causa === causa);
-                const item = grupo?.textos.find(t => t.titulo === titulo);
-                if (item && onLoadTextoRaw) onLoadTextoRaw(item.texto, item.titulo);
-              }}
-            >
-              <option value="">Selecione o tipo de texto...</option>
-              {textosMotivo.map(grupo => (
-                <optgroup key={grupo.causa} label={grupo.causa}>
-                  {grupo.textos.map(t => (
-                    <option key={t.titulo} value={`${grupo.causa}||${t.titulo}`}>{t.titulo}</option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-          </div>
-        )}
+        {motivoPendencia && textosMotivo.length > 0 && (() => {
+          const transp = pedidoErp?.transportadora;
+          const transpNorm = transp ? transp.toLowerCase() : '';
+          const transpLabel = transpNorm.includes('total') ? 'Total Express'
+            : transpNorm.includes('j&t') || transpNorm.includes('jt') ? 'J&T Express'
+            : transpNorm.includes('asap') ? 'ASAP Log'
+            : transpNorm.includes('correios') ? 'Correios'
+            : transp || null;
+          const titulosSelecionados = causaSelecionada
+            ? (textosMotivo.find(g => g.causa === causaSelecionada)?.textos || [])
+            : [];
+          return (
+            <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40">
+              <button
+                type="button"
+                className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-slate-700 dark:text-slate-300"
+                onClick={() => setTextosAbertos(v => !v)}
+              >
+                <span>
+                  Textos Padrão{transpLabel && <span className="ml-2 text-blue-600 dark:text-blue-400">— ★ {transpLabel}</span>}
+                </span>
+                {textosAbertos ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </button>
+              {textosAbertos && (
+                <div className="px-3 pb-3 space-y-2">
+                  {/* Nível 1: Causa */}
+                  <select
+                    className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={causaSelecionada}
+                    onChange={e => setCausaSelecionada(e.target.value)}
+                  >
+                    <option value="">Selecione o tipo de texto...</option>
+                    {textosMotivo.map(grupo => (
+                      <option key={grupo.causa} value={grupo.causa}>{grupo.causa}</option>
+                    ))}
+                  </select>
+                  {/* Nível 2: Título — aparece após selecionar causa */}
+                  {causaSelecionada && titulosSelecionados.length > 0 && (
+                    <select
+                      className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      defaultValue=""
+                      onChange={e => {
+                        const titulo = e.target.value;
+                        if (!titulo) return;
+                        const item = titulosSelecionados.find(t => t.titulo === titulo);
+                        if (item && onLoadTextoRaw) onLoadTextoRaw(item.texto, item.titulo);
+                        e.target.value = '';
+                      }}
+                    >
+                      <option value="">Selecione o texto...</option>
+                      {titulosSelecionados.map(t => (
+                        <option key={t.titulo} value={t.titulo}>{t.titulo}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Campo para nova observação */}
         <div className="space-y-3">
