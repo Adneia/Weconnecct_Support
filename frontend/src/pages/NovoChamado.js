@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -60,6 +60,7 @@ const NovoAtendimento = () => {
   const [showPedidosDialog, setShowPedidosDialog] = useState(false);
   const [showTextoDialog, setShowTextoDialog] = useState(false);
   const [textoPadrao, setTextoPadrao] = useState('');
+  const textoAreaRef = useRef(null);
   const [codigoReversa, setCodigoReversa] = useState('');
   const [atendimentoOriginal, setAtendimentoOriginal] = useState(null);
 
@@ -946,8 +947,18 @@ const NovoAtendimento = () => {
         <DialogContent className="max-w-2xl">
           <DialogHeader><DialogTitle>Texto Padrão - {formData.categoria}</DialogTitle></DialogHeader>
           <div className="relative">
-            <Textarea value={textoPadrao} readOnly rows={12} className="font-mono text-sm" />
-            <Button type="button" variant="outline" size="sm" className="absolute top-2 right-2" onClick={() => copyToClipboard(textoPadrao)}>
+            <Textarea ref={textoAreaRef} value={textoPadrao} readOnly rows={12} className="font-mono text-sm" />
+            <Button type="button" variant="outline" size="sm" className="absolute top-2 right-2" onClick={() => {
+              if (textoAreaRef.current) {
+                textoAreaRef.current.focus();
+                textoAreaRef.current.select();
+                const ok = document.execCommand('copy');
+                if (ok) toast.success('Texto copiado!');
+                else copyToClipboard(textoPadrao);
+              } else {
+                copyToClipboard(textoPadrao);
+              }
+            }}>
               <Copy className="h-4 w-4 mr-2" /> Copiar
             </Button>
           </div>
