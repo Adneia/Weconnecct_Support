@@ -20,7 +20,8 @@ export const ATENDENTES = ["Letícia Martelo", "Adnéia Campos"];
 
 export const MOTIVOS_PENDENCIA = [
   "Ag. Compras",
-  "Ag. Logística", 
+  "Ag. Fornecedor",
+  "Ag. Logística",
   "Ag. Cliente",
   "Enviado",
   "Ag. Bseller",
