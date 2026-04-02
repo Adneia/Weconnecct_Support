@@ -908,7 +908,7 @@ const NovoAtendimento = () => {
           <DialogHeader><DialogTitle>Texto Padrão - {formData.categoria}</DialogTitle></DialogHeader>
           <div className="relative">
             <Textarea value={textoPadrao} readOnly rows={12} className="font-mono text-sm" />
-            <Button variant="outline" size="sm" className="absolute top-2 right-2" onClick={() => copyToClipboard(textoPadrao)}>
+            <Button type="button" variant="outline" size="sm" className="absolute top-2 right-2" onClick={() => copyToClipboard(textoPadrao)}>
               <Copy className="h-4 w-4 mr-2" /> Copiar
             </Button>
           </div>
