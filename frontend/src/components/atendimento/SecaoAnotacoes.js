@@ -398,24 +398,31 @@ const SecaoAnotacoes = ({
                       <option key={grupo.causa} value={grupo.causa}>{grupo.causa}</option>
                     ))}
                   </select>
-                  {/* Nível 2: Título — aparece após selecionar causa */}
+                  {/* Nível 2: Botões de título — aparecem após selecionar causa */}
                   {causaSelecionada && titulosSelecionados.length > 0 && (
-                    <select
-                      className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      defaultValue=""
-                      onChange={e => {
-                        const titulo = e.target.value;
-                        if (!titulo) return;
-                        const item = titulosSelecionados.find(t => t.titulo === titulo);
-                        if (item && onLoadTextoRaw) onLoadTextoRaw(item.texto, item.titulo);
-                        e.target.value = '';
-                      }}
-                    >
-                      <option value="">Selecione o texto...</option>
-                      {titulosSelecionados.map(t => (
-                        <option key={t.titulo} value={t.titulo}>{t.titulo}</option>
-                      ))}
-                    </select>
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {titulosSelecionados.map(t => {
+                        const tLow = t.titulo.toLowerCase();
+                        const isMatch = transpLabel && (
+                          tLow.includes(transpLabel.toLowerCase().split(' ')[0])
+                        );
+                        return (
+                          <button
+                            key={t.titulo}
+                            type="button"
+                            onClick={() => { if (onLoadTextoRaw) onLoadTextoRaw(t.texto, t.titulo); }}
+                            className={isMatch
+                              ? 'px-3 py-1.5 text-sm rounded-md font-medium bg-amber-500 text-white border border-amber-500 hover:bg-amber-600'
+                              : titulosSelecionados.length === 1
+                                ? 'px-3 py-1.5 text-sm rounded-md font-medium bg-slate-800 text-white border border-slate-800 hover:bg-slate-700 dark:bg-slate-200 dark:text-slate-800'
+                                : 'px-3 py-1.5 text-sm rounded-md font-medium border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-600'
+                            }
+                          >
+                            {isMatch ? `★ ${t.titulo}` : t.titulo}
+                          </button>
+                        );
+                      })}
+                    </div>
                   )}
                 </div>
               )}
