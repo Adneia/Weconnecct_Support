@@ -280,6 +280,11 @@ const SecaoAnotacoes = ({
       .catch(() => setTextosMotivo([]));
   }, [motivoPendencia]);
 
+  useEffect(() => {
+    if (textosMotivo.length === 1) setCausaSelecionada(textosMotivo[0].causa);
+    else setCausaSelecionada('');
+  }, [textosMotivo]);
+
   const addObservacao = (texto) => {
     if (!texto.trim()) return;
     const hoje = new Date().toLocaleDateString('pt-BR');
@@ -387,19 +392,21 @@ const SecaoAnotacoes = ({
               </button>
               {textosAbertos && (
                 <div className="px-3 pb-3 space-y-2">
-                  {/* Nível 1: Causa */}
-                  <select
-                    className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    value={causaSelecionada}
-                    onChange={e => setCausaSelecionada(e.target.value)}
-                  >
-                    <option value="">Selecione o tipo de texto...</option>
-                    {textosMotivo.map(grupo => (
-                      <option key={grupo.causa} value={grupo.causa}>{grupo.causa}</option>
-                    ))}
-                  </select>
-                  {/* Nível 2: Botões de título — aparecem após selecionar causa */}
-                  {causaSelecionada && titulosSelecionados.length > 0 && (
+                  {/* Nível 1: Causa — só mostra se houver mais de 1 opção */}
+                  {textosMotivo.length > 1 && (
+                    <select
+                      className="w-full text-sm border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={causaSelecionada}
+                      onChange={e => setCausaSelecionada(e.target.value)}
+                    >
+                      <option value="">Selecione o tipo de texto...</option>
+                      {textosMotivo.map(grupo => (
+                        <option key={grupo.causa} value={grupo.causa}>{grupo.causa}</option>
+                      ))}
+                    </select>
+                  )}
+                  {/* Nível 2: Botões de título */}
+                  {titulosSelecionados.length > 0 && (
                     <div className="flex flex-wrap gap-2 pt-1">
                       {titulosSelecionados.map(t => {
                         const tLow = t.titulo.toLowerCase();
