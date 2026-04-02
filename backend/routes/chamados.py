@@ -350,13 +350,19 @@ async def update_chamado(
     if 'pendente' in update_data and not update_data['pendente'] and existing.get('pendente', True):
         update_data['data_fechamento'] = datetime.now(timezone.utc).isoformat()
         motivos_finalizadores = ["Entregue", "Estornado", "Atendido", "Em devolução", "Devolvido", "Encerrado"]
-        motivo_no_payload = update_data.get('motivo_pendencia')
-        motivo_atual = motivo_no_payload or existing.get('motivo_pendencia', '')
-        if motivo_atual and motivo_atual not in motivos_finalizadores:
-            update_data['motivo_pendencia'] = "Encerrado"
+        motivo_no_payload = update_data.get('motivo_pendencia') or None  # normaliza string vazia
+        # Se um motivo finalizador foi explicitamente enviado no payload, preserva ele
+        if motivo_no_payload and motivo_no_payload in motivos_finalizadores:
+            motivo_final = motivo_no_payload  # preserva o motivo enviado
+        else:
+            # Sem motivo finalizador no payload — verifica o motivo atual do chamado
+            motivo_referencia = motivo_no_payload or existing.get('motivo_pendencia', '')
+            if not motivo_referencia or motivo_referencia not in motivos_finalizadores:
+                update_data['motivo_pendencia'] = "Encerrado"
+            motivo_final = update_data.get('motivo_pendencia', motivo_referencia)
         # Garantir que status_cliente reflete o motivo final ao encerrar
-        if not update_data.get('status_cliente') and motivo_atual:
-            update_data['status_cliente'] = update_data.get('motivo_pendencia', motivo_atual)
+        if not update_data.get('status_cliente') and motivo_final:
+            update_data['status_cliente'] = motivo_final
     if update_data:
         await db.chamados.update_one({"id": chamado_id}, {"$set": update_data})
         if 'status_atendimento' in update_data or 'status_chamado' in update_data or 'pendente' in update_data:

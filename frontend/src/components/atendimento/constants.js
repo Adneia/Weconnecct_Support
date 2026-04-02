@@ -3,41 +3,41 @@
  */
 
 export const CATEGORIAS = [
-  "Falha Produção",
+  "Acompanhamento",
+  "Arrependimento",
+  "Assistência Técnica",
+  "Falha Cadastro",
   "Falha Compras",
-  "Falha Transporte",
   "Falha Fornecedor",
   "Falha Integração",
   "Falha Parceiro",
-  "Falha Cadastro",
-  "Arrependimento",
-  "Acompanhamento",
-  "Assistência Técnica"
+  "Falha Produção",
+  "Falha Transporte",
 ];
 
 export const ATENDENTES = ["Letícia Martelo", "Adnéia Campos"];
 
 export const MOTIVOS_PENDENCIA = [
+  "Ag. Barrar",
+  "Ag. Bseller",
+  "Ag. Cliente",
   "Ag. Compras",
+  "Ag. Confirmação de Entrega",
   "Ag. Fornecedor",
   "Ag. Logística",
-  "Ag. Cliente",
-  "Enviado",
-  "Ag. Bseller",
-  "Ag. Barrar",
-  "Aguardando",
-  "Em devolução",
-  "Ag. Confirmação de Entrega",
   "Ag. Parceiro",
   "Ag. Transportadora - Asap",
   "Ag. Transportadora - J&T",
   "Ag. Transportadora - Total",
+  "Aguardando",
+  "Em devolução",
+  "Enviado",
   // --- Motivos que finalizam o atendimento ---
-  "Entregue",
-  "Estornado",
   "Atendido",
   "Devolvido",
-  "Encerrado"
+  "Encerrado",
+  "Entregue",
+  "Estornado",
 ];
 
 export const MOTIVOS_FINALIZADORES = ["Entregue", "Estornado", "Atendido", "Em devolução", "Devolvido", "Encerrado"];
