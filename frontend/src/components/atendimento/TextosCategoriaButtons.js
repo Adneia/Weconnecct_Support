@@ -217,6 +217,21 @@ const TextosCategoriaButtons = ({
   if (categoria === 'Assistência Técnica') {
     const dept = pedidoErp?.departamento?.toLowerCase() || '';
     const matchFornecedor = (name) => dept.includes(name.toLowerCase());
+    const fornecedorDetectado =
+      matchFornecedor('oderço') || matchFornecedor('oderco') ? 'Oderço'
+      : matchFornecedor('ventisol') ? 'Ventisol'
+      : matchFornecedor('oex') ? 'OEX'
+      : matchFornecedor('hoopson') ? 'Hoopson'
+      : null;
+
+    const btnClass = (key, match) => {
+      if (selected.assistencia === key)
+        return 'px-3 py-1.5 text-sm rounded-md font-medium bg-slate-800 text-white border border-slate-800 hover:bg-slate-700 dark:bg-slate-200 dark:text-slate-800';
+      if (match)
+        return 'px-3 py-1.5 text-sm rounded-md font-medium bg-amber-500 text-white border border-amber-500 hover:bg-amber-600';
+      return 'px-3 py-1.5 text-sm rounded-md font-medium border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-600';
+    };
+
     return (
       <div className="space-y-3" data-testid="textos-assistencia">
         {pedidoErp?.departamento && (
@@ -227,7 +242,9 @@ const TextosCategoriaButtons = ({
           </div>
         )}
         <div className="space-y-2">
-          <Label className="text-sm font-medium">SAC do Fornecedor</Label>
+          <Label className="text-sm font-medium">
+            SAC do Fornecedor{fornecedorDetectado && <span className="ml-2 text-blue-600 dark:text-blue-400">— ★ {fornecedorDetectado}</span>}
+          </Label>
           <div className="flex flex-wrap gap-2">
             {[
               { key: 'Oderço', match: matchFornecedor('oderço') || matchFornecedor('oderco') },
@@ -235,13 +252,12 @@ const TextosCategoriaButtons = ({
               { key: 'OEX', match: matchFornecedor('oex') },
               { key: 'Hoopson', match: matchFornecedor('hoopson') },
             ].map(({ key, match }) => (
-              <Button key={key} type="button"
-                variant={selected.assistencia === key ? 'default' : (match ? 'secondary' : 'outline')}
-                size="sm" onClick={() => onLoadTexto.assistencia(key)}
-                className={match ? 'ring-2 ring-emerald-500' : ''}
+              <button key={key} type="button"
+                onClick={() => onLoadTexto.assistencia(key)}
+                className={btnClass(key, match)}
               >
-                {match && '✓ '}{key}
-              </Button>
+                {match && selected.assistencia !== key ? `★ ${key}` : key}
+              </button>
             ))}
           </div>
         </div>
@@ -252,13 +268,12 @@ const TextosCategoriaButtons = ({
               { key: 'Ventisol + Reversa', match: matchFornecedor('ventisol') },
               { key: 'OEX + Reversa', match: matchFornecedor('oex') },
             ].map(({ key, match }) => (
-              <Button key={key} type="button"
-                variant={selected.assistencia === key ? 'default' : (match ? 'secondary' : 'outline')}
-                size="sm" onClick={() => onLoadTexto.assistencia(key)}
-                className={match ? 'ring-2 ring-emerald-500' : ''}
+              <button key={key} type="button"
+                onClick={() => onLoadTexto.assistencia(key)}
+                className={btnClass(key, match)}
               >
-                {match && '✓ '}{key}
-              </Button>
+                {match && selected.assistencia !== key ? `★ ${key}` : key}
+              </button>
             ))}
           </div>
         </div>
