@@ -44,6 +44,17 @@ export const MOTIVOS_FINALIZADORES = ["Entregue", "Estornado", "Atendido", "Em d
 
 // Textos de Motivo da Pendência
 export const TEXTOS_MOTIVO_PENDENCIA = {
+  "Ag. Barrar": `Olá,
+
+O pedido está em processo de separação pela transportadora, aguardando a confirmação da solicitação de barragem.
+
+Prazo para retorno até 3 dias úteis. Assim que tivermos o retorno, entraremos em contato.
+
+Permanecemos à disposição.
+
+Atenciosamente,
+[ASSINATURA]`,
+
   "Ag. Confirmação de Entrega": `Prezado(a) Sr(a). [PRIMEIRO_NOME]
 
 Estamos entrando em contato para confirmar o recebimento do seu pedido: [PRODUTO] ([ENTREGA]). Poderia, por gentileza, nos informar se o produto já foi entregue?

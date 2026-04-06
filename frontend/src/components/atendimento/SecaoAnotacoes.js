@@ -17,6 +17,17 @@ import { MOTIVOS_PENDENCIA, MOTIVOS_FINALIZADORES } from './constants';
 import { TEXTOS_RECLAME_AQUI } from './textos';
 
 const MotivoPendenciaTextos = ({ motivoPendencia, selectedMotivoPendencia, onLoadTextoMotivoPendencia, onLoadTextoPadrao, onLoadTextoReversaAssistencia, onLoadTextoFalhaFornecedor, onLoadTextoComprovante, onLoadTextoFalhaTransporte, parceiro, pedidoErp, selectedAssistenciaAguardando }) => {
+  if (motivoPendencia === 'Ag. Barrar') {
+    return (
+      <div className="mt-3 p-3 rounded-lg bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 space-y-2">
+        <Label className="text-sm font-medium text-orange-800 dark:text-orange-200">Textos Padrão - Ag. Barrar</Label>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant={selectedMotivoPendencia === 'Ag. Barrar' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Barrar')}>Aguardando Barragem</Button>
+        </div>
+      </div>
+    );
+  }
+
   if (motivoPendencia === 'Ag. Confirmação de Entrega') {
     return (
       <div className="mt-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 space-y-2">
