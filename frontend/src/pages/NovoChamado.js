@@ -29,7 +29,7 @@ import SecaoAnotacoes from '../components/atendimento/SecaoAnotacoes';
 import AcoesFormulario from '../components/atendimento/AcoesFormulario';
 
 // Constants & Texts
-import { CATEGORIAS, MOTIVOS_FINALIZADORES } from '../components/atendimento/constants';
+import { CATEGORIAS, MOTIVOS_PENDENCIA, MOTIVOS_FINALIZADORES } from '../components/atendimento/constants';
 import {
   TEXTOS_MOTIVO_PENDENCIA, TEXTOS_AVARIA, TEXTOS_FALHA_PRODUCAO,
   TEXTOS_FALHA_TRANSPORTE, TEXTOS_ARREPENDIMENTO, TEXTOS_ACOMPANHAMENTO,
@@ -60,6 +60,7 @@ const NovoAtendimento = () => {
   const [showPedidosDialog, setShowPedidosDialog] = useState(false);
   const [showTextoDialog, setShowTextoDialog] = useState(false);
   const [textoPadrao, setTextoPadrao] = useState('');
+  const [textoDialogMotivo, setTextoDialogMotivo] = useState('');
   const textoAreaRef = useRef(null);
   const [codigoReversa, setCodigoReversa] = useState('');
   const [atendimentoOriginal, setAtendimentoOriginal] = useState(null);
@@ -259,25 +260,34 @@ const NovoAtendimento = () => {
   const selectPedido = (pedido) => { processarPedido(pedido); setShowPedidosDialog(false); };
 
   // --- Text Loading Functions (simplified with replaceAllPlaceholders) ---
+  // Abre o dialog de texto e inicializa o motivo sugerido
+  const openTextoDialogWithMotivo = (sugestao = null) => {
+    setTextoDialogMotivo(sugestao !== null ? sugestao : (motivoPendencia || ''));
+    setShowTextoDialog(true);
+  };
+
   const loadTextoPadrao = async (categoria) => {
     try {
       const response = await axios.get(`${API_URL}/api/textos-padroes/${encodeURIComponent(categoria)}`, { headers: getAuthHeader() });
       setTextoPadrao(replaceAllPlaceholders(response.data.texto, getTextContext()));
-      setShowTextoDialog(true);
+      openTextoDialogWithMotivo();
     } catch { toast.error('Erro ao carregar texto padrão'); }
   };
 
   const loadTextoAvaria = (tipo) => {
     setTextoPadrao(replaceAllPlaceholders(TEXTOS_AVARIA[tipo] || '', getTextContext()));
-    setSelectedAvaria(tipo); setShowTextoDialog(true);
+    setSelectedAvaria(tipo);
+    // "Avaria - Transporte até R$250" = reenvio sem devolução → motivo Ag. Logística
+    const sugestao = tipo === 'Avaria - Transporte até R$250' ? 'Ag. Logística' : null;
+    openTextoDialogWithMotivo(sugestao);
   };
   const loadTextoFalhaProducao = (tipo) => {
     setTextoPadrao(replaceAllPlaceholders(TEXTOS_FALHA_PRODUCAO[tipo] || '', getTextContext()));
-    setSelectedFalhaProducao(tipo); setShowTextoDialog(true);
+    setSelectedFalhaProducao(tipo); openTextoDialogWithMotivo();
   };
   const loadTextoFalhaTransporte = (tipo) => {
     setTextoPadrao(replaceAllPlaceholders(TEXTOS_FALHA_TRANSPORTE[tipo] || '', getTextContext()));
-    setSelectedFalhaTransporte(tipo); setShowTextoDialog(true);
+    setSelectedFalhaTransporte(tipo); openTextoDialogWithMotivo();
   };
   const loadTextoFalhaFornecedor = async (tipo) => {
     try {
@@ -285,24 +295,24 @@ const NovoAtendimento = () => {
       setTextoPadrao(replaceAllPlaceholders(response.data.texto, getTextContext()));
       setSelectedFalhaFornecedor(tipo);
       setSelectedAssistenciaAguardando(tipo);
-      setShowTextoDialog(true);
+      openTextoDialogWithMotivo();
     } catch { toast.error('Erro ao carregar texto padrão'); }
   };
   const loadTextoArrependimento = (tipo) => {
     setTextoPadrao(replaceAllPlaceholders(TEXTOS_ARREPENDIMENTO[tipo] || '', getTextContext()));
-    setSelectedArrependimento(tipo); setShowTextoDialog(true);
+    setSelectedArrependimento(tipo); openTextoDialogWithMotivo();
   };
   const loadTextoAcompanhamento = (tipo) => {
     setTextoPadrao(replaceAllPlaceholders(TEXTOS_ACOMPANHAMENTO[tipo] || '', getTextContext()));
-    setSelectedAcompanhamento(tipo); setShowTextoDialog(true);
+    setSelectedAcompanhamento(tipo); openTextoDialogWithMotivo();
   };
   const loadTextoReclameAqui = (tipo) => {
     setTextoPadrao(replaceAllPlaceholders(TEXTOS_RECLAME_AQUI[tipo] || '', getTextContext()));
-    setSelectedReclameAqui(tipo); setShowTextoDialog(true);
+    setSelectedReclameAqui(tipo); openTextoDialogWithMotivo();
   };
   const loadTextoAssistencia = (tipo) => {
     setTextoPadrao(replaceAllPlaceholders(TEXTOS_ASSISTENCIA[tipo] || '', getTextContext()));
-    setSelectedAssistencia(tipo); setShowTextoDialog(true);
+    setSelectedAssistencia(tipo); openTextoDialogWithMotivo();
   };
   const loadTextoComprovante = async (tipo) => {
     try {
@@ -310,20 +320,20 @@ const NovoAtendimento = () => {
       setTextoPadrao(replaceAllPlaceholders(response.data.texto, getTextContext()));
       setSelectedComprovante(tipo);
       setSelectedMotivoPendencia(`Comprovante - ${tipo}`);
-      setShowTextoDialog(true);
+      openTextoDialogWithMotivo();
     } catch { toast.error('Erro ao carregar texto de comprovante'); }
   };
   const loadTextoMotivoPendencia = (tipo) => {
     setTextoPadrao(replaceAllPlaceholders(TEXTOS_MOTIVO_PENDENCIA[tipo] || '', getTextContext()));
-    setSelectedMotivoPendencia(tipo); setShowTextoDialog(true);
+    setSelectedMotivoPendencia(tipo); openTextoDialogWithMotivo();
   };
   const loadTextoReversaAssistencia = (fornecedor) => {
     setTextoPadrao(replaceAllPlaceholders(TEXTOS_REVERSA_ASSISTENCIA[fornecedor] || '', getTextContext()));
-    setSelectedAssistenciaAguardando(`Reversa Assistência - ${fornecedor}`); setShowTextoDialog(true);
+    setSelectedAssistenciaAguardando(`Reversa Assistência - ${fornecedor}`); openTextoDialogWithMotivo();
   };
   const handleLoadTextoRaw = (texto, _titulo) => {
     setTextoPadrao(replaceAllPlaceholders(texto, getTextContext()));
-    setShowTextoDialog(true);
+    openTextoDialogWithMotivo();
   };
 
   const isReclameAqui = () => formData.solicitacao && formData.solicitacao.toLowerCase().includes('reclame');
@@ -951,6 +961,31 @@ const NovoAtendimento = () => {
               }
             }}>
               <Copy className="h-4 w-4 mr-2" /> Copiar
+            </Button>
+          </div>
+          {/* Seletor de motivo da pendência */}
+          <div className="flex items-center gap-2 border-t pt-3">
+            <Label className="text-sm text-muted-foreground whitespace-nowrap">Motivo ao aplicar:</Label>
+            <Select value={textoDialogMotivo} onValueChange={setTextoDialogMotivo}>
+              <SelectTrigger className="flex-1 h-8 text-sm">
+                <SelectValue placeholder="Selecionar motivo..." />
+              </SelectTrigger>
+              <SelectContent>
+                {MOTIVOS_PENDENCIA.map(m => (
+                  <SelectItem key={m} value={m}>{m}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              size="sm"
+              disabled={!textoDialogMotivo || textoDialogMotivo === motivoPendencia}
+              onClick={() => {
+                setMotivoPendencia(textoDialogMotivo);
+                toast.success(`Motivo alterado para "${textoDialogMotivo}"`);
+              }}
+            >
+              Aplicar
             </Button>
           </div>
           <DialogFooter><Button type="button" variant="outline" onClick={() => setShowTextoDialog(false)}>Fechar</Button></DialogFooter>
