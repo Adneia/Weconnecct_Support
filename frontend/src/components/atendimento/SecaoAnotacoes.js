@@ -626,22 +626,6 @@ const SecaoAnotacoes = ({
           );
         })()}
 
-        {/* Textos padrão locais — só aparecem quando não há textos cadastrados na API para este motivo */}
-        {textosMotivo.length === 0 && (
-          <MotivoPendenciaTextos
-            motivoPendencia={motivoPendencia}
-            selectedMotivoPendencia={selectedMotivoPendencia}
-            onLoadTextoMotivoPendencia={onLoadTextoMotivoPendencia}
-            onLoadTextoPadrao={onLoadTextoPadrao}
-            onLoadTextoReversaAssistencia={onLoadTextoReversaAssistencia}
-            onLoadTextoFalhaFornecedor={onLoadTextoFalhaFornecedor}
-            onLoadTextoComprovante={onLoadTextoComprovante}
-            onLoadTextoFalhaTransporte={onLoadTextoFalhaTransporte}
-            parceiro={parceiro}
-            pedidoErp={pedidoErp}
-            selectedAssistenciaAguardando={selectedAssistenciaAguardando}
-          />
-        )}
 
         {/* Campo para nova observação */}
         <div className="space-y-3">
