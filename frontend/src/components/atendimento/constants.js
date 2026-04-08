@@ -44,6 +44,457 @@ export const MOTIVOS_FINALIZADORES = ["Entregue", "Estornado", "Atendido", "Em d
 
 // Textos de Motivo da Pendência
 export const TEXTOS_MOTIVO_PENDENCIA = {
+
+  // ─── Ag. Fornecedor ──────────────────────────────────────────────────────────
+  "Ag. Fornecedor - Verificação Reposição": `Olá,
+
+Sentimos muito pelo ocorrido.
+
+Vamos acionar o fornecedor para verificar a possibilidade de reposição da peça. O prazo para retorno é de até 4 dias úteis e, assim que tivermos uma posição, entraremos em contato.
+
+Seguimos à disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  // ─── Ag. Compras ─────────────────────────────────────────────────────────────
+  "Ag. Compras - Em Preparação": `Olá,
+
+Identificamos uma falha operacional, a qual, está sendo resolvida. O pedido encontra-se em preparação. Assim que possível, disponibilizaremos o link para rastreio e previsão de entrega.
+
+Seguimos a disposição.
+Atenciosamente!
+[ASSINATURA]`,
+
+  "Ag. Compras - Em Separação": `Olá,
+
+Identificamos uma falha operacional, a qual, está sendo resolvida. O pedido encontra-se em separação para transportadora. Assim que possível, disponibilizaremos o link para rastreio e previsão de entrega.
+
+Seguimos a disposição.
+Atenciosamente!
+[ASSINATURA]`,
+
+  "Ag. Compras - Cancelamento Avaria": `Olá,
+
+Infelizmente, durante a preparação do item [PRODUTO] ([ENTREGA]), identificamos uma avaria, o que nos levou a optar pelo cancelamento devido à indisponibilidade para reposição.
+
+Poderia, por gentileza, seguir com o cancelamento e o estorno ao cliente?
+
+Atenciosamente,
+[ASSINATURA]`,
+
+  // ─── Ag. Bseller ─────────────────────────────────────────────────────────────
+  "Ag. Bseller - Em Preparação": `Olá,
+
+Identificamos uma falha operacional, a qual, está sendo resolvida. O pedido encontra-se em preparação. Assim que possível, disponibilizaremos o link para rastreio e previsão de entrega.
+
+Seguimos a disposição.
+Atenciosamente!
+[ASSINATURA]`,
+
+  "Ag. Bseller - Em Separação": `Olá,
+
+Identificamos uma falha operacional, a qual, está sendo resolvida. O pedido encontra-se em separação para transportadora. Assim que possível, disponibilizaremos o link para rastreio e previsão de entrega.
+
+Seguimos a disposição.
+Atenciosamente!
+[ASSINATURA]`,
+
+  "Ag. Bseller - Cancelamento Avaria": `Olá,
+
+Infelizmente, durante a preparação do item [PRODUTO] ([ENTREGA]), identificamos uma avaria, o que nos levou a optar pelo cancelamento devido à indisponibilidade para reposição.
+
+Poderia, por gentileza, seguir com o cancelamento e o estorno ao cliente?
+
+Atenciosamente,
+[ASSINATURA]`,
+
+  // ─── Ag. Logística ───────────────────────────────────────────────────────────
+  "Ag. Logística - Atraso Total Express": `Olá,
+
+Informamos que o pedido já foi entregue à transportadora. Pedimos, por gentileza, que aguarde o prazo de até 48 horas úteis para que as informações de rastreamento e a previsão de entrega sejam atualizadas no sistema.
+
+Segue rastreio para acompanhamento:
+Rastreio: [CÓDIGO_RASTREIO]
+
+https://totalconecta.totalexpress.com.br/rastreamento
+
+Permanecemos à disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Logística - Atraso J&T Express": `Olá,
+
+Informamos que o pedido já foi entregue à transportadora. Pedimos, por gentileza, que aguarde o prazo de até 48 horas úteis para que as informações de rastreamento e a previsão de entrega sejam atualizadas no sistema.
+
+Segue rastreio para acompanhamento:
+Chave de acesso: [CHAVE_ACESSO]
+
+https://www.jtexpress.com.br/
+
+Seguimos a disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Logística - Atraso ASAP Log": `Olá,
+
+Informamos que o pedido já foi entregue à transportadora. Pedimos, por gentileza, que aguarde o prazo de até 48 horas úteis para que as informações de rastreamento e a previsão de entrega sejam atualizadas no sistema.
+
+Segue rastreio para acompanhamento:
+Nota Fiscal: [NOTA_FISCAL]
+
+https://rastreio.asaplog.com.br/
+
+Seguimos a disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Logística - Reenvio": `Olá,
+
+Recebemos o pedido em nosso galpão e estamos providenciando o envio de um novo item ao cliente. Assim que possível, enviaremos o link de rastreamento.
+
+Estamos à disposição para qualquer dúvida.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Logística - Em Preparação": `Olá,
+
+Identificamos uma falha operacional, a qual, está sendo resolvida. O pedido encontra-se em preparação. Assim que possível, disponibilizaremos o link para rastreio e previsão de entrega.
+
+Seguimos a disposição.
+Atenciosamente!
+[ASSINATURA]`,
+
+  "Ag. Logística - Em Separação": `Olá,
+
+Identificamos uma falha operacional, a qual, está sendo resolvida. O pedido encontra-se em separação para transportadora. Assim que possível, disponibilizaremos o link para rastreio e previsão de entrega.
+
+Seguimos a disposição.
+Atenciosamente!
+[ASSINATURA]`,
+
+  "Ag. Logística - Acionando Transportadora": `Olá,
+
+Acionaremos a transportadora para verificar o motivo do atraso no processamento do pedido.
+
+Prazo de até 3 dias úteis. Assim que obtivermos retorno, entraremos em contato.
+
+Por favor seguir acompanhando o rastreio para novas atualizações.
+
+Seguimos a disposição.
+Atenciosamente!
+[ASSINATURA]`,
+
+  // ─── Ag. Parceiro ────────────────────────────────────────────────────────────
+  "Ag. Parceiro - Cancelamento": `Olá,
+
+Pedido cancelado, por favor seguir com o estorno ao cliente e encerramento do chamado.
+
+Seguimos a disposição.
+Atenciosamente!
+[ASSINATURA]`,
+
+  "Ag. Parceiro - Solicitar Evidências": `Olá,
+
+Para darmos continuidade à tratativa, solicitamos, por gentileza, o envio das seguintes evidências:
+
+* Imagem da embalagem recebida;
+* Foto da etiqueta entregue.
+* Foto do produto (todos os ângulos)
+* Foto ou vídeo que identifique a avaria
+
+Ressaltamos que o prazo para acionar a transportadora é de 7 dias corridos após a entrega do produto avariado.
+
+Estamos à disposição para quaisquer dúvidas e aguardamos seu retorno.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Parceiro - Em Devolução": `Olá,
+
+O pedido encontra-se em processo de devolução. Assim que recebido em nosso galpão, retornaremos com o atendimento.
+
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Parceiro - Estorno Descarte": `Olá,
+
+Por favor seguir com o estorno ao cliente e encerramento do chamado.
+
+Por favor orientar o cliente descartar o item avariado.
+
+Sentimos muito pelo ocorrido.
+
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Parceiro - Exceção Estorno": `Olá,
+
+Pedido em processo de devolução. Em caráter de exceção, por favor seguir com o estorno ao cliente.
+
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Parceiro - Confirmação Encerramento": `Olá,
+
+Poderia confirmar se podemos proceder com o encerramento do chamado?
+
+Seguimos a disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Parceiro - Código Expirado": `Olá,
+
+O código de postagem está expirado e não houve postagem do produto. Podemos seguir com o encerramento do atendimento?
+
+Seguimos à disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Parceiro - Cancelamento Avaria": `Olá,
+
+Infelizmente, durante a preparação do item [PRODUTO], identificamos uma avaria, o que nos levou a optar pelo cancelamento devido à indisponibilidade para reposição.
+
+Poderia, por gentileza, seguir com o cancelamento e o estorno ao cliente?
+
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Parceiro - Confirmar Entrega": `Olá,
+
+Informamos que o pedido foi entregue em [DATA_ENTREGA]. Por favor confirmar entrega junto ao cliente.
+
+Ressaltamos que o prazo para contestação da entrega ou solicitação de acareação é de até 15 dias corridos, contados da data da entrega. Caso haja qualquer divergência, pedimos que nos informe dentro desse período para que possamos realizar as devidas análises.
+
+Na ausência de manifestação dentro do prazo informado, seguiremos com o encerramento do chamado.
+
+Podemos encerrar o atendimento?
+
+Permanecemos à disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Parceiro - Prazo Expirado": `Olá,
+
+Informamos que o pedido foi entregue em [DATA_ENTREGA]. Encaminhamos em anexo o comprovante de entrega para sua conferência.
+
+Ressaltamos que o prazo para contestação da entrega ou solicitação de acareação é de até 15 dias corridos, contados a partir da data da entrega. Dessa forma, informamos que o prazo para solicitação de acareação já se encontra expirado.
+
+Diante disso, prosseguiremos com o encerramento do chamado.
+
+Permanecemos à disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Parceiro - Comprovante Email": `Olá,
+
+Informamos que o pedido foi entregue em [DATA_ENTREGA]. Por favor confirmar entrega junto ao cliente e seguir com o encerramento do chamado. Comprovante enviado via e-mail.
+
+Assunto: Ocorrência: [NUMERO_OCORRENCIA]
+
+Ressaltamos que o prazo para contestação da entrega ou solicitação de acareação é de até 15 dias corridos, contados da data da entrega. Caso haja qualquer divergência, pedimos que nos informe dentro desse período para que possamos realizar as devidas análises.
+
+Na ausência de manifestação dentro do prazo informado, seguiremos com o encerramento do chamado.
+
+Permanecemos à disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Parceiro - Vtex CSU": `Olá,
+
+Não fomos acionados pela Vtex para preparação deste pedido. Status Vtex (Aguardando autorização para despachar).
+
+Por favor verificar o ocorrido entre Vtex e CSU.
+
+Seguimos a disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Parceiro - Vtex Parceiro": `Olá,
+
+Não fomos acionados pela Vtex para preparação deste pedido. Status Vtex (Aguardando autorização para despachar).
+
+Por favor verificar o ocorrido entre Vtex e parceiro.
+
+Seguimos a disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Parceiro - Extravio Reenvio": `Olá,
+
+O pedido foi extraviado pela transportadora. Iniciamos a preparação para envio de um novo item ao cliente, assim que possível disponibilizaremos o link para rastreio.
+
+Seguimos a disposição.
+
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Parceiro - Extravio Cancelamento": `Olá,
+
+O pedido foi extraviado pela transportadora. Pedimos a gentileza de seguir com o cancelamento e estorno devido a indisponibilidade de reposição.
+
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Parceiro - Extravio Nova Preparação": `Olá,
+
+O pedido foi extraviado pela transportadora, iniciamos uma nova preparação para envio ao cliente. A previsão atual de entrega é para o dia [DATA_PREVISAO]. Poderia, por gentileza, confirmar junto ao cliente a nova previsão?
+
+Pedimos a gentileza de solicitar ao cliente que em caso de entrega nos acione para darmos as devidas tratativas.
+
+Atenciosamente,
+[ASSINATURA]`,
+
+  // ─── Ag. Cliente (mesmos textos do Ag. Parceiro) ─────────────────────────────
+  "Ag. Cliente - Solicitar Evidências": `Olá,
+
+Para darmos continuidade à tratativa, solicitamos, por gentileza, o envio das seguintes evidências:
+
+* Imagem da embalagem recebida;
+* Foto da etiqueta entregue.
+* Foto do produto (todos os ângulos)
+* Foto ou vídeo que identifique a avaria
+
+Ressaltamos que o prazo para acionar a transportadora é de 7 dias corridos após a entrega do produto avariado.
+
+Estamos à disposição para quaisquer dúvidas e aguardamos seu retorno.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Cliente - Em Devolução": `Olá,
+
+O pedido encontra-se em processo de devolução. Assim que recebido em nosso galpão, retornaremos com o atendimento.
+
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Cliente - Estorno Descarte": `Olá,
+
+Por favor seguir com o estorno ao cliente e encerramento do chamado.
+
+Por favor orientar o cliente descartar o item avariado.
+
+Sentimos muito pelo ocorrido.
+
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Cliente - Exceção Estorno": `Olá,
+
+Pedido em processo de devolução. Em caráter de exceção, por favor seguir com o estorno ao cliente.
+
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Cliente - Confirmação Encerramento": `Olá,
+
+Poderia confirmar se podemos proceder com o encerramento do chamado?
+
+Seguimos a disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Cliente - Código Expirado": `Olá,
+
+O código de postagem está expirado e não houve postagem do produto. Podemos seguir com o encerramento do atendimento?
+
+Seguimos à disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Cliente - Cancelamento Avaria": `Olá,
+
+Infelizmente, durante a preparação do item [PRODUTO], identificamos uma avaria, o que nos levou a optar pelo cancelamento devido à indisponibilidade para reposição.
+
+Poderia, por gentileza, seguir com o cancelamento e o estorno ao cliente?
+
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Cliente - Confirmar Entrega": `Olá,
+
+Informamos que o pedido foi entregue em [DATA_ENTREGA]. Por favor confirmar entrega junto ao cliente.
+
+Ressaltamos que o prazo para contestação da entrega ou solicitação de acareação é de até 15 dias corridos, contados da data da entrega. Caso haja qualquer divergência, pedimos que nos informe dentro desse período para que possamos realizar as devidas análises.
+
+Na ausência de manifestação dentro do prazo informado, seguiremos com o encerramento do chamado.
+
+Podemos encerrar o atendimento?
+
+Permanecemos à disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Cliente - Prazo Expirado": `Olá,
+
+Informamos que o pedido foi entregue em [DATA_ENTREGA]. Encaminhamos em anexo o comprovante de entrega para sua conferência.
+
+Ressaltamos que o prazo para contestação da entrega ou solicitação de acareação é de até 15 dias corridos, contados a partir da data da entrega. Dessa forma, informamos que o prazo para solicitação de acareação já se encontra expirado.
+
+Diante disso, prosseguiremos com o encerramento do chamado.
+
+Permanecemos à disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Cliente - Comprovante Email": `Olá,
+
+Informamos que o pedido foi entregue em [DATA_ENTREGA]. Por favor confirmar entrega junto ao cliente e seguir com o encerramento do chamado. Comprovante enviado via e-mail.
+
+Assunto: Ocorrência: [NUMERO_OCORRENCIA]
+
+Ressaltamos que o prazo para contestação da entrega ou solicitação de acareação é de até 15 dias corridos, contados da data da entrega. Caso haja qualquer divergência, pedimos que nos informe dentro desse período para que possamos realizar as devidas análises.
+
+Na ausência de manifestação dentro do prazo informado, seguiremos com o encerramento do chamado.
+
+Permanecemos à disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Cliente - Vtex CSU": `Olá,
+
+Não fomos acionados pela Vtex para preparação deste pedido. Status Vtex (Aguardando autorização para despachar).
+
+Por favor verificar o ocorrido entre Vtex e CSU.
+
+Seguimos a disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Cliente - Vtex Parceiro": `Olá,
+
+Não fomos acionados pela Vtex para preparação deste pedido. Status Vtex (Aguardando autorização para despachar).
+
+Por favor verificar o ocorrido entre Vtex e parceiro.
+
+Seguimos a disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Cliente - Extravio Reenvio": `Olá,
+
+O pedido foi extraviado pela transportadora. Iniciamos a preparação para envio de um novo item ao cliente, assim que possível disponibilizaremos o link para rastreio.
+
+Seguimos a disposição.
+
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Cliente - Extravio Cancelamento": `Olá,
+
+O pedido foi extraviado pela transportadora. Pedimos a gentileza de seguir com o cancelamento e estorno devido a indisponibilidade de reposição.
+
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Cliente - Extravio Nova Preparação": `Olá,
+
+O pedido foi extraviado pela transportadora, iniciamos uma nova preparação para envio ao cliente. A previsão atual de entrega é para o dia [DATA_PREVISAO]. Poderia, por gentileza, confirmar junto ao cliente a nova previsão?
+
+Pedimos a gentileza de solicitar ao cliente que em caso de entrega nos acione para darmos as devidas tratativas.
+
+Atenciosamente,
+[ASSINATURA]`,
+
+  // ─── Ag. Barrar ──────────────────────────────────────────────────────────────
   "Ag. Barrar": `Olá,
 
 O pedido está em processo de separação pela transportadora, aguardando a confirmação da solicitação de barragem.
@@ -55,6 +506,254 @@ Permanecemos à disposição.
 Atenciosamente,
 [ASSINATURA]`,
 
+  "Ag. Barrar - Bloqueio Recusar": `Olá,
+
+Acionamos a transportadora com o bloqueio de entrega. Poderia, por favor orientar o cliente que em caso de tentativa de entrega, recusar o recebimento.
+
+Assim que entrar em devolução, entraremos em contato.
+
+Seguimos a disposição.
+Atenciosamente!
+[ASSINATURA]`,
+
+  "Ag. Barrar - Em Rota Entrega": `Olá,
+
+Acionamos a transportadora com a solicitação de bloqueio da entrega. No entanto, identificamos que o pedido encontra-se em rota de entrega, o que significa que pode não ser possível impedir a entrega a tempo.
+
+Por gentileza, oriente o cliente a recusar o recebimento, caso a tentativa de entrega ocorra.
+
+Caso a entrega seja concluída, nos acionar novamente para que possamos seguir com a emissão da reversa para devolução do pedido.
+
+Assim que o pedido retornar ao nosso centro de distribuição, entraremos em contato.
+
+Permanecemos à disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Barrar - Acareação": `Olá,
+
+Informamos que o pedido foi entregue em [DATA_ENTREGA]. Encaminhamos em anexo o comprovante de entrega para sua conferência.
+
+Ressaltamos que o prazo para contestação da entrega ou solicitação de acareação é de até 15 dias corridos, contados a partir da data da entrega. Dessa forma, daremos andamento à solicitação de acareação junto à transportadora e, assim que obtivermos um retorno, entraremos em contato.
+
+Caso o cliente confirme a entrega com base no comprovante encaminhado, pedimos a gentileza de nos informar para que possamos prosseguir com o encerramento do chamado.
+
+Permanecemos à disposição para quaisquer esclarecimentos.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Barrar - Aguardando Recebimento": `Olá,
+
+O pedido encontra-se em processo de devolução. Assim que recebido em nosso galpão, retornaremos com o atendimento.
+
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Barrar - Com Rastreio": `Olá,
+
+O pedido segue em processo de devolução, conforme link de rastreamento abaixo:
+
+Rastreio: [CÓDIGO_REVERSA]
+
+https://rastreamento.correios.com.br/app/index.php
+
+Assim que o item der entrada em nosso galpão, daremos sequência a tratativa.
+
+Permanecemos à disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Barrar - Insucesso Entrega": `Olá,
+
+Infelizmente, a transportadora direcionou o pedido para devolução. No momento, o pedido encontra-se em retorno para o nosso galpão.
+
+Lamentamos muito o ocorrido e os transtornos causados. Gostaríamos de saber se podemos prosseguir com um novo envio do produto assim que ele for recebido em nosso galpão.
+
+Seguimos à disposição.
+Atenciosamente,
+Equipe de Atendimento Weconnect`,
+
+  // ─── Ag. Transportadora ──────────────────────────────────────────────────────
+  "Ag. Transportadora - Bloqueio Recusar": `Olá,
+
+Acionamos a transportadora com o bloqueio de entrega. Poderia, por favor orientar o cliente que em caso de tentativa de entrega, recusar o recebimento.
+
+Assim que entrar em devolução, entraremos em contato.
+
+Seguimos a disposição.
+Atenciosamente!
+[ASSINATURA]`,
+
+  "Ag. Transportadora - Aguardando Barragem": `Olá,
+
+O pedido está em processo de separação pela transportadora, aguardando a confirmação da solicitação de barragem.
+
+Prazo para retorno até 3 dias úteis. Assim que tivermos o retorno, entraremos em contato.
+
+Permanecemos à disposição.
+
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Transportadora - Em Rota Entrega": `Olá,
+
+Acionamos a transportadora com a solicitação de bloqueio da entrega. No entanto, identificamos que o pedido encontra-se em rota de entrega, o que significa que pode não ser possível impedir a entrega a tempo.
+
+Por gentileza, oriente o cliente a recusar o recebimento, caso a tentativa de entrega ocorra.
+
+Caso a entrega seja concluída, nos acionar novamente para que possamos seguir com a emissão da reversa para devolução do pedido.
+
+Assim que o pedido retornar ao nosso centro de distribuição, entraremos em contato.
+
+Permanecemos à disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Transportadora - Acareação": `Olá,
+
+Informamos que o pedido foi entregue em [DATA_ENTREGA]. Encaminhamos em anexo o comprovante de entrega para sua conferência.
+
+Ressaltamos que o prazo para contestação da entrega ou solicitação de acareação é de até 15 dias corridos, contados a partir da data da entrega. Dessa forma, daremos andamento à solicitação de acareação junto à transportadora e, assim que obtivermos um retorno, entraremos em contato.
+
+Caso o cliente confirme a entrega com base no comprovante encaminhado, pedimos a gentileza de nos informar para que possamos prosseguir com o encerramento do chamado.
+
+Permanecemos à disposição para quaisquer esclarecimentos.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Transportadora - Aguardando Recebimento": `Olá,
+
+O pedido encontra-se em processo de devolução. Assim que recebido em nosso galpão, retornaremos com o atendimento.
+
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Transportadora - Com Rastreio": `Olá,
+
+O pedido segue em processo de devolução, conforme link de rastreamento abaixo:
+
+Rastreio: [CÓDIGO_REVERSA]
+
+https://rastreamento.correios.com.br/app/index.php
+
+Assim que o item der entrada em nosso galpão, daremos sequência a tratativa.
+
+Permanecemos à disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Transportadora - Insucesso Entrega": `Olá,
+
+Infelizmente, a transportadora direcionou o pedido para devolução. No momento, o pedido encontra-se em retorno para o nosso galpão.
+
+Lamentamos muito o ocorrido e os transtornos causados. Gostaríamos de saber se podemos prosseguir com um novo envio do produto assim que ele for recebido em nosso galpão.
+
+Seguimos à disposição.
+Atenciosamente,
+Equipe de Atendimento Weconnect`,
+
+  // ─── Enviado ─────────────────────────────────────────────────────────────────
+  "Enviado - Total Express": `Olá,
+
+Pedido em processo de entrega, podendo ser entregue a qualquer momento.
+
+Segue rastreio para acompanhamento:
+Rastreio: [CÓDIGO_RASTREIO]
+Previsão de entrega até dia [DATA_PREVISAO]
+
+https://totalconecta.totalexpress.com.br/rastreamento
+
+Seguimos a disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Enviado - J&T Express": `Olá,
+
+Pedido em processo de entrega, podendo ser entregue a qualquer momento.
+
+Segue rastreio para acompanhamento:
+Chave de acesso: [CHAVE_ACESSO]
+Previsão de entrega até dia [DATA_PREVISAO]
+
+https://www.jtexpress.com.br/
+
+Seguimos a disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Enviado - ASAP Log": `Olá,
+
+Pedido em processo de entrega, podendo ser entregue a qualquer momento.
+
+Acionado transportadora para seguir com a entrega com prioridade.
+
+Segue rastreio para acompanhamento:
+Nota Fiscal: [NOTA_FISCAL]
+Previsão de entrega até dia [DATA_PREVISAO]
+
+https://rastreio.asaplog.com.br/
+
+Seguimos a disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Enviado - Correios": `Olá,
+
+Pedido em processo de entrega, podendo ser entregue a qualquer momento.
+
+Acionado transportadora para seguir com a entrega com prioridade.
+
+Segue rastreio para acompanhamento:
+Rastreio: [CÓDIGO_RASTREIO]
+Previsão de entrega até dia [DATA_PREVISAO]
+
+https://rastreamento.correios.com.br/app/index.php
+
+Seguimos a disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  // ─── Aguardando ──────────────────────────────────────────────────────────────
+  "Aguardando - Objeto Não Postado": `Olá,
+
+Objeto não postado até o momento. Por favor orientar o cliente em relação ao prazo que expira em [DATA_VALIDADE].
+
+Seguimos a disposição.
+Atenciosamente!
+[ASSINATURA]`,
+
+  "Aguardando - Aguardando Recebimento": `Olá,
+
+O pedido encontra-se em processo de devolução. Assim que recebido em nosso galpão, retornaremos com o atendimento.
+
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Aguardando - Com Rastreio": `Olá,
+
+O pedido segue em processo de devolução, conforme link de rastreamento abaixo:
+
+Rastreio: [CÓDIGO_REVERSA]
+
+https://rastreamento.correios.com.br/app/index.php
+
+Assim que o item der entrada em nosso galpão, daremos sequência a tratativa.
+
+Permanecemos à disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Aguardando - Insucesso Entrega": `Olá,
+
+Infelizmente, a transportadora direcionou o pedido para devolução. No momento, o pedido encontra-se em retorno para o nosso galpão.
+
+Lamentamos muito o ocorrido e os transtornos causados. Gostaríamos de saber se podemos prosseguir com um novo envio do produto assim que ele for recebido em nosso galpão.
+
+Seguimos à disposição.
+Atenciosamente,
+Equipe de Atendimento Weconnect`,
+
+  // ─── Ag. Confirmação de Entrega ──────────────────────────────────────────────
   "Ag. Confirmação de Entrega": `Prezado(a) Sr(a). [PRIMEIRO_NOME]
 
 Estamos entrando em contato para confirmar o recebimento do seu pedido: [PRODUTO] ([ENTREGA]). Poderia, por gentileza, nos informar se o produto já foi entregue?
@@ -77,7 +776,7 @@ Permanecemos à disposição.
 Atenciosamente,
 [ASSINATURA]`,
 
-  "Ag. Confirmação - Reenvio": `Seguiremos com um novo envio do pedido. 
+  "Ag. Confirmação - Reenvio": `Seguiremos com um novo envio do pedido.
 
 Solicitaremos prioridade na entrega.
 
@@ -91,20 +790,24 @@ Equipe de Atendimento Weconnect`,
 Atenciosamente,
 Equipe de Atendimento Weconnect`,
 
-  "Ag. Parceiro - Estorno": `Olá, 
+  // ─── Ag. Parceiro (legados - mantidos para compatibilidade) ──────────────────
+  "Ag. Parceiro - Estorno": `Olá,
 
-Pedido cancelado, por favor seguir com o estorno ao cliente e encerramento do chamado.
+Por favor seguir com o estorno ao cliente e encerramento do chamado.
 
-Seguimos a disposição.
-Atenciosamente! 
+Por favor orientar o cliente descartar o item avariado.
+
+Sentimos muito pelo ocorrido.
+
+Atenciosamente,
 [ASSINATURA]`,
 
-  "Ag. Parceiro - Confirmação Encerramento": `Olá, 
+  "Ag. Parceiro - Confirmação Encerramento": `Olá,
 
 Poderia confirmar se podemos proceder com o encerramento do chamado?
 
 Seguimos a disposição.
-Atenciosamente, 
+Atenciosamente,
 [ASSINATURA]`,
 
   "Ag. Parceiro - Encerramento": `Olá, Bom dia.
@@ -115,7 +818,8 @@ Seguimos a disposição, caso haja qualquer necessidade dentro dos prazo de atua
 Atenciosamente!
 [ASSINATURA]`,
 
-  "Em devolução - Ag. Devolução": `Olá, 
+  // ─── Em devolução ────────────────────────────────────────────────────────────
+  "Em devolução - Ag. Devolução": `Olá,
 
 O pedido segue em processo de devolução, conforme link de rastreamento abaixo:
 
@@ -136,9 +840,9 @@ Pedido em processo de devolução. Em caráter de exceção, por favor seguir co
 Atenciosamente,
 [ASSINATURA]`,
 
-  "Em devolução - Confirmar Reenvio": `Bom dia!
+  "Em devolução - Confirmar Reenvio": `Olá,
 
-Infelizmente, a transportadora direcionou o pedido para devolução, em razão de insucesso na entrega. No momento, o pedido encontra-se em retorno para o nosso galpão.
+Infelizmente, a transportadora direcionou o pedido para devolução. No momento, o pedido encontra-se em retorno para o nosso galpão.
 
 Lamentamos muito o ocorrido e os transtornos causados. Gostaríamos de saber se podemos prosseguir com um novo envio do produto assim que ele for recebido em nosso galpão.
 
@@ -146,6 +850,7 @@ Seguimos à disposição.
 Atenciosamente,
 [ASSINATURA]`,
 
+  // ─── Devolvido ───────────────────────────────────────────────────────────────
   "Devolvido - Problema Transportadora": `Olá,
 
 Lamentavelmente, o pedido está sendo devolvido ao nosso estoque devido a PROBLEMA OPERACIONAL da transportadora. Por gentileza, poderiam confirmar o endereço completo com ponto de referência para realização de um novo envio?
@@ -603,14 +1308,21 @@ Equipe de Atendimento Weconnect`
 export const TEXTOS_ASSISTENCIA = {
   "Oderço": `Olá,
 
-Lamentamos muito pelo ocorrido e para agilizar o atendimento, pedimos que o cliente acione direto o fornecedor para dar andamento ao processo de troca.
+Lamentamos muito pelo ocorrido com o produto.
 
-Serviço de Atendimento ao Cliente (SAC) – ODERÇO
-44 2101-1428
+Para dar andamento da forma mais rápida possível, o cliente pode optar por uma das opções abaixo:
 
-Seguimos à disposição para qualquer apoio necessário.
+1 - Acionar diretamente o fornecedor, que poderá conduzir o processo de troca com mais agilidade:
+Serviço de Atendimento ao Cliente (SAC) - ODERÇO
+Tel: 44 2101-1428
+
+2 - Caso prefira, podemos seguir com a abertura de logística reversa, para que o produto retorne ao nosso galpão e, após a conferência, seja realizado o reenvio de um novo item ou o prosseguimento com a devolução, conforme solicitado.
+
+Por gentileza, nos informe qual das opções prefere para que possamos dar sequência ao atendimento.
+
+Seguimos à disposição.
 Atenciosamente,
-[ASSINATURA]`,
+Equipe de Atendimento Weconnect`,
 
   "Ventisol": `Olá,
 
@@ -627,12 +1339,32 @@ Atenciosamente,
 
 Lamentamos muito pelo ocorrido e para agilizar o atendimento, pedimos que o cliente acione direto o fornecedor para dar andamento ao processo de troca.
 
-Serviço de Atendimento ao Cliente (SAC) – OEX 
+Serviço de Atendimento ao Cliente (SAC) - OEX
 reversa@newex.com.br
 
-0800 887 0505 OU 11 973928421
+Tel: 0800 887 0505 OU 11 973928421
 
 Seguimos à disposição para qualquer apoio necessário.
+
+Atenciosamente,
+[ASSINATURA]`,
+
+  "OEX - Teste Funcionamento": `Olá, boa tarde.
+
+Temos esta orientação pelo fornecedor, pois algumas conexões não são realizadas corretamente.
+
+Pedimos, por gentileza, que o cliente seja orientado a entrar em contato com a assistência, para que possam auxiliá-lo com um teste rápido de verificação de funcionamento.
+
+Dados da assistência técnica:
+Serviço de Atendimento ao Cliente (SAC) - OEX
+
+(11) 97392-8421 (WhatsApp)
+Tel: 0800 887 0505
+E-mail: reversa@newex.com.br
+
+Caso não haja retorno ou suporte no prazo de até 2 dias úteis, por favor nos acionar, pois daremos continuidade à tratativa internamente pela loja, seguindo com a troca ou devolução do item.
+
+Permanecemos à disposição para resolver o mais breve possível.
 
 Atenciosamente,
 [ASSINATURA]`,
@@ -641,9 +1373,9 @@ Atenciosamente,
 
 Lamentamos muito pelo ocorrido e para agilizar o atendimento, pedimos que o cliente acione direto o fornecedor para dar andamento ao processo de troca.
 
-Serviço de Atendimento ao Cliente (SAC) – Hoopson
+Serviço de Atendimento ao Cliente (SAC) - Hoopson
 
-+55 21 3809-2001
+Tel: +55 21 3809-2001
 
 Seguimos à disposição para qualquer apoio necessário.
 

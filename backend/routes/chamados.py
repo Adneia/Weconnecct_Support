@@ -236,7 +236,11 @@ async def list_chamados(
     if verificar_adneia is not None:
         query['verificar_adneia'] = verificar_adneia
     if motivo_pendencia:
-        query['motivo_pendencia'] = motivo_pendencia
+        motivos_list = [m.strip() for m in motivo_pendencia.split(',') if m.strip()]
+        if len(motivos_list) > 1:
+            query['motivo_pendencia'] = {"$in": motivos_list}
+        else:
+            query['motivo_pendencia'] = motivos_list[0]
     if search:
         search_regex = {"$regex": search, "$options": "i"}
         if search_type == 'solicitacao':

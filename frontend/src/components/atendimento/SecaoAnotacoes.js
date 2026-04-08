@@ -19,10 +19,24 @@ import { TEXTOS_RECLAME_AQUI } from './textos';
 const MotivoPendenciaTextos = ({ motivoPendencia, selectedMotivoPendencia, onLoadTextoMotivoPendencia, onLoadTextoPadrao, onLoadTextoReversaAssistencia, onLoadTextoFalhaFornecedor, onLoadTextoComprovante, onLoadTextoFalhaTransporte, parceiro, pedidoErp, selectedAssistenciaAguardando }) => {
   if (motivoPendencia === 'Ag. Barrar') {
     return (
-      <div className="mt-3 p-3 rounded-lg bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 space-y-2">
+      <div className="mt-3 p-3 rounded-lg bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 space-y-3">
         <Label className="text-sm font-medium text-orange-800 dark:text-orange-200">Textos Padrão - Ag. Barrar</Label>
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" variant={selectedMotivoPendencia === 'Ag. Barrar' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Barrar')}>Aguardando Barragem</Button>
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">Bloqueio de Entrega</Label>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Barrar - Bloqueio Recusar' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Barrar - Bloqueio Recusar')}>Bloqueio + Recusar</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Barrar' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Barrar')}>Aguardando Barragem</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Barrar - Em Rota Entrega' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Barrar - Em Rota Entrega')}>Em Rota de Entrega</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Barrar - Acareação' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Barrar - Acareação')}>Acareação</Button>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">Em Devolução</Label>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Barrar - Aguardando Recebimento' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Barrar - Aguardando Recebimento')}>Aguardando Recebimento</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Barrar - Com Rastreio' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Barrar - Com Rastreio')}>Com Rastreio</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Barrar - Insucesso Entrega' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Barrar - Insucesso Entrega')}>Insucesso na Entrega</Button>
+          </div>
         </div>
       </div>
     );
@@ -44,12 +58,88 @@ const MotivoPendenciaTextos = ({ motivoPendencia, selectedMotivoPendencia, onLoa
 
   if (motivoPendencia === 'Ag. Parceiro') {
     return (
-      <div className="mt-3 p-3 rounded-lg bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 space-y-2">
+      <div className="mt-3 p-3 rounded-lg bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 space-y-3">
         <Label className="text-sm font-medium text-purple-800 dark:text-purple-200">Textos Padrão - Ag. Parceiro</Label>
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">Evidência / Cancelamento</Label>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Parceiro - Solicitar Evidências' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Parceiro - Solicitar Evidências')}>Solicitar Evidências</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Parceiro - Cancelamento' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Parceiro - Cancelamento')}>Cancelamento</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Parceiro - Em Devolução' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Parceiro - Em Devolução')}>Em Devolução</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Parceiro - Estorno Descarte' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Parceiro - Estorno Descarte')}>Estorno + Descarte</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Parceiro - Exceção Estorno' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Parceiro - Exceção Estorno')}>Exceção - Estorno</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Parceiro - Confirmação Encerramento' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Parceiro - Confirmação Encerramento')}>Confirmar Encerramento</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Parceiro - Código Expirado' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Parceiro - Código Expirado')}>Código Expirado</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Parceiro - Cancelamento Avaria' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Parceiro - Cancelamento Avaria')}>Cancelamento Avaria</Button>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">Entregue</Label>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Parceiro - Confirmar Entrega' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Parceiro - Confirmar Entrega')}>Confirmar Entrega (15d)</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Parceiro - Prazo Expirado' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Parceiro - Prazo Expirado')}>Prazo Expirado</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Parceiro - Comprovante Email' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Parceiro - Comprovante Email')}>Comprovante Email (CSU)</Button>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">Integração / Extravio</Label>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Parceiro - Vtex CSU' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Parceiro - Vtex CSU')}>Vtex + CSU</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Parceiro - Vtex Parceiro' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Parceiro - Vtex Parceiro')}>Vtex + Parceiro</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Parceiro - Extravio Reenvio' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Parceiro - Extravio Reenvio')}>Extravio - Reenvio</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Parceiro - Extravio Cancelamento' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Parceiro - Extravio Cancelamento')}>Extravio - Cancelamento</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Parceiro - Extravio Nova Preparação' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Parceiro - Extravio Nova Preparação')}>Nova Preparação</Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (motivoPendencia === 'Ag. Cliente') {
+    return (
+      <div className="mt-3 p-3 rounded-lg bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 space-y-3">
+        <Label className="text-sm font-medium text-indigo-800 dark:text-indigo-200">Textos Padrão - Ag. Cliente</Label>
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">Evidência / Cancelamento</Label>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Cliente - Solicitar Evidências' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Cliente - Solicitar Evidências')}>Solicitar Evidências</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Cliente - Em Devolução' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Cliente - Em Devolução')}>Em Devolução</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Cliente - Estorno Descarte' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Cliente - Estorno Descarte')}>Estorno + Descarte</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Cliente - Exceção Estorno' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Cliente - Exceção Estorno')}>Exceção - Estorno</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Cliente - Confirmação Encerramento' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Cliente - Confirmação Encerramento')}>Confirmar Encerramento</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Cliente - Código Expirado' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Cliente - Código Expirado')}>Código Expirado</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Cliente - Cancelamento Avaria' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Cliente - Cancelamento Avaria')}>Cancelamento Avaria</Button>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">Entregue</Label>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Confirmação de Entrega' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Confirmação de Entrega')}>Confirmar Entrega</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Cliente - Confirmar Entrega' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Cliente - Confirmar Entrega')}>Confirmar Entrega (15d)</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Cliente - Prazo Expirado' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Cliente - Prazo Expirado')}>Prazo Expirado</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Cliente - Comprovante Email' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Cliente - Comprovante Email')}>Comprovante Email (CSU)</Button>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">Integração / Extravio</Label>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Cliente - Vtex CSU' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Cliente - Vtex CSU')}>Vtex + CSU</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Cliente - Vtex Parceiro' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Cliente - Vtex Parceiro')}>Vtex + Parceiro</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Cliente - Extravio Reenvio' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Cliente - Extravio Reenvio')}>Extravio - Reenvio</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Cliente - Extravio Cancelamento' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Cliente - Extravio Cancelamento')}>Extravio - Cancelamento</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Cliente - Extravio Nova Preparação' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Cliente - Extravio Nova Preparação')}>Nova Preparação</Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (motivoPendencia === 'Ag. Fornecedor') {
+    return (
+      <div className="mt-3 p-3 rounded-lg bg-teal-50 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800 space-y-2">
+        <Label className="text-sm font-medium text-teal-800 dark:text-teal-200">Textos Padrão - Ag. Fornecedor</Label>
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant={selectedMotivoPendencia === 'Ag. Parceiro - Estorno' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Parceiro - Estorno')}>Estorno</Button>
-          <Button type="button" variant={selectedMotivoPendencia === 'Ag. Parceiro - Confirmação Encerramento' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Parceiro - Confirmação Encerramento')}>Confirmação Encerramento</Button>
-          <Button type="button" variant={selectedMotivoPendencia === 'Ag. Parceiro - Encerramento' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Parceiro - Encerramento')}>Encerramento</Button>
+          <Button type="button" variant={selectedMotivoPendencia === 'Ag. Fornecedor - Verificação Reposição' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Fornecedor - Verificação Reposição')}>Verificação de Reposição</Button>
         </div>
       </div>
     );
@@ -133,6 +223,22 @@ const MotivoPendenciaTextos = ({ motivoPendencia, selectedMotivoPendencia, onLoa
           </div>
         </div>
 
+        {/* Objeto não postado */}
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">Postagem</Label>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant={selectedMotivoPendencia === 'Aguardando - Objeto Não Postado' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Aguardando - Objeto Não Postado')}>Objeto Não Postado</Button>
+          </div>
+        </div>
+        {/* Em Devolução */}
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">Em Devolução</Label>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant={selectedMotivoPendencia === 'Aguardando - Aguardando Recebimento' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Aguardando - Aguardando Recebimento')}>Aguardando Recebimento</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Aguardando - Com Rastreio' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Aguardando - Com Rastreio')}>Com Rastreio</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Aguardando - Insucesso Entrega' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Aguardando - Insucesso Entrega')}>Insucesso na Entrega</Button>
+          </div>
+        </div>
         {/* Textos gerais de Aguardando */}
         <div className="space-y-2">
           <Label className="text-xs text-muted-foreground">Outros</Label>
@@ -186,13 +292,70 @@ const MotivoPendenciaTextos = ({ motivoPendencia, selectedMotivoPendencia, onLoa
   }
 
   if (motivoPendencia === 'Ag. Logística') {
+    const transportadora = pedidoErp?.transportadora || '';
+    const matchT = (n) => transportadora.toLowerCase().includes(n.toLowerCase());
+    const tDest = matchT('Total') || matchT('tex') ? 'Total Express' : matchT('J&T') ? 'J&T Express' : matchT('ASAP') ? 'ASAP Log' : null;
+
     return (
-      <div className="mt-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 space-y-2">
-        <Label className="text-sm font-medium text-blue-800 dark:text-blue-200">Textos Padrão - Ag. Logística (Falha Produção)</Label>
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" variant={selectedMotivoPendencia === 'Falha Produção' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoPadrao('Falha Produção')}>Sem Rastreio</Button>
-          <Button type="button" variant={selectedMotivoPendencia === 'Falha Produção - Correios' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoPadrao('Falha Produção - Correios')}>Rastreio Correios</Button>
-          <Button type="button" variant={selectedMotivoPendencia === 'Falha Produção - Total Express' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoPadrao('Falha Produção - Total Express')}>Rastreio Total Express</Button>
+      <div className="mt-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 space-y-3">
+        <Label className="text-sm font-medium text-blue-800 dark:text-blue-200">
+          Textos Padrão - Ag. Logística {tDest && <span className="ml-1 text-xs font-normal">★ {tDest}</span>}
+        </Label>
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">Atraso com rastreio</Label>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { label: 'Total Express', key: 'Ag. Logística - Atraso Total Express' },
+              { label: 'J&T Express',   key: 'Ag. Logística - Atraso J&T Express'   },
+              { label: 'ASAP Log',      key: 'Ag. Logística - Atraso ASAP Log'      },
+            ].map(({ label, key }) => (
+              <Button key={key} type="button" size="sm"
+                variant={selectedMotivoPendencia === key ? 'default' : tDest === label ? 'secondary' : 'outline'}
+                className={tDest === label ? 'ring-2 ring-blue-400' : ''}
+                onClick={() => onLoadTextoMotivoPendencia(key)}>
+                {tDest === label && '★ '}{label}
+              </Button>
+            ))}
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">Atraso sem rastreio</Label>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Logística - Em Preparação' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Logística - Em Preparação')}>Em Preparação</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Logística - Em Separação' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Logística - Em Separação')}>Em Separação</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Logística - Acionando Transportadora' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Logística - Acionando Transportadora')}>Acionando Transportadora</Button>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">Reenvio</Label>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Logística - Reenvio' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Logística - Reenvio')}>Reenvio do Item</Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (motivoPendencia === 'Ag. Transportadora - Asap' || motivoPendencia === 'Ag. Transportadora - J&T' || motivoPendencia === 'Ag. Transportadora - Total') {
+    return (
+      <div className="mt-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-950/30 border border-slate-200 dark:border-slate-800 space-y-3">
+        <Label className="text-sm font-medium text-slate-800 dark:text-slate-200">Textos Padrão - Ag. Transportadora</Label>
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">Bloqueio de Entrega</Label>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Transportadora - Bloqueio Recusar' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Transportadora - Bloqueio Recusar')}>Bloqueio + Recusar</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Transportadora - Aguardando Barragem' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Transportadora - Aguardando Barragem')}>Aguardando Barragem</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Transportadora - Em Rota Entrega' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Transportadora - Em Rota Entrega')}>Em Rota de Entrega</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Transportadora - Acareação' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Transportadora - Acareação')}>Acareação</Button>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">Em Devolução</Label>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Transportadora - Aguardando Recebimento' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Transportadora - Aguardando Recebimento')}>Aguardando Recebimento</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Transportadora - Com Rastreio' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Transportadora - Com Rastreio')}>Com Rastreio</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Transportadora - Insucesso Entrega' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Transportadora - Insucesso Entrega')}>Insucesso na Entrega</Button>
+          </div>
         </div>
       </div>
     );
@@ -201,12 +364,24 @@ const MotivoPendenciaTextos = ({ motivoPendencia, selectedMotivoPendencia, onLoa
   if (motivoPendencia === 'Ag. Compras') {
     return (
       <div className="mt-3 p-3 rounded-lg bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 space-y-2">
-        <Label className="text-sm font-medium text-purple-800 dark:text-purple-200">Textos Padrão - Ag. Compras (Falha Compras)</Label>
+        <Label className="text-sm font-medium text-purple-800 dark:text-purple-200">Textos Padrão - Ag. Compras</Label>
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant={selectedMotivoPendencia === 'Falha Compras' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoPadrao('Falha Compras')}>Em Preparação</Button>
-          <Button type="button" variant={selectedMotivoPendencia === 'Falha Compras - Em Separação' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoPadrao('Falha Compras - Em Separação')}>Em Separação</Button>
-          <Button type="button" variant={selectedMotivoPendencia === 'Falha Compras - Cancelamento sem Estoque' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoPadrao('Falha Compras - Cancelamento sem Estoque')}>Cancelamento sem Estoque</Button>
-          <Button type="button" variant={selectedMotivoPendencia === 'Falha Compras - Cancelado' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoPadrao('Falha Compras - Cancelado')}>Cancelado</Button>
+          <Button type="button" variant={selectedMotivoPendencia === 'Ag. Compras - Em Preparação' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Compras - Em Preparação')}>Em Preparação</Button>
+          <Button type="button" variant={selectedMotivoPendencia === 'Ag. Compras - Em Separação' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Compras - Em Separação')}>Em Separação</Button>
+          <Button type="button" variant={selectedMotivoPendencia === 'Ag. Compras - Cancelamento Avaria' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Compras - Cancelamento Avaria')}>Cancelamento por Avaria</Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (motivoPendencia === 'Ag. Bseller') {
+    return (
+      <div className="mt-3 p-3 rounded-lg bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800 space-y-2">
+        <Label className="text-sm font-medium text-violet-800 dark:text-violet-200">Textos Padrão - Ag. Bseller</Label>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant={selectedMotivoPendencia === 'Ag. Bseller - Em Preparação' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Bseller - Em Preparação')}>Em Preparação</Button>
+          <Button type="button" variant={selectedMotivoPendencia === 'Ag. Bseller - Em Separação' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Bseller - Em Separação')}>Em Separação</Button>
+          <Button type="button" variant={selectedMotivoPendencia === 'Ag. Bseller - Cancelamento Avaria' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Bseller - Cancelamento Avaria')}>Cancelamento por Avaria</Button>
         </div>
       </div>
     );
@@ -380,7 +555,22 @@ const SecaoAnotacoes = ({
 
         </div>
 
-        {/* Textos padrão por motivo */}
+        {/* Textos padrão por motivo — seções locais (constants.js) */}
+        <MotivoPendenciaTextos
+          motivoPendencia={motivoPendencia}
+          selectedMotivoPendencia={selectedMotivoPendencia}
+          onLoadTextoMotivoPendencia={onLoadTextoMotivoPendencia}
+          onLoadTextoPadrao={onLoadTextoPadrao}
+          onLoadTextoReversaAssistencia={onLoadTextoReversaAssistencia}
+          onLoadTextoFalhaFornecedor={onLoadTextoFalhaFornecedor}
+          onLoadTextoComprovante={onLoadTextoComprovante}
+          onLoadTextoFalhaTransporte={onLoadTextoFalhaTransporte}
+          parceiro={parceiro}
+          pedidoErp={pedidoErp}
+          selectedAssistenciaAguardando={selectedAssistenciaAguardando}
+        />
+
+        {/* Textos padrão por motivo — seção dinâmica via API */}
         {motivoPendencia && textosMotivo.length > 0 && (() => {
           const transp = pedidoErp?.transportadora;
           const transpNorm = transp ? transp.toLowerCase() : '';

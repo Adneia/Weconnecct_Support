@@ -90,11 +90,12 @@ const ListaAtendimentos = () => {
     categoria: '',
     retornar_chamado: '',
     verificar_adneia: '',
-    motivo_pendencia: '',
+    motivo_pendencia: [],
     parceiro: []
   });
   const [showFilters, setShowFilters] = useState(false);
   const [parceiros, setParceiros] = useState([]);
+  const [motivosDisponiveis, setMotivosDisponiveis] = useState([]);
   
   const [totalNaBase, setTotalNaBase] = useState(null);
   
@@ -135,12 +136,16 @@ const ListaAtendimentos = () => {
           categoria: '',
           retornar_chamado: '',
           verificar_adneia: '',
-          motivo_pendencia: '',
+          motivo_pendencia: [],
           parceiro: []
         };
         // Migrar parceiro de string para array
         if (typeof restoredFilters.parceiro === 'string') {
           restoredFilters.parceiro = restoredFilters.parceiro ? [restoredFilters.parceiro] : [];
+        }
+        // Migrar motivo_pendencia de string para array
+        if (typeof restoredFilters.motivo_pendencia === 'string') {
+          restoredFilters.motivo_pendencia = restoredFilters.motivo_pendencia ? [restoredFilters.motivo_pendencia] : [];
         }
         setFilters(restoredFilters);
         setGlobalFilter(parsed.globalFilter || '');
@@ -181,6 +186,7 @@ const ListaAtendimentos = () => {
     }
   }, [filters, globalFilter, searchType, filtersLoaded]);
 
+
   const fetchData = async () => {
     try {
       const params = new URLSearchParams();
@@ -188,7 +194,7 @@ const ListaAtendimentos = () => {
       if (filters.categoria) params.append('categoria', filters.categoria);
       if (filters.retornar_chamado !== '') params.append('retornar_chamado', filters.retornar_chamado);
       if (filters.verificar_adneia !== '') params.append('verificar_adneia', filters.verificar_adneia);
-      if (filters.motivo_pendencia) params.append('motivo_pendencia', filters.motivo_pendencia);
+      if (Array.isArray(filters.motivo_pendencia) && filters.motivo_pendencia.length > 0) params.append('motivo_pendencia', filters.motivo_pendencia.join(','));
       // AJUSTE 3: Suporte a múltiplos parceiros
       if (filters.parceiro) {
         if (Array.isArray(filters.parceiro)) {
@@ -202,19 +208,40 @@ const ListaAtendimentos = () => {
         params.append('search_type', searchType);
       }
 
-      const [chamadosRes, totalRes] = await Promise.all([
+      // Params para busca de motivos disponíveis — igual ao principal mas SEM motivo_pendencia
+      const motivosParams = new URLSearchParams();
+      if (filters.pendente !== '') motivosParams.append('pendente', filters.pendente);
+      if (filters.categoria) motivosParams.append('categoria', filters.categoria);
+      if (filters.retornar_chamado !== '') motivosParams.append('retornar_chamado', filters.retornar_chamado);
+      if (filters.verificar_adneia !== '') motivosParams.append('verificar_adneia', filters.verificar_adneia);
+      if (filters.parceiro) {
+        if (Array.isArray(filters.parceiro)) { motivosParams.append('parceiro', filters.parceiro.join(',')); }
+        else { motivosParams.append('parceiro', filters.parceiro); }
+      }
+      if (globalFilter) {
+        motivosParams.append('search', globalFilter);
+        motivosParams.append('search_type', searchType);
+      }
+
+      const [chamadosRes, totalRes, motivosRes] = await Promise.all([
         axios.get(`${API_URL}/api/chamados?${params.toString()}`, { headers: getAuthHeader() }),
-        totalNaBase === null ? axios.get(`${API_URL}/api/admin/total-na-base`, { headers: getAuthHeader() }).catch(() => null) : Promise.resolve(null)
+        totalNaBase === null ? axios.get(`${API_URL}/api/admin/total-na-base`, { headers: getAuthHeader() }).catch(() => null) : Promise.resolve(null),
+        axios.get(`${API_URL}/api/chamados?${motivosParams.toString()}`, { headers: getAuthHeader() }).catch(() => null)
       ]);
-      
+
       setAtendimentos(chamadosRes.data);
       if (totalRes?.data) {
         setTotalNaBase(totalRes.data.total_chamados);
       }
-      
+
       // Extrair lista de parceiros únicos
       const parceirosUnicos = [...new Set(chamadosRes.data.map(a => a.parceiro).filter(p => p))].sort();
       setParceiros(parceirosUnicos);
+      // Extrair motivos do contexto atual (sem filtro de motivo) para o multi-select
+      if (motivosRes?.data) {
+        const motivosUnicos = [...new Set(motivosRes.data.map(a => a.motivo_pendencia).filter(m => m))].sort();
+        setMotivosDisponiveis(motivosUnicos);
+      }
     } catch (error) {
       toast.error('Erro ao carregar atendimentos');
     } finally {
@@ -228,7 +255,7 @@ const ListaAtendimentos = () => {
   };
 
   const clearFilters = () => {
-    setFilters({ pendente: '', categoria: '', retornar_chamado: '', verificar_adneia: '', motivo_pendencia: '', parceiro: [] });
+    setFilters({ pendente: '', categoria: '', retornar_chamado: '', verificar_adneia: '', motivo_pendencia: [], parceiro: [] });
     setGlobalFilter('');
     setSearchType('todos');
     localStorage.removeItem(FILTERS_STORAGE_KEY);
@@ -1054,17 +1081,48 @@ const ListaAtendimentos = () => {
                   </SelectContent>
                 </Select>
 
-                <Select value={filters.motivo_pendencia} onValueChange={(v) => setFilters(f => ({ ...f, motivo_pendencia: v === 'all' ? '' : v }))}>
-                  <SelectTrigger data-testid="filter-motivo-pendencia">
-                    <SelectValue placeholder="Motivo Pendência" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos Motivos</SelectItem>
-                    {MOTIVOS_PENDENCIA.map(m => (
-                      <SelectItem key={m} value={m}>{m}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full justify-between font-normal" data-testid="filter-motivo-pendencia">
+                      <span className="truncate">
+                        {Array.isArray(filters.motivo_pendencia) && filters.motivo_pendencia.length > 0
+                          ? filters.motivo_pendencia.length === 1
+                            ? filters.motivo_pendencia[0]
+                            : `${filters.motivo_pendencia.length} motivos selecionados`
+                          : 'Todos Motivos'}
+                      </span>
+                      <ChevronDown className="h-4 w-4 opacity-50 shrink-0 ml-2" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64 p-2 max-h-72 overflow-y-auto" align="start">
+                    <div
+                      className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent cursor-pointer text-sm font-medium"
+                      onClick={() => setFilters(f => ({ ...f, motivo_pendencia: [] }))}
+                    >
+                      Todos Motivos
+                    </div>
+                    <Separator className="my-1" />
+                    {(motivosDisponiveis.length > 0 ? motivosDisponiveis : MOTIVOS_PENDENCIA).map(m => {
+                      const isChecked = Array.isArray(filters.motivo_pendencia) && filters.motivo_pendencia.includes(m);
+                      return (
+                        <div
+                          key={m}
+                          className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-accent cursor-pointer"
+                          onClick={() => setFilters(f => {
+                            const current = Array.isArray(f.motivo_pendencia) ? f.motivo_pendencia : [];
+                            return {
+                              ...f,
+                              motivo_pendencia: isChecked ? current.filter(x => x !== m) : [...current, m]
+                            };
+                          })}
+                        >
+                          <Checkbox checked={isChecked} className="pointer-events-none" />
+                          <span className="text-sm">{m}</span>
+                        </div>
+                      );
+                    })}
+                  </PopoverContent>
+                </Popover>
 
                 <Popover>
                   <PopoverTrigger asChild>
