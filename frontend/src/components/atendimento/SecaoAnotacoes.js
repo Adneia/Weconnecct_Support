@@ -555,21 +555,6 @@ const SecaoAnotacoes = ({
 
         </div>
 
-        {/* Textos padrão por motivo — seções locais (constants.js) */}
-        <MotivoPendenciaTextos
-          motivoPendencia={motivoPendencia}
-          selectedMotivoPendencia={selectedMotivoPendencia}
-          onLoadTextoMotivoPendencia={onLoadTextoMotivoPendencia}
-          onLoadTextoPadrao={onLoadTextoPadrao}
-          onLoadTextoReversaAssistencia={onLoadTextoReversaAssistencia}
-          onLoadTextoFalhaFornecedor={onLoadTextoFalhaFornecedor}
-          onLoadTextoComprovante={onLoadTextoComprovante}
-          onLoadTextoFalhaTransporte={onLoadTextoFalhaTransporte}
-          parceiro={parceiro}
-          pedidoErp={pedidoErp}
-          selectedAssistenciaAguardando={selectedAssistenciaAguardando}
-        />
-
         {/* Textos padrão por motivo — seção dinâmica via API */}
         {motivoPendencia && textosMotivo.length > 0 && (() => {
           const transp = pedidoErp?.transportadora;
@@ -640,6 +625,21 @@ const SecaoAnotacoes = ({
             </div>
           );
         })()}
+
+        {/* Textos padrão por motivo — seções locais (constants.js) */}
+        <MotivoPendenciaTextos
+          motivoPendencia={motivoPendencia}
+          selectedMotivoPendencia={selectedMotivoPendencia}
+          onLoadTextoMotivoPendencia={onLoadTextoMotivoPendencia}
+          onLoadTextoPadrao={onLoadTextoPadrao}
+          onLoadTextoReversaAssistencia={onLoadTextoReversaAssistencia}
+          onLoadTextoFalhaFornecedor={onLoadTextoFalhaFornecedor}
+          onLoadTextoComprovante={onLoadTextoComprovante}
+          onLoadTextoFalhaTransporte={onLoadTextoFalhaTransporte}
+          parceiro={parceiro}
+          pedidoErp={pedidoErp}
+          selectedAssistenciaAguardando={selectedAssistenciaAguardando}
+        />
 
         {/* Campo para nova observação */}
         <div className="space-y-3">
