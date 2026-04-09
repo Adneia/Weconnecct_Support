@@ -317,7 +317,7 @@ async def get_dashboard_classificacao(periodo_dias: int = 30, canal: Optional[st
     pipeline_forn = [
         {"$match": base_match},
         {"$lookup": {"from": "pedidos_erp", "localField": "numero_pedido", "foreignField": "numero_pedido", "as": "pedido"}},
-        {"$unwind": {"path": "$pedido", "preserveNullAndEmpty": False}},
+        {"$unwind": {"path": "$pedido", "preserveNullAndEmptyArrays": False}},
         {"$match": {"pedido.departamento": {"$nin": [None, "", "nan", "N/A"]}}},
         {"$group": {"_id": "$pedido.departamento", "count": {"$sum": 1}}},
         {"$sort": {"count": -1}},
@@ -355,7 +355,7 @@ async def get_dashboard_performance(periodo_dias: int = 30, current_user: dict =
     pipeline_forn = [
         {"$match": base_match},
         {"$lookup": {"from": "pedidos_erp", "localField": "numero_pedido", "foreignField": "numero_pedido", "as": "pedido"}},
-        {"$unwind": {"path": "$pedido", "preserveNullAndEmpty": False}},
+        {"$unwind": {"path": "$pedido", "preserveNullAndEmptyArrays": False}},
         {"$match": {"pedido.departamento": {"$nin": [None, "", "nan", "N/A"]}}},
         {"$project": {"fornecedor": "$pedido.departamento", "tempo": {"$subtract": [{"$dateFromString": {"dateString": "$data_fechamento"}}, {"$dateFromString": {"dateString": "$data_abertura"}}]}}},
         {"$group": {"_id": "$fornecedor", "media": {"$avg": "$tempo"}, "count": {"$sum": 1}}}, {"$sort": {"media": -1}}
