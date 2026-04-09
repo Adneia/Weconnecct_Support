@@ -324,6 +324,13 @@ async def get_dashboard_classificacao(periodo_dias: int = 30, canal: Optional[st
         {"$limit": 15}
     ]
     por_fornecedor = await db.chamados.aggregate(pipeline_forn).to_list(15)
+    # Total de vendas por marca no tabelão
+    pipeline_vendas_marca = [
+        {"$match": {"departamento": {"$nin": [None, "", "nan", "N/A"]}}},
+        {"$group": {"_id": "$departamento", "total_vendas": {"$sum": 1}}},
+    ]
+    vendas_por_marca_raw = await db.pedidos_erp.aggregate(pipeline_vendas_marca).to_list(500)
+    vendas_por_marca = {v['_id']: v['total_vendas'] for v in vendas_por_marca_raw}
     total_pedidos = await db.pedidos_erp.count_documents({})
     # Calcular total de pendentes para proporcional de pend_categoria
     total_pendentes = sum(c['count'] for c in pend_categoria)
@@ -335,7 +342,16 @@ async def get_dashboard_classificacao(periodo_dias: int = 30, canal: Optional[st
         "pend_categoria": [{"categoria": c['_id'] or 'N/A', "total": c['count'], "pct_pendentes": round((c['count'] / total_pendentes) * 100, 1) if total_pendentes > 0 else 0, "pct_categoria": round((c['count'] / cat_total_map.get(c['_id'], c['count'])) * 100, 1)} for c in pend_categoria],
         "pend_motivo": [{"motivo": c['_id'] or 'N/A', "total": c['count'], "pct_pedidos": round((c['count'] / total_pedidos) * 100, 2) if total_pedidos > 0 else 0} for c in pend_motivo],
         "top_produtos": [{"produto": c['_id'], "total": c['count']} for c in top_produtos if c['_id']],
-        "por_fornecedor": [{"fornecedor": c['_id'], "total": c['count']} for c in por_fornecedor if c['_id']]
+        "por_fornecedor": [
+            {
+                "fornecedor": c['_id'],
+                "total": c['count'],
+                "pct_atendimentos": round((c['count'] / sum(x['count'] for x in por_fornecedor)) * 100, 1) if por_fornecedor else 0,
+                "total_vendas": vendas_por_marca.get(c['_id'], 0),
+                "pct_vendas": round((vendas_por_marca.get(c['_id'], 0) / total_pedidos) * 100, 1) if total_pedidos > 0 else 0,
+            }
+            for c in por_fornecedor if c['_id']
+        ]
     }
 
 

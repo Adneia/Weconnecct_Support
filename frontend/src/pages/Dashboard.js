@@ -548,13 +548,25 @@ const Dashboard = () => {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Por Fornecedor / Marca</CardTitle>
-            <CardDescription>Total de chamados por marca</CardDescription>
+            <CardDescription>% atendimentos | % vendas (tabelão)</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2 max-h-80 overflow-y-auto">
-            {classificacao?.por_fornecedor?.slice(0, 10).map((item) => (
-              <div key={item.fornecedor} className="flex justify-between items-center p-2 rounded bg-muted/30">
-                <span className="text-sm font-mono">{item.fornecedor}</span>
-                <Badge variant="secondary">{item.total}</Badge>
+            {classificacao?.por_fornecedor?.slice(0, 15).map((item) => (
+              <div key={item.fornecedor} className="space-y-1">
+                <div className="flex justify-between items-center text-sm">
+                  <span className="font-medium truncate max-w-[55%]">{item.fornecedor}</span>
+                  <div className="flex gap-3 text-xs">
+                    <span className="text-orange-500 font-semibold">{item.pct_atendimentos}% atend.</span>
+                    <span className="text-blue-500 font-semibold">{item.pct_vendas}% vendas</span>
+                    <Badge variant="secondary">{item.total}</Badge>
+                  </div>
+                </div>
+                <div className="relative h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div className="absolute left-0 top-0 h-full bg-orange-400 rounded-full" style={{width: `${item.pct_atendimentos}%`}} />
+                </div>
+                <div className="relative h-1.5 bg-muted rounded-full overflow-hidden">
+                  <div className="absolute left-0 top-0 h-full bg-blue-400 rounded-full" style={{width: `${item.pct_vendas}%`}} />
+                </div>
               </div>
             ))}
           </CardContent>
