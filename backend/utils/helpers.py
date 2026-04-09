@@ -131,6 +131,7 @@ def get_column_mapping():
         'email_cliente': ['e-mail'],
         'status_pedido': ['status da entrega', 'status'],
         'data_status': ['dt.ult.ponto de controle'],
+        'dt_prometida': ['dt. prometida', 'dt.prometida', 'data prometida'],
         'transportadora': ['transportadora'],
         'departamento': ['nome_5'],
         'codigo_item_bseller': ['item'],

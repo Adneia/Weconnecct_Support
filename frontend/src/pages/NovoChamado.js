@@ -749,6 +749,7 @@ const NovoAtendimento = () => {
                     <p className="font-medium">{pedidoErp.transportadora || '-'}</p>
                     {pedidoErp.canal_vendas && <p className="text-muted-foreground">Canal: {pedidoErp.canal_vendas}</p>}
                     {pedidoErp.data_status && <p className="text-muted-foreground">Atualização: {pedidoErp.data_status}</p>}
+                    {pedidoErp.dt_prometida && <p className="text-muted-foreground">Dt. Prometida: {pedidoErp.dt_prometida}</p>}
                   </div>
                 </div>
               </div>
