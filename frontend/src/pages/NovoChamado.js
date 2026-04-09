@@ -667,6 +667,7 @@ const NovoAtendimento = () => {
                   <div className="flex flex-col items-end gap-1">
                     <Badge className={getStatusBadgeColor(pedidoErp.status_pedido)}>{pedidoErp.status_pedido || 'Sem status'}</Badge>
                     {pedidoErp.data_status && <span className="text-xs text-muted-foreground">Últ. Ponto: {pedidoErp.data_status}</span>}
+                    {pedidoErp.dt_prometida && <span className="text-xs text-orange-500 font-medium">Dt. Prometida: {pedidoErp.dt_prometida}</span>}
                   </div>
                   <Button type="button" variant="ghost" size="sm" onClick={() => setPedidoExpanded(!pedidoExpanded)} className="h-8 w-8 p-0" data-testid="expand-pedido-btn">
                     {pedidoExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
