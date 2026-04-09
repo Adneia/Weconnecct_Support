@@ -547,8 +547,8 @@ const Dashboard = () => {
         
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Por Fornecedor</CardTitle>
-            <CardDescription>Proporção chamados/vendidos</CardDescription>
+            <CardTitle className="text-lg">Por Fornecedor / Marca</CardTitle>
+            <CardDescription>Total de chamados por marca</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2 max-h-80 overflow-y-auto">
             {classificacao?.por_fornecedor?.slice(0, 10).map((item) => (

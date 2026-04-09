@@ -313,8 +313,17 @@ async def get_dashboard_classificacao(periodo_dias: int = 30, canal: Optional[st
     pend_motivo = await db.chamados.aggregate(pipeline_motivo).to_list(50)
     pipeline_prod = [{"$match": {**base_match, "produto": {"$nin": [None, "", "nan", "N/A"]}}}, {"$group": {"_id": "$produto", "count": {"$sum": 1}}}, {"$sort": {"count": -1}}, {"$limit": 10}]
     top_produtos = await db.chamados.aggregate(pipeline_prod).to_list(10)
-    pipeline_forn = [{"$match": {**base_match, "codigo_fornecedor": {"$nin": [None, "", "nan", "N/A"]}}}, {"$group": {"_id": "$codigo_fornecedor", "count": {"$sum": 1}}}, {"$sort": {"count": -1}}]
-    por_fornecedor = await db.chamados.aggregate(pipeline_forn).to_list(50)
+    # Buscar marca/fornecedor via join com pedidos_erp (campo departamento = Marca)
+    pipeline_forn = [
+        {"$match": base_match},
+        {"$lookup": {"from": "pedidos_erp", "localField": "numero_pedido", "foreignField": "numero_pedido", "as": "pedido"}},
+        {"$unwind": {"path": "$pedido", "preserveNullAndEmpty": False}},
+        {"$match": {"pedido.departamento": {"$nin": [None, "", "nan", "N/A"]}}},
+        {"$group": {"_id": "$pedido.departamento", "count": {"$sum": 1}}},
+        {"$sort": {"count": -1}},
+        {"$limit": 15}
+    ]
+    por_fornecedor = await db.chamados.aggregate(pipeline_forn).to_list(15)
     total_pedidos = await db.pedidos_erp.count_documents({})
     # Calcular total de pendentes para proporcional de pend_categoria
     total_pendentes = sum(c['count'] for c in pend_categoria)
@@ -345,7 +354,10 @@ async def get_dashboard_performance(periodo_dias: int = 30, current_user: dict =
     tempo_canal = await db.chamados.aggregate(pipeline_canal).to_list(50)
     pipeline_forn = [
         {"$match": base_match},
-        {"$project": {"fornecedor": "$codigo_fornecedor", "tempo": {"$subtract": [{"$dateFromString": {"dateString": "$data_fechamento"}}, {"$dateFromString": {"dateString": "$data_abertura"}}]}}},
+        {"$lookup": {"from": "pedidos_erp", "localField": "numero_pedido", "foreignField": "numero_pedido", "as": "pedido"}},
+        {"$unwind": {"path": "$pedido", "preserveNullAndEmpty": False}},
+        {"$match": {"pedido.departamento": {"$nin": [None, "", "nan", "N/A"]}}},
+        {"$project": {"fornecedor": "$pedido.departamento", "tempo": {"$subtract": [{"$dateFromString": {"dateString": "$data_fechamento"}}, {"$dateFromString": {"dateString": "$data_abertura"}}]}}},
         {"$group": {"_id": "$fornecedor", "media": {"$avg": "$tempo"}, "count": {"$sum": 1}}}, {"$sort": {"media": -1}}
     ]
     tempo_fornecedor = await db.chamados.aggregate(pipeline_forn).to_list(50)
