@@ -250,10 +250,9 @@ async def process_import_background(content: bytes, filename: str, user_name: st
         })
 
         if filename.endswith('.csv'):
-            df = pd.read_csv(BytesIO(content), dtype=str, na_filter=False)
+            df = pd.read_csv(BytesIO(content))
         else:
-            # dtype=str + na_filter=False evitam inferência de tipos → leitura bem mais rápida
-            df = pd.read_excel(BytesIO(content), dtype=str, na_filter=False)
+            df = pd.read_excel(BytesIO(content))
 
         total = len(df)
         await db.import_status.update_one(
@@ -268,11 +267,6 @@ async def process_import_background(content: bytes, filename: str, user_name: st
         data_limite = datetime(2025, 1, 1, tzinfo=timezone.utc)
         inserted = updated = skipped = errors = 0
 
-        from pymongo import UpdateOne as MongoUpdateOne
-        BATCH_SIZE = 1000
-        batch = []
-        now_str = datetime.now(timezone.utc).isoformat()
-
         for idx, row in df.iterrows():
             try:
                 pedido_data = extract_pedido_data(row, column_mapping, original_columns)
@@ -283,22 +277,21 @@ async def process_import_background(content: bytes, filename: str, user_name: st
                 if should_skip_old_pedido(pedido_data, data_limite):
                     skipped += 1
                     continue
+                existing = await db.pedidos_erp.find_one({"numero_pedido": numero_pedido})
+                if existing:
+                    await db.pedidos_erp.update_one(
+                        {"numero_pedido": numero_pedido},
+                        {"$set": pedido_data}
+                    )
+                    updated += 1
+                else:
+                    pedido_data['id'] = str(uuid.uuid4())
+                    pedido_data['imported_at'] = datetime.now(timezone.utc).isoformat()
+                    pedido_data['imported_by'] = user_name
+                    await db.pedidos_erp.insert_one(pedido_data)
+                    inserted += 1
 
-                pedido_data.setdefault('id', str(uuid.uuid4()))
-                pedido_data.setdefault('imported_at', now_str)
-                pedido_data.setdefault('imported_by', user_name)
-
-                batch.append(MongoUpdateOne(
-                    {"numero_pedido": numero_pedido},
-                    {"$set": pedido_data, "$setOnInsert": {"id": pedido_data['id'], "imported_at": now_str, "imported_by": user_name}},
-                    upsert=True
-                ))
-
-                if len(batch) >= BATCH_SIZE:
-                    result = await db.pedidos_erp.bulk_write(batch, ordered=False)
-                    inserted += result.upserted_count
-                    updated += result.modified_count
-                    batch = []
+                if (idx + 1) % 100 == 0:
                     progress = int(((idx + 1) / total) * 100)
                     await db.import_status.update_one(
                         {"import_id": import_id},
@@ -307,16 +300,6 @@ async def process_import_background(content: bytes, filename: str, user_name: st
             except Exception as e:
                 errors += 1
                 logger.error(f"Error importing row {idx}: {e}")
-
-        # Processar lote final
-        if batch:
-            try:
-                result = await db.pedidos_erp.bulk_write(batch, ordered=False)
-                inserted += result.upserted_count
-                updated += result.modified_count
-            except Exception as e:
-                errors += len(batch)
-                logger.error(f"Error in final batch: {e}")
 
         try:
             await atualizar_motivos_pendencia_automatico()
