@@ -12,9 +12,12 @@ from typing import Optional, List, Dict, Any
 
 logger = logging.getLogger(__name__)
 
-# Spreadsheet IDs from EMERGENT_PROMPT_V10
+# Spreadsheet IDs — planilhas antigas (mantidas para dual write durante transição)
 SPREADSHEET_ATENDIMENTOS_ID = "1cqzY_i1lqvu8sySPFrMtucQfyTo1LYm04ZpxRZNDCBs"
 SPREADSHEET_DEVOLUCOES_ID = "1dQbQWvG3Yv7Z6yqjivShK4-N4_pGXjs4x15jRMKVLno"
+# Novas planilhas (Google Drive ELO)
+SPREADSHEET_ATENDIMENTOS_ID_NEW = "1J3pilT9MZrxlacIJhVfkJHm39YjUs1HW"
+SPREADSHEET_DEVOLUCOES_ID_NEW = "1IpoBSFZ2PNxfibLRqDxTurKIusu3er1t"
 
 # Scopes for Google Sheets API
 SCOPES = [
@@ -87,6 +90,8 @@ class GoogleSheetsClient:
         self.client = None
         self.atendimentos_sheet = None
         self.devolucoes_sheet = None
+        self.atendimentos_sheet_new = None
+        self.devolucoes_sheet_new = None
         self._initialized = False
         
     def _get_credentials(self) -> Credentials:
@@ -123,9 +128,24 @@ class GoogleSheetsClient:
                 logger.warning(f"API error accessing Devoluções sheet: {e}")
                 self.devolucoes_sheet = None
             
+            # Conectar novas planilhas (dual write — não bloqueia se falhar)
+            try:
+                self.atendimentos_sheet_new = self.client.open_by_key(SPREADSHEET_ATENDIMENTOS_ID_NEW)
+                logger.info(f"Connected to NEW Atendimentos spreadsheet: {self.atendimentos_sheet_new.title}")
+            except Exception as e:
+                logger.warning(f"Could not connect to new Atendimentos sheet: {e}")
+                self.atendimentos_sheet_new = None
+
+            try:
+                self.devolucoes_sheet_new = self.client.open_by_key(SPREADSHEET_DEVOLUCOES_ID_NEW)
+                logger.info(f"Connected to NEW Devoluções spreadsheet: {self.devolucoes_sheet_new.title}")
+            except Exception as e:
+                logger.warning(f"Could not connect to new Devoluções sheet: {e}")
+                self.devolucoes_sheet_new = None
+
             self._initialized = True
             return True
-            
+
         except FileNotFoundError:
             logger.error(f"Credentials file not found at {self.credentials_path}")
             return False
@@ -226,17 +246,29 @@ class GoogleSheetsClient:
                 row[18] = pedido_info.get('chave_nota', '')      # S - Chave_Acesso
                 row[19] = pedido_info.get('filial', '') or pedido_info.get('uf', '')  # T - Filial
             
-            # Append row to sheet
+            # Append row to sheet (planilha antiga)
             worksheet.append_row(row, value_input_option='USER_ENTERED')
             logger.info(f"Atendimento {atendimento.get('id_atendimento')} added to Google Sheets")
-            
+
             # Se o atendimento foi criado já encerrado, aplicar formatação verde
             if not atendimento.get('pendente', True):
-                # Pegar o número da última linha (a que acabou de ser inserida)
                 all_values = worksheet.get_all_values()
                 last_row = len(all_values)
                 self._apply_green_background(worksheet, last_row)
-            
+
+            # Dual write — nova planilha
+            try:
+                ws_new = self._get_atendimentos_worksheet_new()
+                if ws_new:
+                    self._ensure_headers(ws_new, ATENDIMENTO_COLUMNS)
+                    ws_new.append_row(row, value_input_option='USER_ENTERED')
+                    if not atendimento.get('pendente', True):
+                        all_new = ws_new.get_all_values()
+                        self._apply_green_background(ws_new, len(all_new))
+                    logger.info(f"Atendimento {atendimento.get('id_atendimento')} added to NEW Google Sheets")
+            except Exception as e:
+                logger.warning(f"Dual write to new Atendimentos sheet failed (non-critical): {e}")
+
             return True
             
         except gspread.exceptions.WorksheetNotFound:
@@ -255,7 +287,17 @@ class GoogleSheetsClient:
             if worksheets:
                 return worksheets[0]
             return self.atendimentos_sheet.add_worksheet("Atendimentos", rows=1000, cols=20)
-    
+
+    def _get_atendimentos_worksheet_new(self):
+        """Get worksheet from new Atendimentos spreadsheet"""
+        if not self.atendimentos_sheet_new:
+            return None
+        try:
+            return self.atendimentos_sheet_new.worksheet("Atendimentos")
+        except gspread.exceptions.WorksheetNotFound:
+            worksheets = self.atendimentos_sheet_new.worksheets()
+            return worksheets[0] if worksheets else None
+
     def _get_devolucoes_worksheet(self):
         """Get the devoluções worksheet (uses first sheet if not found)"""
         if not self.devolucoes_sheet:
@@ -268,6 +310,16 @@ class GoogleSheetsClient:
             if worksheets:
                 return worksheets[0]
             return self.devolucoes_sheet.add_worksheet("Devoluções", rows=1000, cols=20)
+
+    def _get_devolucoes_worksheet_new(self):
+        """Get worksheet from new Devoluções spreadsheet"""
+        if not self.devolucoes_sheet_new:
+            return None
+        try:
+            return self.devolucoes_sheet_new.worksheet("Devoluções")
+        except gspread.exceptions.WorksheetNotFound:
+            worksheets = self.devolucoes_sheet_new.worksheets()
+            return worksheets[0] if worksheets else None
     
     def _apply_green_background(self, worksheet, row_num: int):
         """Aplica fundo verde claro na linha quando o atendimento é encerrado"""
@@ -369,17 +421,36 @@ class GoogleSheetsClient:
                         'values': [[value or '']]
                     })
             
-            # Apply batch update
+            # Apply batch update (planilha antiga)
             if updates_to_apply:
                 worksheet.batch_update(updates_to_apply)
                 logger.info(f"Atendimento {numero_pedido} updated in Google Sheets")
-            
+
             # Aplicar formatação verde se o atendimento foi encerrado
             if 'pendente' in updates and not updates['pendente']:
                 self._apply_green_background(worksheet, row_num)
-            
+
+            # Dual write — nova planilha
+            try:
+                ws_new = self._get_atendimentos_worksheet_new()
+                if ws_new and updates_to_apply:
+                    all_new = ws_new.get_all_values()
+                    new_row = None
+                    for i, r in enumerate(all_new):
+                        if len(r) > 3 and r[3] == numero_pedido:
+                            new_row = i + 1
+                            break
+                    if new_row:
+                        new_updates = [{**u, 'range': u['range'][:-len(str(row_num))] + str(new_row)} for u in updates_to_apply]
+                        ws_new.batch_update(new_updates)
+                        if 'pendente' in updates and not updates['pendente']:
+                            self._apply_green_background(ws_new, new_row)
+                        logger.info(f"Atendimento {numero_pedido} updated in NEW Google Sheets")
+            except Exception as e:
+                logger.warning(f"Dual write update to new Atendimentos sheet failed (non-critical): {e}")
+
             return True
-            
+
         except Exception as e:
             logger.error(f"Error updating atendimento in Google Sheets: {e}")
             return False
@@ -426,8 +497,18 @@ class GoogleSheetsClient:
             
             worksheet.append_row(row, value_input_option='USER_ENTERED')
             logger.info(f"Devolução {devolucao.get('id_devolucao')} added to Google Sheets")
+
+            # Dual write — nova planilha
+            try:
+                ws_new = self._get_devolucoes_worksheet_new()
+                if ws_new:
+                    ws_new.append_row(row, value_input_option='USER_ENTERED')
+                    logger.info(f"Devolução {devolucao.get('id_devolucao')} added to NEW Google Sheets")
+            except Exception as e:
+                logger.warning(f"Dual write to new Devoluções sheet failed (non-critical): {e}")
+
             return True
-            
+
         except Exception as e:
             logger.error(f"Error adding devolução to Google Sheets: {e}")
             return False
@@ -527,18 +608,42 @@ class GoogleSheetsClient:
                         col_idx = headers.index(field) + 1
                         worksheet.update_cell(existing_row, col_idx, str(column_mapping[field]))
                 logger.info(f"Devolução atualizada na linha {existing_row}: Entrega={numero_pedido}")
-                return True
+                result = True
             else:
                 # Prepare row values in the same order as headers
                 row_values = []
                 for header in headers:
                     value = column_mapping.get(header, '')
                     row_values.append(str(value) if value else '')
-                
+
                 # Append new row
                 worksheet.append_row(row_values, value_input_option='USER_ENTERED')
                 logger.info(f"Devolução nova adicionada: Entrega={numero_pedido}, Nome={row_data.get('nome_cliente', 'N/A')}")
-                return True
+                result = True
+
+            # Dual write — nova planilha devoluções
+            try:
+                ws_new = self._get_devolucoes_worksheet_new()
+                if ws_new:
+                    new_headers = ws_new.row_values(1)
+                    if new_headers:
+                        if existing_row:
+                            try:
+                                cell_new = ws_new.find(str(numero_pedido), in_column=new_headers.index('Entrega') + 1) if 'Entrega' in new_headers else None
+                                if cell_new:
+                                    for field in update_fields:
+                                        if field in new_headers and column_mapping.get(field):
+                                            ws_new.update_cell(cell_new.row, new_headers.index(field) + 1, str(column_mapping[field]))
+                            except Exception:
+                                pass
+                        else:
+                            new_row_values = [str(column_mapping.get(h, '')) or '' for h in new_headers]
+                            ws_new.append_row(new_row_values, value_input_option='USER_ENTERED')
+                        logger.info(f"Devolução dual write OK: Entrega={numero_pedido}")
+            except Exception as e:
+                logger.warning(f"Dual write to new Devoluções sheet failed (non-critical): {e}")
+
+            return result
         except Exception as e:
             logger.error(f"Error adding/updating devolução to Google Sheets: {e}")
             import traceback
