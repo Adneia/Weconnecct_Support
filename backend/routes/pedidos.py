@@ -250,16 +250,10 @@ async def process_import_background(content: bytes, filename: str, user_name: st
         })
 
         if filename.endswith('.csv'):
-            df = pd.read_csv(BytesIO(content))
+            df = pd.read_csv(BytesIO(content), dtype=str, na_filter=False)
         else:
-            # Usar openpyxl em modo read_only (streaming) — muito mais rápido para arquivos grandes
-            import openpyxl
-            wb = openpyxl.load_workbook(BytesIO(content), read_only=True, data_only=True)
-            ws = wb.active
-            rows = list(ws.iter_rows(values_only=True))
-            wb.close()
-            headers = [str(h).strip() if h is not None else '' for h in rows[0]]
-            df = pd.DataFrame(rows[1:], columns=headers)
+            # dtype=str + na_filter=False evitam inferência de tipos → leitura bem mais rápida
+            df = pd.read_excel(BytesIO(content), dtype=str, na_filter=False)
 
         total = len(df)
         await db.import_status.update_one(
