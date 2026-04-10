@@ -39,6 +39,8 @@ class ChamadoBase(BaseModel):
     motivo_pendencia: Optional[str] = None  # Motivo da pendência
     codigo_reversa: Optional[str] = None  # Código da reversa
     data_vencimento_reversa: Optional[str] = None  # Data de vencimento da reversa
+    reversa_postada: bool = False  # Item já postado pelo cliente
+    data_postagem_reversa: Optional[str] = None  # Data em que o cliente postou
     retornar_chamado: bool = False  # Sinaliza que precisa retorno/atuação
     verificar_adneia: bool = False  # Sinaliza que Adnéia precisa verificar
     status_devolucao: Optional[str] = None  # Aguardando, Estornado, Reenviado
@@ -60,6 +62,8 @@ class ChamadoUpdate(BaseModel):
     motivo_pendencia: Optional[str] = None
     codigo_reversa: Optional[str] = None
     data_vencimento_reversa: Optional[str] = None
+    reversa_postada: Optional[bool] = None
+    data_postagem_reversa: Optional[str] = None
     retornar_chamado: Optional[bool] = None
     verificar_adneia: Optional[bool] = None
     status_devolucao: Optional[str] = None

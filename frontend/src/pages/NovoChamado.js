@@ -102,6 +102,8 @@ const NovoAtendimento = () => {
   const [categoriaInicial, setCategoriaInicial] = useState('');
   const [statusDevolucao, setStatusDevolucao] = useState('');
   const [pendingSubmitData, setPendingSubmitData] = useState(null);
+  const [reversaPostada, setReversaPostada] = useState(false);
+  const [dataPostagemReversa, setDataPostagemReversa] = useState('');
 
   const [formData, setFormData] = useState({
     numero_pedido: '', solicitacao: '', parceiro: '',
@@ -184,6 +186,8 @@ const NovoAtendimento = () => {
       if (atd.retornar_chamado !== undefined) setRetornarChamado(atd.retornar_chamado);
       if (atd.verificar_adneia !== undefined) setVerificarAdneia(atd.verificar_adneia);
       if (atd.status_devolucao) setStatusDevolucao(atd.status_devolucao);
+      if (atd.reversa_postada !== undefined) setReversaPostada(!!atd.reversa_postada);
+      if (atd.data_postagem_reversa) setDataPostagemReversa(atd.data_postagem_reversa);
 
       if (atd.numero_pedido) {
         setSkipSearchEffect(true);
@@ -411,6 +415,7 @@ const NovoAtendimento = () => {
         motivo_pendencia: mp || null, codigo_reversa: cr || null,
         data_vencimento_reversa: dvr || null, retornar_chamado: rc,
         verificar_adneia: va, status_devolucao: sdp || null,
+        reversa_postada: reversaPostada, data_postagem_reversa: dataPostagemReversa || null,
         transportadora: pedidoErp?.transportadora || null
       };
       if (!isEditMode && eac) {
@@ -864,6 +869,10 @@ const NovoAtendimento = () => {
               onCodigoReversaChange={setCodigoReversa}
               dataVencimentoReversa={dataVencimentoReversa}
               onDataVencimentoReversaChange={setDataVencimentoReversa}
+              reversaPostada={reversaPostada}
+              onReversaPostadaChange={setReversaPostada}
+              dataPostagemReversa={dataPostagemReversa}
+              onDataPostagemReversaChange={setDataPostagemReversa}
               retornarChamado={retornarChamado}
               onRetornarChamadoChange={setRetornarChamado}
               verificarAdneia={verificarAdneia}

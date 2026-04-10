@@ -435,6 +435,10 @@ const SecaoAnotacoes = ({
   onCodigoReversaChange,
   dataVencimentoReversa,
   onDataVencimentoReversaChange,
+  reversaPostada,
+  onReversaPostadaChange,
+  dataPostagemReversa,
+  onDataPostagemReversaChange,
   retornarChamado,
   onRetornarChamadoChange,
   verificarAdneia,
@@ -516,14 +520,48 @@ const SecaoAnotacoes = ({
             {reversaAberta ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </button>
           {reversaAberta && (
-            <div className="px-3 pb-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs text-muted-foreground">Número da Reversa</Label>
-                <Input value={codigoReversa} onChange={(e) => onCodigoReversaChange(e.target.value)} placeholder="Digite o código da reversa" className="mt-1" data-testid="input-numero-reversa" />
+            <div className="px-3 pb-3 space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Número da Reversa</Label>
+                  <Input value={codigoReversa} onChange={(e) => onCodigoReversaChange(e.target.value)} placeholder="Digite o código da reversa" className="mt-1" data-testid="input-numero-reversa" />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">Data de Vencimento</Label>
+                  <Input type="date" value={dataVencimentoReversa} onChange={(e) => onDataVencimentoReversaChange(e.target.value)} className="mt-1" data-testid="input-data-vencimento-reversa" />
+                </div>
               </div>
-              <div>
-                <Label className="text-xs text-muted-foreground">Data de Vencimento</Label>
-                <Input type="date" value={dataVencimentoReversa} onChange={(e) => onDataVencimentoReversaChange(e.target.value)} className="mt-1" data-testid="input-data-vencimento-reversa" />
+              {/* Postagem da reversa */}
+              <div className={`rounded-md border px-3 py-2 ${reversaPostada ? 'bg-green-50 border-green-300 dark:bg-green-950/30 dark:border-green-700' : 'bg-white dark:bg-transparent border-gray-200'}`}>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="reversa-postada-check"
+                    checked={!!reversaPostada}
+                    onChange={(e) => {
+                      onReversaPostadaChange(e.target.checked);
+                      if (e.target.checked && !dataPostagemReversa) {
+                        onDataPostagemReversaChange(new Date().toISOString().split('T')[0]);
+                      }
+                      if (!e.target.checked) onDataPostagemReversaChange('');
+                    }}
+                    className="h-4 w-4 accent-green-600 cursor-pointer"
+                  />
+                  <Label htmlFor="reversa-postada-check" className={`text-xs cursor-pointer font-medium ${reversaPostada ? 'text-green-700 dark:text-green-400' : 'text-muted-foreground'}`}>
+                    Item postado pelo cliente
+                  </Label>
+                  {reversaPostada && (
+                    <div className="ml-auto flex items-center gap-2">
+                      <Label className="text-xs text-muted-foreground">Data de postagem</Label>
+                      <Input
+                        type="date"
+                        value={dataPostagemReversa}
+                        onChange={(e) => onDataPostagemReversaChange(e.target.value)}
+                        className="h-7 text-xs w-36"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
