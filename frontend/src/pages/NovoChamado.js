@@ -394,6 +394,9 @@ const NovoAtendimento = () => {
     if (isEditMode && formData.anotacoes.trim() === anotacoesOriginais.trim()) {
       if (!window.confirm('Você não adicionou uma nova anotação. Deseja continuar mesmo assim?')) return;
     }
+    if (codigoReversa && !dataVencimentoReversa) {
+      toast.error('Preencha a data de vencimento da reversa'); return;
+    }
     if (!isEditMode && encerrarAoCriar && !MOTIVOS_FINALIZADORES.includes(motivoPendencia)) {
       toast.error(`Para encerrar, selecione um motivo finalizador: ${MOTIVOS_FINALIZADORES.join(', ')}`); return;
     }

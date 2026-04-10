@@ -1357,6 +1357,8 @@ const ListaAtendimentos = () => {
                           <span>{atd.codigo_reversa || '-'}</span>
                           {atd.reversa_postada
                             ? <Badge className="bg-green-100 text-green-700 text-[10px] px-1 py-0">✓ Postada{atd.data_postagem_reversa ? ` ${new Date(atd.data_postagem_reversa + 'T00:00:00').toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit'})}` : ''}</Badge>
+                            : atd.codigo_reversa && !atd.data_vencimento_reversa
+                            ? <Badge className="bg-gray-100 text-gray-500 text-[10px] px-1 py-0">Sem data</Badge>
                             : (atd.codigo_reversa && atd.data_vencimento_reversa) && (() => {
                             const hoje = new Date();
                             hoje.setHours(0, 0, 0, 0);
