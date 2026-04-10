@@ -1355,32 +1355,53 @@ const ListaAtendimentos = () => {
                       >
                         <div className="flex flex-col gap-0.5">
                           <span>{atd.codigo_reversa || '-'}</span>
-                          {atd.reversa_postada
-                            ? <Badge className="bg-green-100 text-green-700 text-[10px] px-1 py-0">✓ Postada{atd.data_postagem_reversa ? ` ${new Date(atd.data_postagem_reversa + 'T00:00:00').toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit'})}` : ''}</Badge>
-                            : atd.codigo_reversa && !atd.data_vencimento_reversa
-                            ? <Badge className="bg-gray-100 text-gray-500 text-[10px] px-1 py-0">Sem data</Badge>
-                            : (atd.codigo_reversa && atd.data_vencimento_reversa) && (() => {
-                            const hoje = new Date();
-                            hoje.setHours(0, 0, 0, 0);
-                            let dataVenc;
+                          {atd.codigo_reversa && (() => {
+                            // Postada
+                            if (atd.reversa_postada) {
+                              return (
+                                <span className="text-[11px] text-green-600 font-medium">
+                                  ✓ Postada {atd.data_postagem_reversa
+                                    ? new Date(atd.data_postagem_reversa + 'T00:00:00').toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit', year:'numeric'})
+                                    : '· sem data'}
+                                </span>
+                              );
+                            }
+                            // Sem data de vencimento
+                            if (!atd.data_vencimento_reversa) {
+                              return <span className="text-[11px] text-gray-400">Sem data de validade</span>;
+                            }
+                            // Parse data vencimento
                             const dv = atd.data_vencimento_reversa;
-                            if (dv.includes('-')) {
-                              dataVenc = new Date(dv + 'T00:00:00');
-                            } else if (dv.includes('/')) {
-                              const parts = dv.split('/');
-                              if (parts.length === 3) dataVenc = new Date(parts[2], parts[1] - 1, parts[0]);
-                              else if (parts.length === 2) dataVenc = new Date(2026, parts[1] - 1, parts[0]);
+                            let dataVenc;
+                            if (dv.includes('-')) dataVenc = new Date(dv + 'T00:00:00');
+                            else if (dv.includes('/')) {
+                              const p = dv.split('/');
+                              if (p.length === 3) dataVenc = new Date(p[2], p[1]-1, p[0]);
+                              else if (p.length === 2) dataVenc = new Date(2026, p[1]-1, p[0]);
                             }
                             if (!dataVenc || isNaN(dataVenc)) return null;
-                            dataVenc.setHours(0, 0, 0, 0);
-                            const diffDias = Math.ceil((dataVenc - hoje) / (1000 * 60 * 60 * 24));
+                            dataVenc.setHours(0,0,0,0);
+                            const hoje = new Date(); hoje.setHours(0,0,0,0);
+                            const diffDias = Math.ceil((dataVenc - hoje) / (1000*60*60*24));
+                            const dataFormatada = dataVenc.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit', year:'numeric'});
+                            // Vencida
                             if (diffDias < 0) {
-                              return <Badge className="bg-red-100 text-red-700 text-[10px] px-1 py-0">Vencida</Badge>;
+                              return (
+                                <span className="text-[11px] text-red-600 font-medium">
+                                  {dataFormatada} · Vencida
+                                </span>
+                              );
                             }
-                            if (diffDias <= 3) {
-                              return <Badge className="bg-amber-100 text-amber-700 text-[10px] px-1 py-0">Vence em {diffDias}d</Badge>;
+                            // Vence em breve (≤4 dias)
+                            if (diffDias <= 4) {
+                              return (
+                                <span className="text-[11px] text-amber-600 font-medium">
+                                  {dataFormatada} · Vence em {diffDias}d
+                                </span>
+                              );
                             }
-                            return null;
+                            // Normal - só mostra a data
+                            return <span className="text-[11px] text-gray-400">{dataFormatada}</span>;
                           })()}
                         </div>
                       </TableCell>
