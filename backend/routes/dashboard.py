@@ -449,11 +449,18 @@ async def get_dashboard_estornos(periodo_dias: int = 30, current_user: dict = De
     def parse_brl(v):
         if not v: return 0.0
         try:
-            return float(str(v).replace('.', '').replace(',', '.'))
+            s = str(v).strip()
+            # Formato BR: 1.234,56 → tem vírgula como decimal
+            if ',' in s:
+                return float(s.replace('.', '').replace(',', '.'))
+            # Formato decimal padrão: 141.90 → float direto
+            return float(s)
         except:
             return 0.0
 
-    estorno_nums = [c['numero_pedido'] async for c in db.chamados.find(base_match, {"numero_pedido": 1}) if c.get('numero_pedido')]
+    # Valor: apenas chamados que foram de fato Estornados (status_cliente = "Estornado")
+    estorno_confirmado_match = {**base_match, "status_cliente": "Estornado"}
+    estorno_nums = [c['numero_pedido'] async for c in db.chamados.find(estorno_confirmado_match, {"numero_pedido": 1}) if c.get('numero_pedido')]
     pedidos_valores = await db.pedidos_erp.find({"numero_pedido": {"$in": estorno_nums}}, {"preco_final": 1, "frete": 1}).to_list(5000)
     valor_total = sum(parse_brl(p.get('preco_final')) + parse_brl(p.get('frete')) for p in pedidos_valores)
 
@@ -469,7 +476,7 @@ async def get_dashboard_estornos(periodo_dias: int = 30, current_user: dict = De
         mes_ref = now - timedelta(days=i*30)
         mes_inicio = mes_ref.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         mes_fim = (mes_inicio.replace(month=mes_inicio.month % 12 + 1, day=1) if mes_inicio.month < 12 else mes_inicio.replace(year=mes_inicio.year + 1, month=1, day=1)) - timedelta(seconds=1)
-        mes_estorno_match = {**base_match, "data_abertura": {"$gte": mes_inicio.isoformat(), "$lte": mes_fim.isoformat()}}
+        mes_estorno_match = {**base_match, "status_cliente": "Estornado", "data_abertura": {"$gte": mes_inicio.isoformat(), "$lte": mes_fim.isoformat()}}
         mes_nums = [c['numero_pedido'] async for c in db.chamados.find(mes_estorno_match, {"numero_pedido": 1}) if c.get('numero_pedido')]
         mes_pedidos = await db.pedidos_erp.find({"numero_pedido": {"$in": mes_nums}}, {"preco_final": 1, "frete": 1}).to_list(1000)
         mes_valor = sum(parse_brl(p.get('preco_final')) + parse_brl(p.get('frete')) for p in mes_pedidos)
