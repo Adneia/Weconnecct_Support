@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../components/ui/table';
 import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LabelList,
   LineChart, Line, PieChart, Pie, Cell
 } from 'recharts';
 import { 
@@ -616,12 +616,14 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent className="h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={performance?.tempo_por_canal?.slice(0, 10) || []} layout="vertical">
+              <BarChart data={performance?.tempo_por_canal?.slice(0, 10) || []} layout="vertical" margin={{ right: 40 }}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis type="number" tick={{ fontSize: 11 }} />
                 <YAxis dataKey="canal" type="category" width={100} tick={{ fontSize: 10 }} />
                 <Tooltip formatter={(value) => [`${value} dias`, 'Tempo Médio']} />
-                <Bar dataKey="dias" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="dias" fill="#3b82f6" radius={[0, 4, 4, 0]}>
+                  <LabelList dataKey="dias" position="right" style={{ fontSize: 11, fill: '#64748b', fontWeight: 600 }} formatter={(v) => `${v}d`} />
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -634,12 +636,14 @@ const Dashboard = () => {
           </CardHeader>
           <CardContent className="h-80">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={performance?.tempo_por_fornecedor?.slice(0, 10) || []} layout="vertical">
+              <BarChart data={performance?.tempo_por_fornecedor?.slice(0, 10) || []} layout="vertical" margin={{ right: 40 }}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis type="number" tick={{ fontSize: 11 }} />
                 <YAxis dataKey="fornecedor" type="category" width={100} tick={{ fontSize: 10 }} />
                 <Tooltip formatter={(value) => [`${value} dias`, 'Tempo Médio']} />
-                <Bar dataKey="dias" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="dias" fill="#8b5cf6" radius={[0, 4, 4, 0]}>
+                  <LabelList dataKey="dias" position="right" style={{ fontSize: 11, fill: '#64748b', fontWeight: 600 }} formatter={(v) => `${v}d`} />
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
