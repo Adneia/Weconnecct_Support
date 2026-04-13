@@ -311,7 +311,20 @@ async def get_dashboard_classificacao(periodo_dias: int = 30, canal: Optional[st
     pend_categoria = await db.chamados.aggregate(pipeline_pend_cat).to_list(50)
     pipeline_motivo = [{"$match": {**base_match, "pendente": True}}, {"$group": {"_id": "$motivo_pendencia", "count": {"$sum": 1}}}, {"$sort": {"count": -1}}]
     pend_motivo = await db.chamados.aggregate(pipeline_motivo).to_list(50)
-    pipeline_prod = [{"$match": {**base_match, "produto": {"$nin": [None, "", "nan", "N/A"]}}}, {"$group": {"_id": "$produto", "count": {"$sum": 1}}}, {"$sort": {"count": -1}}, {"$limit": 10}]
+    pipeline_prod = [
+        {"$match": base_match},
+        {"$lookup": {"from": "pedidos_erp", "localField": "numero_pedido", "foreignField": "numero_pedido", "as": "pedido_info"}},
+        {"$unwind": {"path": "$pedido_info", "preserveNullAndEmptyArrays": False}},
+        {"$match": {"pedido_info.produto": {"$nin": [None, "", "nan", "N/A"]}}},
+        {"$group": {
+            "_id": "$pedido_info.produto",
+            "count": {"$sum": 1},
+            "sku_bseller": {"$first": "$pedido_info.codigo_item_bseller"},
+            "sku_vtex": {"$first": "$pedido_info.codigo_item_vtex"}
+        }},
+        {"$sort": {"count": -1}},
+        {"$limit": 10}
+    ]
     top_produtos = await db.chamados.aggregate(pipeline_prod).to_list(10)
     # Buscar marca/fornecedor via join com pedidos_erp (campo departamento = Marca)
     pipeline_forn = [
@@ -341,7 +354,7 @@ async def get_dashboard_classificacao(periodo_dias: int = 30, canal: Optional[st
         "por_categoria": [{"categoria": c['_id'] or 'N/A', "total": c['count'], "pct_pedidos": round((c['count'] / total_pedidos) * 100, 1) if total_pedidos > 0 else 0} for c in por_categoria],
         "pend_categoria": [{"categoria": c['_id'] or 'N/A', "total": c['count'], "pct_pendentes": round((c['count'] / total_pendentes) * 100, 1) if total_pendentes > 0 else 0, "pct_categoria": round((c['count'] / cat_total_map.get(c['_id'], c['count'])) * 100, 1)} for c in pend_categoria],
         "pend_motivo": [{"motivo": c['_id'] or 'N/A', "total": c['count'], "pct_pedidos": round((c['count'] / total_pedidos) * 100, 2) if total_pedidos > 0 else 0} for c in pend_motivo],
-        "top_produtos": [{"produto": c['_id'], "total": c['count']} for c in top_produtos if c['_id']],
+        "top_produtos": [{"produto": c['_id'], "total": c['count'], "sku_bseller": c.get('sku_bseller'), "sku_vtex": c.get('sku_vtex')} for c in top_produtos if c['_id']],
         "por_fornecedor": [
             {
                 "fornecedor": c['_id'],

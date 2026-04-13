@@ -565,11 +565,19 @@ const Dashboard = () => {
           <CardContent className="space-y-2 max-h-80 overflow-y-auto">
             {classificacao?.top_produtos?.map((item, idx) => (
               <div key={item.produto} className="flex justify-between items-center p-2 rounded bg-muted/30">
-                <div className="flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-xs flex items-center justify-center">{idx + 1}</span>
-                  <span className="text-sm truncate max-w-xs">{item.produto}</span>
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="w-5 h-5 shrink-0 rounded-full bg-primary/20 text-primary text-xs flex items-center justify-center">{idx + 1}</span>
+                  <div className="min-w-0">
+                    <span className="text-sm truncate block">{item.produto}</span>
+                    {(item.sku_vtex || item.sku_bseller) && (
+                      <span className="text-[11px] text-muted-foreground font-mono">
+                        {item.sku_vtex && <span className="mr-2">VTEX: {item.sku_vtex}</span>}
+                        {item.sku_bseller && <span>BSeller: {item.sku_bseller}</span>}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <Badge>{item.total}</Badge>
+                <Badge className="shrink-0 ml-2">{item.total}</Badge>
               </div>
             ))}
           </CardContent>
