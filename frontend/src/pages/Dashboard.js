@@ -419,42 +419,44 @@ const Dashboard = () => {
   // ABA 2 - VOLUME POR CANAL
   const TabVolumeCanal = () => (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {/* Ranking — ocupa 2/3 da largura */}
+        <Card className="xl:col-span-2">
           <CardHeader>
             <CardTitle className="text-lg">Ranking por Canal</CardTitle>
             <CardDescription>Total: {volumeCanal?.total || 0} atendimentos</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3 max-h-96 overflow-y-auto">
+          <CardContent className="space-y-2">
             {volumeCanal?.ranking?.map((item, idx) => (
-              <div key={item.canal} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
+              <div key={item.canal} className="flex items-center justify-between p-2.5 rounded-lg bg-muted/50">
                 <div className="flex items-center gap-3">
-                  <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">
+                  <span className="w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center font-semibold">
                     {idx + 1}
                   </span>
                   <span className="font-medium">{item.canal}</span>
                 </div>
-                <div className="flex flex-col items-end gap-0.5">
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary">{item.total}</Badge>
-                    <span className="text-sm text-muted-foreground w-16 text-right">{item.percentual}% atend.</span>
-                  </div>
+                <div className="flex items-center gap-6">
                   {item.n_pedidos > 0 && (
                     <span className="text-xs text-blue-600 font-medium">
                       {item.pct_vendas}% vendas ({item.n_pedidos.toLocaleString()})
                     </span>
                   )}
+                  <div className="flex items-center gap-2 min-w-[110px] justify-end">
+                    <Badge variant="secondary">{item.total}</Badge>
+                    <span className="text-sm text-muted-foreground w-16 text-right">{item.percentual}% atend.</span>
+                  </div>
                 </div>
               </div>
             ))}
           </CardContent>
         </Card>
-        
+
+        {/* Pizza — ocupa 1/3 */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Distribuição por Canal</CardTitle>
           </CardHeader>
-          <CardContent className="h-80">
+          <CardContent className="h-[420px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -462,10 +464,10 @@ const Dashboard = () => {
                   dataKey="total"
                   nameKey="canal"
                   cx="50%"
-                  cy="50%"
-                  outerRadius={100}
+                  cy="45%"
+                  outerRadius={110}
                   label={({ canal, percentual }) => `${canal}: ${percentual}%`}
-                  labelLine={false}
+                  labelLine={true}
                 >
                   {volumeCanal?.ranking?.slice(0, 8).map((_, idx) => (
                     <Cell key={idx} fill={COLORS[idx % COLORS.length]} />
