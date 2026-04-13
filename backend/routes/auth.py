@@ -25,10 +25,11 @@ def verify_password(password: str, hashed: str) -> bool:
     return bcrypt.checkpw(password.encode(), hashed.encode())
 
 
-def create_token(user_id: str, email: str) -> str:
+def create_token(user_id: str, email: str, role: str = "atendente") -> str:
     payload = {
         "sub": user_id,
         "email": email,
+        "role": role,
         "exp": datetime.now(timezone.utc) + timedelta(hours=JWT_EXPIRATION_HOURS)
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
@@ -88,12 +89,13 @@ async def login(credentials: UserLogin):
     password_hash = user.get('password_hash') or user.get('password', '') if user else ''
     if not user or not verify_password(credentials.password, password_hash):
         raise HTTPException(status_code=401, detail="Credenciais inválidas")
-    token = create_token(user['id'], user['email'])
+    role = user.get('role', 'atendente')
+    token = create_token(user['id'], user['email'], role)
     # Notificar Adnéia que um atendente entrou no sistema
     await notificar_login(user)
     return TokenResponse(
         token=token,
-        user=UserResponse(id=user['id'], email=user['email'], name=user['name'], created_at=user['created_at'])
+        user=UserResponse(id=user['id'], email=user['email'], name=user['name'], created_at=user['created_at'], role=role)
     )
 
 
@@ -103,7 +105,8 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         id=current_user['id'],
         email=current_user['email'],
         name=current_user['name'],
-        created_at=current_user['created_at']
+        created_at=current_user['created_at'],
+        role=current_user.get('role', 'atendente')
     )
 
 

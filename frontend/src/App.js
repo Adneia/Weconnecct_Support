@@ -16,8 +16,8 @@ import Perfil from "./pages/Perfil";
 import TextosPadroes from "./pages/TextosPadroes";
 
 // Protected Route wrapper
-const ProtectedRoute = ({ children }) => {
-  const { token, loading } = useAuth();
+const ProtectedRoute = ({ children, dashboardOnly = false }) => {
+  const { token, loading, isDashboardOnly } = useAuth();
 
   if (loading) {
     return (
@@ -29,6 +29,11 @@ const ProtectedRoute = ({ children }) => {
 
   if (!token) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Usuário com role "dashboard" só pode acessar o dashboard
+  if (isDashboardOnly && !dashboardOnly) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <Layout>{children}</Layout>;
@@ -70,7 +75,7 @@ function AppRoutes() {
       <Route
         path="/dashboard"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute dashboardOnly={true}>
             <Dashboard />
           </ProtectedRoute>
         }

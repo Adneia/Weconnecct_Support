@@ -59,7 +59,7 @@ export const Layout = ({ children }) => {
   const [notificacoesNaoLidas, setNotificacoesNaoLidas] = useState(0);
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout, getAuthHeader } = useAuth();
+  const { user, logout, getAuthHeader, isDashboardOnly } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [notificacaoSelecionada, setNotificacaoSelecionada] = useState(null);
   
@@ -124,6 +124,9 @@ export const Layout = ({ children }) => {
   
   // Filtrar itens de navegação baseado no usuário
   const filteredNavItems = navItems.filter(item => {
+    if (isDashboardOnly) {
+      return item.path === '/dashboard';
+    }
     if (item.adminOnly) {
       return user?.email === 'adneia@weconnect360.com.br';
     }

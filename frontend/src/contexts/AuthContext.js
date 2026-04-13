@@ -67,8 +67,10 @@ export const AuthProvider = ({ children }) => {
     return token ? { Authorization: `Bearer ${token}` } : {};
   };
 
+  const isDashboardOnly = user?.role === 'dashboard';
+
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout, getAuthHeader }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, logout, getAuthHeader, isDashboardOnly }}>
       {children}
     </AuthContext.Provider>
   );

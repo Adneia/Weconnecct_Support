@@ -21,6 +21,7 @@ class User(UserBase):
 class UserResponse(UserBase):
     id: str
     created_at: str
+    role: str = "atendente"
 
 class TokenResponse(BaseModel):
     token: str
