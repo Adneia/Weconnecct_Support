@@ -316,11 +316,11 @@ const Dashboard = () => {
                               </TableHead>
                             ))
                           : (
-                            <TableHead key={month} rowSpan={2} className="text-center border-r bg-slate-100 dark:bg-slate-800/40 align-middle">
+                            <TableHead key={month} rowSpan={2} className="text-center border-r bg-slate-100 dark:bg-slate-800/40 align-middle w-8 min-w-0 p-0">
                               <button onClick={() => toggleMonth(month)}
-                                className="flex flex-col items-center gap-0.5 w-full py-2 px-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors">
-                                <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">{monthNames[month]}</span>
-                                <span className="text-blue-500 font-bold text-base leading-none">+</span>
+                                className="flex flex-col items-center gap-0 w-full py-1 px-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors">
+                                <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 leading-tight">{monthNames[month]}</span>
+                                <span className="text-blue-500 font-bold text-xs leading-tight">+</span>
                               </button>
                             </TableHead>
                           )
