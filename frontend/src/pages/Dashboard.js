@@ -41,7 +41,9 @@ const Dashboard = () => {
   const [estornos, setEstornos] = useState(null);
   const [reincidencia, setReincidencia] = useState(null);
   const [filtros, setFiltros] = useState({ canais: [], fornecedores: [] });
-  
+  const [expandedMonths, setExpandedMonths] = useState({});
+  const toggleMonth = (month) => setExpandedMonths(prev => ({ ...prev, [month]: !prev[month] }));
+
   const navigate = useNavigate();
   const { getAuthHeader, user } = useAuth();
 
@@ -252,139 +254,165 @@ const Dashboard = () => {
       </div>
       
       {/* Tabela de Atendimentos por Canal e Dia */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Users className="h-5 w-5" />
-            Atendimentos por Canal - Março 2026
-          </CardTitle>
-          <CardDescription>
-            AR = Aguardando Resposta | A = Aberto | F = Fechado
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <Table className="min-w-[1200px]">
-              <TableHeader>
-                {/* Linha com os dias */}
-                <TableRow>
-                  <TableHead rowSpan={2} className="font-semibold min-w-[150px] align-bottom border-r">Canal</TableHead>
-                  {visaoGeral?.dias_headers?.map((dia, idx) => (
-                    <TableHead 
-                      key={dia.data} 
-                      colSpan={3} 
-                      className={`text-center border-r ${idx % 2 === 0 ? 'bg-slate-50 dark:bg-slate-900/30' : 'bg-slate-100 dark:bg-slate-800/30'}`}
-                    >
-                      <div className="flex flex-col items-center py-1">
-                        <span className="font-semibold text-sm">{dia.data}</span>
-                      </div>
-                    </TableHead>
-                  ))}
-                  <TableHead colSpan={1} className="text-center border-r bg-indigo-50 dark:bg-indigo-900/30">
-                    <div className="flex flex-col items-center py-1">
-                      <span className="font-semibold text-sm">{(() => {
-                        const hoje = new Date();
-                        const proximoDia = new Date(hoje);
-                        proximoDia.setDate(proximoDia.getDate() + 1);
-                        if (proximoDia.getDay() === 6) proximoDia.setDate(proximoDia.getDate() + 2);
-                        else if (proximoDia.getDay() === 0) proximoDia.setDate(proximoDia.getDate() + 1);
-                        return proximoDia.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-                      })()}</span>
-                    </div>
-                  </TableHead>
-                </TableRow>
-                {/* Linha com AR/A/F */}
-                <TableRow>
-                  {visaoGeral?.dias_headers?.map((dia, idx) => (
-                    <React.Fragment key={`header-${dia.data}`}>
-                      <TableHead className={`text-center w-10 text-xs px-1 ${idx % 2 === 0 ? 'bg-yellow-50 dark:bg-yellow-950/30' : 'bg-yellow-100 dark:bg-yellow-900/30'}`}>
-                        <span className="text-yellow-700 dark:text-yellow-400 font-semibold">AR</span>
+      {(() => {
+        const RECENT_DAYS = 5;
+        const monthNames = {'01':'Jan','02':'Fev','03':'Mar','04':'Abr','05':'Mai','06':'Jun','07':'Jul','08':'Ago','09':'Set','10':'Out','11':'Nov','12':'Dez'};
+        const allDias = visaoGeral?.dias_headers || [];
+        const recentDias = allDias.slice(-RECENT_DAYS);
+        const olderDias = allDias.slice(0, -RECENT_DAYS);
+        const olderMonthsOrder = [];
+        const olderByMonth = {};
+        olderDias.forEach(dia => {
+          const m = dia.data.split('/')[1];
+          if (!olderByMonth[m]) { olderByMonth[m] = []; olderMonthsOrder.push(m); }
+          olderByMonth[m].push(dia);
+        });
+
+        const renderDayCells = (dia, idx, getValue) => (
+          <React.Fragment key={`cell-${dia.data}`}>
+            <TableCell className={`text-center px-1 ${idx % 2 === 0 ? 'bg-yellow-50/30' : 'bg-yellow-50/50'}`}>
+              <span className={`text-sm ${getValue(dia, 'ar') > 0 ? 'font-semibold text-yellow-700' : 'text-muted-foreground'}`}>{getValue(dia, 'ar')}</span>
+            </TableCell>
+            <TableCell className={`text-center px-1 ${idx % 2 === 0 ? 'bg-orange-50/30' : 'bg-orange-50/50'}`}>
+              <span className={`text-sm ${getValue(dia, 'a') > 0 ? 'font-semibold text-orange-700' : 'text-muted-foreground'}`}>{getValue(dia, 'a')}</span>
+            </TableCell>
+            <TableCell className={`text-center px-1 border-r ${idx % 2 === 0 ? 'bg-emerald-50/30' : 'bg-emerald-50/50'}`}>
+              <span className={`text-sm ${getValue(dia, 'f') > 0 ? 'font-semibold text-emerald-700' : 'text-muted-foreground'}`}>{getValue(dia, 'f')}</span>
+            </TableCell>
+          </React.Fragment>
+        );
+
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Atendimentos por Canal
+              </CardTitle>
+              <CardDescription>
+                AR = Aguardando Resposta | A = Aberto | F = Fechado · Clique no mês para expandir dias anteriores
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <Table className="min-w-[800px]">
+                  <TableHeader>
+                    {/* Linha 1: meses colapsados + dias recentes */}
+                    <TableRow>
+                      <TableHead rowSpan={2} className="font-semibold min-w-[150px] align-bottom border-r">Canal</TableHead>
+                      {/* Meses antigos */}
+                      {olderMonthsOrder.map(month =>
+                        expandedMonths[month]
+                          ? olderByMonth[month].map((dia, idx) => (
+                              <TableHead key={dia.data} colSpan={3} className={`text-center border-r ${idx % 2 === 0 ? 'bg-slate-50 dark:bg-slate-900/30' : 'bg-slate-100 dark:bg-slate-800/30'}`}>
+                                <div className="flex flex-col items-center py-1">
+                                  <span className="font-semibold text-sm">{dia.data}</span>
+                                  {idx === 0 && (
+                                    <button onClick={() => toggleMonth(month)} className="text-[10px] text-blue-500 hover:text-blue-700 mt-0.5 leading-none">
+                                      {monthNames[month]} −
+                                    </button>
+                                  )}
+                                </div>
+                              </TableHead>
+                            ))
+                          : (
+                            <TableHead key={month} rowSpan={2} className="text-center border-r bg-slate-100 dark:bg-slate-800/40 align-middle">
+                              <button onClick={() => toggleMonth(month)}
+                                className="flex flex-col items-center gap-0.5 w-full py-2 px-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors">
+                                <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">{monthNames[month]}</span>
+                                <span className="text-blue-500 font-bold text-base leading-none">+</span>
+                              </button>
+                            </TableHead>
+                          )
+                      )}
+                      {/* Últimos 5 dias */}
+                      {recentDias.map((dia, idx) => (
+                        <TableHead key={dia.data} colSpan={3} className={`text-center border-r ${idx % 2 === 0 ? 'bg-slate-50 dark:bg-slate-900/30' : 'bg-slate-100 dark:bg-slate-800/30'}`}>
+                          <div className="flex flex-col items-center py-1">
+                            <span className="font-semibold text-sm">{dia.data}</span>
+                          </div>
+                        </TableHead>
+                      ))}
+                      {/* Próximo dia útil */}
+                      <TableHead colSpan={1} className="text-center border-r bg-indigo-50 dark:bg-indigo-900/30">
+                        <div className="flex flex-col items-center py-1">
+                          <span className="font-semibold text-sm">{(() => {
+                            const hoje = new Date();
+                            const proximoDia = new Date(hoje);
+                            proximoDia.setDate(proximoDia.getDate() + 1);
+                            if (proximoDia.getDay() === 6) proximoDia.setDate(proximoDia.getDate() + 2);
+                            else if (proximoDia.getDay() === 0) proximoDia.setDate(proximoDia.getDate() + 1);
+                            return proximoDia.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+                          })()}</span>
+                        </div>
                       </TableHead>
-                      <TableHead className={`text-center w-10 text-xs px-1 ${idx % 2 === 0 ? 'bg-orange-50 dark:bg-orange-950/30' : 'bg-orange-100 dark:bg-orange-900/30'}`}>
-                        <span className="text-orange-700 dark:text-orange-400 font-semibold">A</span>
-                      </TableHead>
-                      <TableHead className={`text-center w-10 text-xs px-1 border-r ${idx % 2 === 0 ? 'bg-emerald-50 dark:bg-emerald-950/30' : 'bg-emerald-100 dark:bg-emerald-900/30'}`}>
-                        <span className="text-emerald-700 dark:text-emerald-400 font-semibold">F</span>
-                      </TableHead>
-                    </React.Fragment>
-                  ))}
-                  {/* Próximo dia útil - apenas A (Aberto) */}
-                  <TableHead className="text-center w-10 text-xs px-1 bg-indigo-100 border-r">
-                    <span className="text-indigo-700 font-semibold">A</span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {/* Linha de Total Geral (Atendimento ao cliente) */}
-                <TableRow className="bg-blue-50/50 dark:bg-blue-950/30 font-semibold">
-                  <TableCell className="font-semibold border-r">Atendimento ao cliente</TableCell>
-                  {visaoGeral?.dias_headers?.map((dia, idx) => (
-                    <React.Fragment key={`total-cliente-${dia.data}`}>
-                      <TableCell className={`text-center px-1 ${idx % 2 === 0 ? 'bg-yellow-50/30' : 'bg-yellow-50/50'}`}>
-                        <span className={`text-sm ${visaoGeral?.totais_por_dia?.[dia.data]?.ar > 0 ? 'font-semibold text-yellow-700' : 'text-muted-foreground'}`}>
-                          {visaoGeral?.totais_por_dia?.[dia.data]?.ar || 0}
-                        </span>
+                    </TableRow>
+                    {/* Linha 2: AR/A/F */}
+                    <TableRow>
+                      {olderMonthsOrder.map(month =>
+                        expandedMonths[month]
+                          ? olderByMonth[month].map((dia, idx) => (
+                              <React.Fragment key={`h2-${dia.data}`}>
+                                <TableHead className={`text-center w-10 text-xs px-1 ${idx % 2 === 0 ? 'bg-yellow-50' : 'bg-yellow-100'}`}><span className="text-yellow-700 font-semibold">AR</span></TableHead>
+                                <TableHead className={`text-center w-10 text-xs px-1 ${idx % 2 === 0 ? 'bg-orange-50' : 'bg-orange-100'}`}><span className="text-orange-700 font-semibold">A</span></TableHead>
+                                <TableHead className={`text-center w-10 text-xs px-1 border-r ${idx % 2 === 0 ? 'bg-emerald-50' : 'bg-emerald-100'}`}><span className="text-emerald-700 font-semibold">F</span></TableHead>
+                              </React.Fragment>
+                            ))
+                          : null
+                      )}
+                      {recentDias.map((dia, idx) => (
+                        <React.Fragment key={`h2r-${dia.data}`}>
+                          <TableHead className={`text-center w-10 text-xs px-1 ${idx % 2 === 0 ? 'bg-yellow-50 dark:bg-yellow-950/30' : 'bg-yellow-100 dark:bg-yellow-900/30'}`}><span className="text-yellow-700 dark:text-yellow-400 font-semibold">AR</span></TableHead>
+                          <TableHead className={`text-center w-10 text-xs px-1 ${idx % 2 === 0 ? 'bg-orange-50 dark:bg-orange-950/30' : 'bg-orange-100 dark:bg-orange-900/30'}`}><span className="text-orange-700 dark:text-orange-400 font-semibold">A</span></TableHead>
+                          <TableHead className={`text-center w-10 text-xs px-1 border-r ${idx % 2 === 0 ? 'bg-emerald-50 dark:bg-emerald-950/30' : 'bg-emerald-100 dark:bg-emerald-900/30'}`}><span className="text-emerald-700 dark:text-emerald-400 font-semibold">F</span></TableHead>
+                        </React.Fragment>
+                      ))}
+                      <TableHead className="text-center w-10 text-xs px-1 bg-indigo-100 border-r"><span className="text-indigo-700 font-semibold">A</span></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {/* Linha total */}
+                    <TableRow className="bg-blue-50/50 dark:bg-blue-950/30 font-semibold">
+                      <TableCell className="font-semibold border-r">Atendimento ao cliente</TableCell>
+                      {olderMonthsOrder.map(month =>
+                        expandedMonths[month]
+                          ? olderByMonth[month].map((dia, idx) => renderDayCells(dia, idx, (d, k) => visaoGeral?.totais_por_dia?.[d.data]?.[k] || 0))
+                          : <TableCell key={`tot-col-${month}`} className="border-r bg-slate-50/50 dark:bg-slate-800/20" />
+                      )}
+                      {recentDias.map((dia, idx) => renderDayCells(dia, idx, (d, k) => visaoGeral?.totais_por_dia?.[d.data]?.[k] || 0))}
+                      <TableCell className="text-center px-1 bg-indigo-100/50 border-r">
+                        <span className="font-bold text-indigo-700">{visaoGeral?.pendentes || 0}</span>
                       </TableCell>
-                      <TableCell className={`text-center px-1 ${idx % 2 === 0 ? 'bg-orange-50/30' : 'bg-orange-50/50'}`}>
-                        <span className="text-sm font-semibold text-orange-700">
-                          {visaoGeral?.totais_por_dia?.[dia.data]?.a || 0}
-                        </span>
-                      </TableCell>
-                      <TableCell className={`text-center px-1 border-r ${idx % 2 === 0 ? 'bg-emerald-50/30' : 'bg-emerald-50/50'}`}>
-                        <span className={`text-sm ${visaoGeral?.totais_por_dia?.[dia.data]?.f > 0 ? 'font-semibold text-emerald-700' : 'text-muted-foreground'}`}>
-                          {visaoGeral?.totais_por_dia?.[dia.data]?.f || 0}
-                        </span>
-                      </TableCell>
-                    </React.Fragment>
-                  ))}
-                  {/* Próximo dia útil - apenas A (cálculo: último A do último dia) */}
-                  <TableCell className="text-center px-1 bg-indigo-100/50 border-r">
-                    <span className="font-bold text-indigo-700">{visaoGeral?.pendentes || 0}</span>
-                  </TableCell>
-                </TableRow>
-                {/* Canais individuais */}
-                {visaoGeral?.por_canal_dia?.map((item) => (
-                  <TableRow key={item.canal} className="hover:bg-muted/50">
-                    <TableCell className="font-medium border-r text-sm">{item.canal}</TableCell>
-                    {visaoGeral?.dias_headers?.map((dia, idx) => (
-                      <React.Fragment key={`${item.canal}-${dia.data}`}>
-                        <TableCell className={`text-center px-1 ${idx % 2 === 0 ? 'bg-yellow-50/30' : 'bg-yellow-50/50'}`}>
-                          <span className={`text-sm ${item.dias[dia.data]?.ar > 0 ? 'font-semibold text-yellow-700' : 'text-muted-foreground'}`}>
-                            {item.dias[dia.data]?.ar || 0}
-                          </span>
+                    </TableRow>
+                    {/* Canais individuais */}
+                    {visaoGeral?.por_canal_dia?.map((item) => (
+                      <TableRow key={item.canal} className="hover:bg-muted/50">
+                        <TableCell className="font-medium border-r text-sm">{item.canal}</TableCell>
+                        {olderMonthsOrder.map(month =>
+                          expandedMonths[month]
+                            ? olderByMonth[month].map((dia, idx) => renderDayCells(dia, idx, (d, k) => item.dias[d.data]?.[k] || 0))
+                            : <TableCell key={`${item.canal}-col-${month}`} className="border-r bg-slate-50/30 dark:bg-slate-800/10" />
+                        )}
+                        {recentDias.map((dia, idx) => renderDayCells(dia, idx, (d, k) => item.dias[d.data]?.[k] || 0))}
+                        <TableCell className="text-center px-1 bg-indigo-100/30 border-r">
+                          <span className={`text-sm ${item.total?.a > 0 ? 'font-semibold text-indigo-700' : 'text-muted-foreground'}`}>{item.total?.a || 0}</span>
                         </TableCell>
-                        <TableCell className={`text-center px-1 ${idx % 2 === 0 ? 'bg-orange-50/30' : 'bg-orange-50/50'}`}>
-                          <span className={`text-sm ${item.dias[dia.data]?.a > 0 ? 'font-semibold text-orange-700' : 'text-muted-foreground'}`}>
-                            {item.dias[dia.data]?.a || 0}
-                          </span>
-                        </TableCell>
-                        <TableCell className={`text-center px-1 border-r ${idx % 2 === 0 ? 'bg-emerald-50/30' : 'bg-emerald-50/50'}`}>
-                          <span className={`text-sm ${item.dias[dia.data]?.f > 0 ? 'font-semibold text-emerald-700' : 'text-muted-foreground'}`}>
-                            {item.dias[dia.data]?.f || 0}
-                          </span>
-                        </TableCell>
-                      </React.Fragment>
+                      </TableRow>
                     ))}
-                    {/* Próximo dia útil - apenas A (pendentes do canal) */}
-                    <TableCell className="text-center px-1 bg-indigo-100/30 border-r">
-                      <span className={`text-sm ${item.total?.a > 0 ? 'font-semibold text-indigo-700' : 'text-muted-foreground'}`}>
-                        {item.total?.a || 0}
-                      </span>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {(!visaoGeral?.por_canal_dia || visaoGeral.por_canal_dia.length === 0) && (
-                  <TableRow>
-                    <TableCell colSpan={(visaoGeral?.dias_headers?.length || 5) * 3 + 2} className="text-center text-muted-foreground py-8">
-                      Nenhum dado disponível
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                    {(!visaoGeral?.por_canal_dia || visaoGeral.por_canal_dia.length === 0) && (
+                      <TableRow>
+                        <TableCell colSpan={RECENT_DAYS * 3 + olderMonthsOrder.length + 2} className="text-center text-muted-foreground py-8">
+                          Nenhum dado disponível
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
     </div>
   );
 
