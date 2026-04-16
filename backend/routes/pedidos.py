@@ -150,7 +150,14 @@ async def get_pedido_by_entrega(numero_pedido: str, current_user: dict = Depends
     galpao_info = get_galpao_from_serie(pedido.get('serie_nf', ''), pedido.get('chave_nota', ''))
     pedido['galpao'] = galpao_info.get('galpao', '')
     pedido['uf_galpao'] = galpao_info.get('uf_galpao', '')
-    
+
+    # Enriquecer com código do fornecedor do SIGEQ
+    id_item = pedido.get('codigo_item_bseller')
+    if id_item:
+        sigeq = await db.estoque_sigeq.find_one({"id_item": str(id_item)}, {"codigo_fornecedor": 1, "_id": 0})
+        if sigeq and sigeq.get('codigo_fornecedor'):
+            pedido['codigo_fornecedor'] = sigeq['codigo_fornecedor']
+
     return pedido
 
 
@@ -188,6 +195,11 @@ async def buscar_pedido_erp(
                 galpao_info = get_galpao_from_serie(p.get('serie_nf', ''), p.get('chave_nota', ''))
                 p['galpao'] = galpao_info.get('galpao', '')
                 p['uf_galpao'] = galpao_info.get('uf_galpao', '')
+                id_item = p.get('codigo_item_bseller')
+                if id_item:
+                    sigeq = await db.estoque_sigeq.find_one({"id_item": str(id_item)}, {"codigo_fornecedor": 1, "_id": 0})
+                    if sigeq and sigeq.get('codigo_fornecedor'):
+                        p['codigo_fornecedor'] = sigeq['codigo_fornecedor']
             return pedidos
         return []
 
@@ -201,6 +213,11 @@ async def buscar_pedido_erp(
     galpao_info = get_galpao_from_serie(pedido.get('serie_nf', ''), pedido.get('chave_nota', ''))
     pedido['galpao'] = galpao_info.get('galpao', '')
     pedido['uf_galpao'] = galpao_info.get('uf_galpao', '')
+    id_item = pedido.get('codigo_item_bseller')
+    if id_item:
+        sigeq = await db.estoque_sigeq.find_one({"id_item": str(id_item)}, {"codigo_fornecedor": 1, "_id": 0})
+        if sigeq and sigeq.get('codigo_fornecedor'):
+            pedido['codigo_fornecedor'] = sigeq['codigo_fornecedor']
     return [pedido]
 
 
