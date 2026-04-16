@@ -288,10 +288,13 @@ async def process_import_background(content: bytes, filename: str, user_name: st
                             forn_count += 1
                     logger.info(f"Fornecedores importados: {forn_count}")
 
-                # Importar Estoque SIGEQ425 e SIGEQ230
-                async def import_estoque_sheet(df_est, sheet):
+                # Importar Estoque SIGEQ425 e SIGEQ230 com bulk_write (muito mais rápido)
+                async def import_estoque_sheet(df_est, sheet, imp_id, progress_base):
+                    from pymongo import UpdateOne
                     df_est.columns = df_est.columns.str.strip()
-                    imp = upd = 0
+                    agora = datetime.now(timezone.utc).isoformat()
+                    ops = []
+                    total = len(df_est)
                     for _, row in df_est.iterrows():
                         id_item = str(row.get('ID do item', '')).strip()
                         if not id_item or id_item == 'nan': continue
@@ -305,13 +308,22 @@ async def process_import_background(content: bytes, filename: str, user_name: st
                             "disp_venda": int(row.get('Disp. Venda', 0)) if pd.notna(row.get('Disp. Venda')) else 0,
                             "qt_arquivo": int(row.get('Qt. Arquivo', 0)) if pd.notna(row.get('Qt. Arquivo')) else 0,
                             "sheet": sheet,
-                            "ultima_atualizacao": datetime.now(timezone.utc).isoformat()
+                            "ultima_atualizacao": agora
                         }
-                        existing = await db.estoque_sigeq.find_one({"id_item": id_item})
-                        if existing:
-                            await db.estoque_sigeq.update_one({"id_item": id_item}, {"$set": data}); upd += 1
-                        else:
-                            await db.estoque_sigeq.insert_one(data); imp += 1
+                        ops.append(UpdateOne({"id_item": id_item}, {"$set": data}, upsert=True))
+                    # Executar em lotes de 1000
+                    imp = upd = 0
+                    batch_size = 1000
+                    for i in range(0, len(ops), batch_size):
+                        batch = ops[i:i+batch_size]
+                        result = await db.estoque_sigeq.bulk_write(batch, ordered=False)
+                        imp += result.upserted_count
+                        upd += result.modified_count
+                        progress = progress_base + int((min(i + batch_size, len(ops)) / max(len(ops), 1)) * 45)
+                        await db.import_status.update_one(
+                            {"import_id": imp_id},
+                            {"$set": {"progress": progress, "inserted": imp, "updated": upd, "total": total}}
+                        )
                     logger.info(f"Estoque {sheet}: {imp} novos, {upd} atualizados")
                     return imp, upd
 
@@ -319,12 +331,8 @@ async def process_import_background(content: bytes, filename: str, user_name: st
                 sheets_to_process = [s for s in ['SIGEQ425', 'SIGEQ230'] if s in sheet_names]
                 for idx_sheet, sheet in enumerate(sheets_to_process):
                     df_est = pd.read_excel(excel_file, sheet_name=sheet)
-                    total_est = len(df_est)
-                    await db.import_status.update_one(
-                        {"import_id": import_id},
-                        {"$set": {"total": total_est, "progress": int((idx_sheet / max(len(sheets_to_process), 1)) * 90)}}
-                    )
-                    i, u = await import_estoque_sheet(df_est, sheet)
+                    progress_base = int((idx_sheet / max(len(sheets_to_process), 1)) * 90)
+                    i, u = await import_estoque_sheet(df_est, sheet, import_id, progress_base)
                     est_inserted += i; est_updated += u
 
                 await db.import_status.update_one(
