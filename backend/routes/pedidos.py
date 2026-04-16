@@ -252,7 +252,112 @@ async def process_import_background(content: bytes, filename: str, user_name: st
         if filename.endswith('.csv'):
             df = pd.read_csv(BytesIO(content))
         else:
-            df = pd.read_excel(BytesIO(content))
+            excel_file = pd.ExcelFile(BytesIO(content))
+            sheet_names = excel_file.sheet_names
+            logger.info(f"Abas encontradas: {sheet_names}")
+
+            # Detectar arquivo "outras" (Fornecedores + Estoque, sem Tabelão)
+            is_outras = 'Fornecedores' in sheet_names and 'Tabelão' not in sheet_names
+            if is_outras:
+                logger.info("Arquivo 'outras' detectado — importando Fornecedores e Estoque")
+                # Importar Fornecedores
+                if 'Fornecedores' in sheet_names:
+                    df_forn = pd.read_excel(excel_file, sheet_name='Fornecedores')
+                    df_forn.columns = df_forn.columns.str.strip().str.lower()
+                    forn_count = 0
+                    for _, row in df_forn.iterrows():
+                        fornecedor = None
+                        for col in ['fornecedor', 'nome', 'nome_fornecedor']:
+                            if col in df_forn.columns:
+                                fornecedor = str(row.get(col, '')).strip()
+                                break
+                        dias_extras = 5
+                        for col in ['dias extras padrão (dias úteis)', 'dias extras padrão', 'dias extras', 'dias_extras']:
+                            if col in df_forn.columns:
+                                val = row.get(col)
+                                if pd.notna(val):
+                                    try: dias_extras = int(val)
+                                    except: pass
+                                break
+                        if fornecedor and fornecedor.lower() not in ('nan', ''):
+                            await db.fornecedores.update_one(
+                                {"nome": fornecedor},
+                                {"$set": {"nome": fornecedor, "dias_extras_padrao": dias_extras, "ultima_atualizacao": datetime.now(timezone.utc).isoformat()}},
+                                upsert=True
+                            )
+                            forn_count += 1
+                    logger.info(f"Fornecedores importados: {forn_count}")
+
+                # Importar Estoque SIGEQ425 e SIGEQ230
+                async def import_estoque_sheet(df_est, sheet):
+                    df_est.columns = df_est.columns.str.strip()
+                    imp = upd = 0
+                    for _, row in df_est.iterrows():
+                        id_item = str(row.get('ID do item', '')).strip()
+                        if not id_item or id_item == 'nan': continue
+                        if id_item.endswith('.0'): id_item = id_item[:-2]
+                        data = {
+                            "id_item": id_item,
+                            "fornecedor": str(row.get('Nome do fornecedor', '')).strip(),
+                            "descricao": str(row.get('Descrição do item', '')).strip(),
+                            "codigo_fornecedor": str(row.get('Código fornecedor', '')).strip(),
+                            "qt_reserva": int(row.get('Qt. Res', 0)) if pd.notna(row.get('Qt. Res')) else 0,
+                            "disp_venda": int(row.get('Disp. Venda', 0)) if pd.notna(row.get('Disp. Venda')) else 0,
+                            "qt_arquivo": int(row.get('Qt. Arquivo', 0)) if pd.notna(row.get('Qt. Arquivo')) else 0,
+                            "sheet": sheet,
+                            "ultima_atualizacao": datetime.now(timezone.utc).isoformat()
+                        }
+                        existing = await db.estoque_sigeq.find_one({"id_item": id_item})
+                        if existing:
+                            await db.estoque_sigeq.update_one({"id_item": id_item}, {"$set": data}); upd += 1
+                        else:
+                            await db.estoque_sigeq.insert_one(data); imp += 1
+                    logger.info(f"Estoque {sheet}: {imp} novos, {upd} atualizados")
+                    return imp, upd
+
+                est_inserted = est_updated = 0
+                for sheet in ['SIGEQ425', 'SIGEQ230']:
+                    if sheet in sheet_names:
+                        df_est = pd.read_excel(excel_file, sheet_name=sheet)
+                        i, u = await import_estoque_sheet(df_est, sheet)
+                        est_inserted += i; est_updated += u
+
+                await db.import_status.update_one(
+                    {"import_id": import_id},
+                    {"$set": {"status": "completed", "progress": 100, "inserted": est_inserted, "updated": est_updated, "skipped": 0, "errors": 0, "total": est_inserted + est_updated, "completed_at": datetime.now(timezone.utc).isoformat()}}
+                )
+                logger.info(f"Import 'outras' concluído: {forn_count} fornecedores, {est_inserted} estoque novos, {est_updated} atualizados")
+                return
+
+            # Arquivo normal — ler aba Tabelão ou primeira aba
+            if 'Tabelão' in sheet_names:
+                df = pd.read_excel(excel_file, sheet_name='Tabelão')
+            else:
+                df = pd.read_excel(excel_file, sheet_name=0)
+
+            # Importar Fornecedores se existir junto com Tabelão
+            if 'Fornecedores' in sheet_names:
+                df_forn = pd.read_excel(excel_file, sheet_name='Fornecedores')
+                df_forn.columns = df_forn.columns.str.strip().str.lower()
+                for _, row in df_forn.iterrows():
+                    fornecedor = None
+                    for col in ['fornecedor', 'nome', 'nome_fornecedor']:
+                        if col in df_forn.columns:
+                            fornecedor = str(row.get(col, '')).strip(); break
+                    dias_extras = 5
+                    for col in ['dias extras padrão (dias úteis)', 'dias extras padrão', 'dias extras', 'dias_extras']:
+                        if col in df_forn.columns:
+                            val = row.get(col)
+                            if pd.notna(val):
+                                try: dias_extras = int(val)
+                                except: pass
+                            break
+                    if fornecedor and fornecedor.lower() not in ('nan', ''):
+                        await db.fornecedores.update_one(
+                            {"nome": fornecedor},
+                            {"$set": {"nome": fornecedor, "dias_extras_padrao": dias_extras, "ultima_atualizacao": datetime.now(timezone.utc).isoformat()}},
+                            upsert=True
+                        )
 
         total = len(df)
         await db.import_status.update_one(
