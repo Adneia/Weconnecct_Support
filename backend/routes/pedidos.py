@@ -316,11 +316,16 @@ async def process_import_background(content: bytes, filename: str, user_name: st
                     return imp, upd
 
                 est_inserted = est_updated = 0
-                for sheet in ['SIGEQ425', 'SIGEQ230']:
-                    if sheet in sheet_names:
-                        df_est = pd.read_excel(excel_file, sheet_name=sheet)
-                        i, u = await import_estoque_sheet(df_est, sheet)
-                        est_inserted += i; est_updated += u
+                sheets_to_process = [s for s in ['SIGEQ425', 'SIGEQ230'] if s in sheet_names]
+                for idx_sheet, sheet in enumerate(sheets_to_process):
+                    df_est = pd.read_excel(excel_file, sheet_name=sheet)
+                    total_est = len(df_est)
+                    await db.import_status.update_one(
+                        {"import_id": import_id},
+                        {"$set": {"total": total_est, "progress": int((idx_sheet / max(len(sheets_to_process), 1)) * 90)}}
+                    )
+                    i, u = await import_estoque_sheet(df_est, sheet)
+                    est_inserted += i; est_updated += u
 
                 await db.import_status.update_one(
                     {"import_id": import_id},
