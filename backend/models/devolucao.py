@@ -15,6 +15,6 @@ class DevolucaoCreate(BaseModel):
     id_atendimento: Optional[str] = None
     produto: Optional[str] = None
     filial: Optional[str] = None
-    atendimento: Optional[str] = 'Aguardando'
+    atendimento: Optional[str] = 'Ag. Estorno'
     devolvido_por: Optional[str] = None
     status_galpao: Optional[str] = 'AGUARDANDO'

@@ -1023,9 +1023,9 @@ const NovoAtendimento = () => {
               <p className="text-sm font-medium">Selecione o status do pedido:</p>
               <div className="flex flex-col gap-2">
                 {[
-                  { status: 'Aguardando', desc: 'Aguardando retorno do produto', hoverClass: 'hover:bg-amber-50 hover:border-amber-300' },
-                  { status: 'Estornado', desc: 'Valor já foi estornado', hoverClass: 'hover:bg-green-50 hover:border-green-300' },
-                  { status: 'Reenviado', desc: 'Novo produto foi enviado', hoverClass: 'hover:bg-blue-50 hover:border-blue-300' },
+                  { status: 'Ag. Estorno', desc: 'Cliente aguardando estorno financeiro', hoverClass: 'hover:bg-amber-50 hover:border-amber-300' },
+                  { status: 'Ag. Devolução', desc: 'Cliente realizando devolução do produto', hoverClass: 'hover:bg-orange-50 hover:border-orange-300' },
+                  { status: 'Devolvido', desc: 'Produto já devolvido ao estoque', hoverClass: 'hover:bg-green-50 hover:border-green-300' },
                 ].map(({ status, desc, hoverClass }) => (
                   <Button key={status} variant="outline" className={`w-full justify-start text-left h-auto py-3 ${hoverClass}`}
                     onClick={() => handleRegistrarDevolucaoComStatus(status)} disabled={loading}>

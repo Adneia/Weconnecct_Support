@@ -35,7 +35,7 @@ async def create_devolucao(devolucao_data: DevolucaoCreate, current_user: dict =
             'solicitacao': devolucao_data.solicitacao or '',
             'status': 'Em devolução',
             'responsavel': current_user.get('name', ''),
-            'atendimento': devolucao_data.atendimento or 'Aguardando',
+            'atendimento': devolucao_data.atendimento or 'Ag. Estorno',
             'devolvido_por': devolucao_data.devolvido_por or '',
             'status_galpao': devolucao_data.status_galpao or 'AGUARDANDO'
         }
