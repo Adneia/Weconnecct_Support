@@ -1,7 +1,11 @@
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, BackgroundTasks
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
+import os
+import re
 import uuid
+
+import httpx
 
 from utils.database import db
 from utils.auth import get_current_user
@@ -14,6 +18,55 @@ import logging
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api")
+
+# ====== BSeller SAC API (rastreio em tempo real) ======
+BSELLER_SAC_URL = "https://api.bseller.com.br/sac/atendimento/entregas"
+BSELLER_TOKEN = os.getenv("BSELLER_TOKEN", "")
+
+# Prefixos de usuario classificados como automacao no rastreio SAC
+# (resto = humano). Ver bseller-api-map/exports/sac_usuario_padroes.csv
+_USR_AUTOMACAO = ("INTELIPOST", "FAT_AUTO", "WEBSERVICE", "TUDOAZUL", "SUPERTROCO", "ROOT")
+
+
+def _classify_usuario(usuario: str | None) -> str:
+    if not usuario:
+        return "unknown"
+    u = usuario.upper()
+    if any(k in u for k in _USR_AUTOMACAO):
+        return "automacao"
+    if u.startswith("FUNS_"):
+        return "humano"
+    return "unknown"
+
+
+def _format_endereco(end: dict) -> str:
+    """Concatena endereco em string amigavel pro UI do ELO."""
+    if not end:
+        return ""
+    parts = []
+    logradouro = (end.get("logradouro") or "").strip()
+    numero = end.get("numero")
+    complemento = (end.get("complemento") or "").strip()
+    bairro = (end.get("bairro") or "").strip()
+    cidade = (end.get("cidade") or "").strip()
+    estado = (end.get("estado") or "").strip()
+    cep = (end.get("cep") or "").strip()
+
+    if logradouro:
+        if numero is not None:
+            parts.append(f"{logradouro}, {numero}")
+        else:
+            parts.append(logradouro)
+    if complemento:
+        parts.append(complemento)
+    if bairro:
+        parts.append(bairro)
+    cidade_uf = ", ".join(p for p in (cidade, estado) if p)
+    if cidade_uf:
+        parts.append(cidade_uf)
+    if cep:
+        parts.append(f"CEP {cep}")
+    return " — ".join(parts)
 
 
 # ============== BUSCAR PEDIDOS ==============
@@ -159,6 +212,130 @@ async def get_pedido_by_entrega(numero_pedido: str, current_user: dict = Depends
             pedido['codigo_fornecedor'] = sigeq['codigo_fornecedor']
 
     return pedido
+
+
+@router.get("/pedidos-erp/{numero_pedido}/rastreio-realtime")
+async def get_rastreio_realtime(
+    numero_pedido: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Consulta GET /sac/atendimento/entregas do BSeller pra retornar:
+    - status corrente (idPonto + descricao + dataPonto)
+    - usuario que moveu (com tipo: humano/automacao)
+    - endereco completo do cliente (logradouro, numero, complemento, bairro, cidade, UF, CEP)
+    - itens e classificacao SAC quando disponivel
+
+    Resolve a P0 do endereço (100% cobertura via API SAC) e da status real-time (vs BD com lag).
+
+    Mapeamento completo: bseller-api-map/docs/rest/instancias_sac.md
+    """
+    if not BSELLER_TOKEN:
+        raise HTTPException(
+            status_code=503,
+            detail="BSELLER_TOKEN nao configurado no backend ELO",
+        )
+
+    # API exige LONG numerico — IDs com sufixo (ex: '25903397-1') dao HTTP 412
+    if not re.match(r"^[0-9]+$", numero_pedido):
+        return {
+            "status": "id_invalido",
+            "pedido_bseller": numero_pedido,
+            "mensagem": "API SAC do BSeller exige ID numerico (sem sufixo). Este pedido nao pode ser consultado.",
+            "entregas": [],
+        }
+
+    url = f"{BSELLER_SAC_URL}/{numero_pedido}"
+    headers = {"x-auth-token": BSELLER_TOKEN, "content-type": "application/json"}
+
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.get(url, headers=headers)
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="Timeout consultando BSeller")
+    except httpx.RequestError as exc:
+        logger.warning(f"Erro consultando SAC: {exc}")
+        raise HTTPException(status_code=502, detail=f"Erro consultando BSeller: {exc}")
+
+    if resp.status_code == 412:
+        return {
+            "status": "id_invalido",
+            "pedido_bseller": numero_pedido,
+            "mensagem": "BSeller rejeitou o ID (HTTP 412 — deve ser LONG numerico).",
+            "entregas": [],
+        }
+    if resp.status_code in (400, 404, 500):
+        return {
+            "status": "nao_encontrado",
+            "pedido_bseller": numero_pedido,
+            "mensagem": f"Pedido nao encontrado no BSeller (HTTP {resp.status_code}).",
+            "entregas": [],
+        }
+    if resp.status_code != 200:
+        return {
+            "status": "erro",
+            "pedido_bseller": numero_pedido,
+            "mensagem": f"BSeller retornou HTTP {resp.status_code}",
+            "entregas": [],
+        }
+
+    try:
+        data = resp.json()
+    except Exception:
+        raise HTTPException(status_code=502, detail="BSeller retornou JSON invalido")
+
+    entregas_raw = data.get("entregas") or []
+    entregas = []
+    for ent in entregas_raw:
+        rast = ent.get("rastreio") or {}
+        cliente = ent.get("clienteEntrega") or {}
+        end = cliente.get("endereco") or {}
+
+        usuario = (rast.get("usuario") or "").strip() or None
+
+        entregas.append({
+            "id_entrega": str(ent.get("idEntrega") or ""),
+            "id_filial": ent.get("idFilial"),
+            "filial_uf": {2: "ES", 3: "SP", 4: "SC"}.get(ent.get("idFilial")),
+
+            "id_ponto": rast.get("idPonto"),
+            "ponto_descricao": rast.get("descricao"),
+            "data_ponto": rast.get("dataPonto"),
+            "usuario": usuario,
+            "usuario_tipo": _classify_usuario(usuario),
+
+            "cliente": {
+                "id": str(cliente.get("id") or "") or None,
+                "nome": cliente.get("nome"),
+            },
+            "endereco": {
+                "logradouro": end.get("logradouro"),
+                "numero": end.get("numero"),
+                "complemento": end.get("complemento"),
+                "bairro": end.get("bairro"),
+                "cidade": end.get("cidade"),
+                "estado": end.get("estado"),
+                "cep": end.get("cep"),
+                "pais": end.get("pais"),
+                "ponto_referencia": end.get("pontoReferencia"),
+                "completo": _format_endereco(end),
+            },
+
+            "itens": ent.get("itens") or [],
+            "matriz_classificacao": [
+                m for m in (ent.get("matrizClassificacao") or [])
+                if any(v is not None for v in m.values())
+            ],
+
+            "id_meio_pagamento_principal": ent.get("idMeioPagamentoPrincipal"),
+        })
+
+    return {
+        "status": "ok",
+        "pedido_bseller": numero_pedido,
+        "quantidade_entregas": data.get("quantidadeEntregas") or len(entregas),
+        "consultado_em": datetime.now(timezone.utc).isoformat(),
+        "entregas": entregas,
+    }
 
 
 @router.get("/pedidos-erp/buscar")
