@@ -816,10 +816,24 @@ async def atualizar_motivos_pendencia_automatico(numeros_pedido: list = None):
         novo_motivo = get_motivo_from_status(status_pedido)
 
         # Regra especial: se chamado tem código de reversa e status virou Entregue,
-        # mantém "Em devolução" — reversa emitida, aguardando devolução do cliente
+        # mantém "Em devolução" — reversa emitida, aguardando devolução do cliente.
+        # PORÉM só reabre se a reversa for POSTERIOR à entrega. Reversa mais ANTIGA que a
+        # entrega = ciclo já concluído (ex.: troca de voltagem — item devolvido e o produto
+        # novo reenviado e entregue) → NÃO reabre como devolução (segue p/ Ag. Parceiro).
         tem_reversa = chamado.get('codigo_reversa') or chamado.get('reversa_codigo')
         if tem_reversa and novo_motivo == 'Entregue':
-            novo_motivo = 'Em devolução'
+            def _ymd(s):
+                s = str(s or '').strip().split(' ')[0].split('T')[0]
+                if '/' in s:  # DD/MM/YYYY
+                    p = s.split('/')
+                    return f"{p[2]}-{p[1]}-{p[0]}" if len(p) == 3 and len(p[2]) == 4 else ''
+                return s[:10] if len(s) >= 10 else ''
+            dt_entrega = _ymd(pedido.get('data_status'))
+            dt_reversa = _ymd(chamado.get('data_postagem_reversa') or chamado.get('data_vencimento_reversa'))
+            reversa_antiga = bool(dt_entrega and dt_reversa and dt_reversa < dt_entrega)
+            if not reversa_antiga:
+                novo_motivo = 'Em devolução'
+            # reversa_antiga → mantém 'Entregue' (cai na regra Ag. Parceiro abaixo)
 
         # REENVIO: chamado em Ag. Logística cujo pedido foi entregue/finalizado, mas o
         # atendente informou uma NOVA entrega (reenvio). Antes de mandar pra Ag. Parceiro,
