@@ -174,6 +174,22 @@ def _dias_uteis_entre(dt0, dt1):
     return dias
 
 
+def _tem_comentario_hoje(anotacoes, data_br):
+    """True se as anotações têm alguma linha datada de HOJE (DD/MM/YYYY ou DD/MM).
+    Usado para NÃO marcar como crítico itens que o atendente já comentou hoje
+    (atendente já está atuando — não faz sentido sinalizar como travado)."""
+    if not anotacoes:
+        return False
+    dmy = data_br          # '25/06/2026'
+    dm = data_br[:5]       # '25/06'
+    for linha in str(anotacoes).split('\n'):
+        l = linha.strip()
+        if l.startswith(f'[{dmy}]') or l.startswith(f'[{dm}]') or l.startswith(f'[{dm}/') \
+           or l.startswith(f'{dm} -') or l.startswith(f'{dm} –') or l.startswith(f'{dmy} -'):
+            return True
+    return False
+
+
 async def _auto_verificar_enviado_travado():
     """
     Marca como 'Verificar' (verificar_adneia=true) e adiciona nota na observação
@@ -202,6 +218,8 @@ async def _auto_verificar_enviado_travado():
         du = _dias_uteis_entre(dt, agora)
         if du <= 3:
             continue
+        if _tem_comentario_hoje(c.get("anotacoes"), data_br):
+            continue  # atendente já comentou hoje — não marca como crítico
         nota = f"[{data_br}] Entrou como crítico — {du} dias úteis sem movimentação no transporte"
         obs = c.get("anotacoes") or ""
         nova = (nota + ("\n" + obs if obs else "")).strip()
@@ -245,6 +263,8 @@ async def _auto_verificar_logistica_travado():
         du = _dias_uteis_entre(dt, agora)
         if du <= 8:
             continue
+        if _tem_comentario_hoje(c.get("anotacoes"), data_br):
+            continue  # atendente já comentou hoje — não marca como crítico
         nota = f"[{data_br}] Entrou como crítico — {du} dias úteis sem movimentação em Ag. Logística (status '{p.get('status_pedido','')}')"
         obs = c.get("anotacoes") or ""
         nova = (nota + ("\n" + obs if obs else "")).strip()
@@ -396,6 +416,8 @@ async def _auto_verificar_compras_parado():
         prazo = forn_prazo.get((p.get("departamento") or "").lower(), 5)
         if dias <= prazo + 3:
             continue
+        if _tem_comentario_hoje(c.get("anotacoes"), data_br):
+            continue  # atendente já comentou hoje — não marca como crítico
         nota = f"[{data_br}] Entrou como crítico — {dias} dias úteis em estoque (prazo fornecedor {prazo} + 3). Acionar Flávia no grupo AET"
         obs = c.get("anotacoes") or ""
         nova = (nota + ("\n" + obs if obs else "")).strip()
