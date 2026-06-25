@@ -14,10 +14,15 @@ import DetalhesChamado from "./pages/DetalhesChamado";
 import ImportarPedidos from "./pages/ImportarPedidos";
 import Perfil from "./pages/Perfil";
 import TextosPadroes from "./pages/TextosPadroes";
+import AgRetirada from "./pages/AgRetirada";
+import PagamentoNaoAprovado from "./pages/PagamentoNaoAprovado";
+import Cancelamentos from "./pages/Cancelamentos";
+import BuscaProduto from "./pages/BuscaProduto";
+import AvisosCompras from "./pages/AvisosCompras";
 
 // Protected Route wrapper
-const ProtectedRoute = ({ children, dashboardOnly = false }) => {
-  const { token, loading, isDashboardOnly } = useAuth();
+const ProtectedRoute = ({ children, dashboardOnly = false, allowConsulta = false }) => {
+  const { token, loading, isDashboardOnly, isConsulta } = useAuth();
 
   if (loading) {
     return (
@@ -33,6 +38,11 @@ const ProtectedRoute = ({ children, dashboardOnly = false }) => {
 
   // Usuário com role "dashboard" só pode acessar o dashboard
   if (isDashboardOnly && !dashboardOnly) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  // Usuário com role "consulta" só acessa as telas liberadas (somente leitura)
+  if (isConsulta && !allowConsulta) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -52,7 +62,7 @@ const PublicRoute = ({ children }) => {
   }
 
   if (token) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/importar" replace />;
   }
 
   return children;
@@ -75,7 +85,7 @@ function AppRoutes() {
       <Route
         path="/dashboard"
         element={
-          <ProtectedRoute dashboardOnly={true}>
+          <ProtectedRoute dashboardOnly={true} allowConsulta={true}>
             <Dashboard />
           </ProtectedRoute>
         }
@@ -99,7 +109,7 @@ function AppRoutes() {
       <Route
         path="/chamados/:id"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowConsulta={true}>
             <DetalhesChamado />
           </ProtectedRoute>
         }
@@ -107,7 +117,7 @@ function AppRoutes() {
       <Route
         path="/chamados"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowConsulta={true}>
             <ListaChamados />
           </ProtectedRoute>
         }
@@ -123,7 +133,7 @@ function AppRoutes() {
       <Route
         path="/perfil"
         element={
-          <ProtectedRoute>
+          <ProtectedRoute allowConsulta={true}>
             <Perfil />
           </ProtectedRoute>
         }
@@ -136,10 +146,50 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/retirada"
+        element={
+          <ProtectedRoute>
+            <AgRetirada />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/pagamento"
+        element={
+          <ProtectedRoute allowConsulta={true}>
+            <PagamentoNaoAprovado />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/cancelamentos"
+        element={
+          <ProtectedRoute allowConsulta={true}>
+            <Cancelamentos />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/busca-produto"
+        element={
+          <ProtectedRoute>
+            <BuscaProduto />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/avisos-compras"
+        element={
+          <ProtectedRoute>
+            <AvisosCompras />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Redirects */}
-      <Route path="/" element={<Navigate to="/dashboard" replace />} />
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/" element={<Navigate to="/importar" replace />} />
+      <Route path="*" element={<Navigate to="/importar" replace />} />
     </Routes>
   );
 }

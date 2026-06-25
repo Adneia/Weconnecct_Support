@@ -39,17 +39,27 @@ import {
   ChevronLeft,
   FileText,
   Bell,
-  Check
+  Check,
+  PackageOpen,
+  CreditCard,
+  XCircle,
+  Search,
+  ShoppingCart
 } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
 const navItems = [
+  { path: '/importar', label: 'Base ELO', icon: Upload },
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/chamados/novo', label: 'Novo Atendimento', icon: Plus },
   { path: '/chamados', label: 'Atendimentos', icon: List },
   { path: '/textos-padroes', label: 'Textos Padrões', icon: FileText },
-  { path: '/importar', label: 'Base ELO', icon: Upload },
+  { path: '/retirada', label: 'Disp. p/ Retirada', icon: PackageOpen },
+  { path: '/pagamento', label: 'Pag. Não Aprovado', icon: CreditCard },
+  { path: '/cancelamentos', label: 'Cancelamentos', icon: XCircle },
+  { path: '/avisos-compras', label: 'Avisos de Compras', icon: ShoppingCart },
+  { path: '/busca-produto', label: 'Buscar Produto', icon: Search },
 ];
 
 export const Layout = ({ children }) => {
@@ -57,9 +67,10 @@ export const Layout = ({ children }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificacoes, setNotificacoes] = useState([]);
   const [notificacoesNaoLidas, setNotificacoesNaoLidas] = useState(0);
+  const [avisosPendentes, setAvisosPendentes] = useState(0);
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout, getAuthHeader, isDashboardOnly } = useAuth();
+  const { user, logout, getAuthHeader, isDashboardOnly, isConsulta } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [notificacaoSelecionada, setNotificacaoSelecionada] = useState(null);
   
@@ -75,6 +86,12 @@ export const Layout = ({ children }) => {
         setNotificacoesNaoLidas(response.data.nao_lidas || 0);
       } catch (error) {
         console.error('Erro ao buscar notificações:', error);
+      }
+      try {
+        const av = await axios.get(`${API_URL}/api/avisos-compras`, { headers: getAuthHeader() });
+        setAvisosPendentes(av.data?.total || 0);
+      } catch (error) {
+        // contador do menu é best-effort — silencioso
       }
     };
     
@@ -126,6 +143,10 @@ export const Layout = ({ children }) => {
   const filteredNavItems = navItems.filter(item => {
     if (isDashboardOnly) {
       return item.path === '/dashboard';
+    }
+    // Perfil consulta: apenas Dashboard, Atendimentos, Pag. Não Aprovado e Cancelamentos
+    if (isConsulta) {
+      return ['/dashboard', '/chamados', '/pagamento', '/cancelamentos'].includes(item.path);
     }
     if (item.adminOnly) {
       return user?.email === 'adneia@weconnect360.com.br';
@@ -189,6 +210,11 @@ export const Layout = ({ children }) => {
               >
                 <Icon className="h-5 w-5 flex-shrink-0" />
                 {sidebarOpen && <span>{item.label}</span>}
+                {item.path === '/avisos-compras' && avisosPendentes > 0 && sidebarOpen && (
+                  <span className="ml-auto inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-red-500 text-white text-[11px] font-bold">
+                    {avisosPendentes > 99 ? '99+' : avisosPendentes}
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -264,6 +290,11 @@ export const Layout = ({ children }) => {
               >
                 <Icon className="h-5 w-5" />
                 <span>{item.label}</span>
+                {item.path === '/avisos-compras' && avisosPendentes > 0 && (
+                  <span className="ml-auto inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-red-500 text-white text-[11px] font-bold">
+                    {avisosPendentes > 99 ? '99+' : avisosPendentes}
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -293,12 +324,17 @@ export const Layout = ({ children }) => {
                   TESTE
                 </span>
               )}
+              {isConsulta && (
+                <span className="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full border border-blue-300">
+                  👁️ Somente consulta
+                </span>
+              )}
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Notificações */}
-            <Popover>
+            {/* Notificações — oculto para perfil consulta */}
+            {!isConsulta && <Popover>
               <PopoverTrigger asChild>
                 <Button
                   variant="ghost"
@@ -365,7 +401,7 @@ export const Layout = ({ children }) => {
                   )}
                 </div>
               </PopoverContent>
-            </Popover>
+            </Popover>}
 
             {/* Modal de Notificação Detalhada */}
             <Dialog open={!!notificacaoSelecionada} onOpenChange={(open) => !open && setNotificacaoSelecionada(null)}>
@@ -382,26 +418,61 @@ export const Layout = ({ children }) => {
                   <p className="whitespace-pre-line text-sm">
                     {notificacaoSelecionada?.mensagem}
                   </p>
-                  
-                  {/* Mostrar canais sem atividade de forma destacada */}
-                  {notificacaoSelecionada?.dados_extras?.canais_sem_atividade?.length > 0 && (
-                    <div className="mt-4 p-4 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
-                      <p className="font-semibold text-amber-800 dark:text-amber-200 mb-2">
-                        ⚠️ Canais sem atividade ({notificacaoSelecionada.dados_extras.canais_sem_atividade.length}):
+
+                  {/* Caixa: Encerrado (canais com check do dashboard) */}
+                  {notificacaoSelecionada?.dados_extras?.encerrado_detalhes?.length > 0 && (
+                    <div className="mt-4 p-4 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
+                      <p className="font-semibold text-green-800 dark:text-green-200 mb-2">
+                        ✅ Encerrado ({notificacaoSelecionada.dados_extras.encerrado_detalhes.length}):
                       </p>
                       <ul className="list-disc list-inside space-y-1">
-                        {notificacaoSelecionada.dados_extras.canais_sem_atividade.map((canal, idx) => (
-                          <li key={idx} className="text-amber-700 dark:text-amber-300 text-sm">{canal}</li>
+                        {notificacaoSelecionada.dados_extras.encerrado_detalhes.map((d, idx) => (
+                          <li key={idx} className="text-green-700 dark:text-green-300 text-sm">
+                            <strong>{d.canal}</strong>
+                            {d.check_por && (
+                              <span className="text-green-600/80 dark:text-green-400/80">
+                                {' '}— {d.check_por}
+                                {d.check_hora && <> às {d.check_hora}</>}
+                              </span>
+                            )}
+                          </li>
                         ))}
                       </ul>
                     </div>
                   )}
-                  
-                  {notificacaoSelecionada?.dados_extras?.canais_sem_atividade?.length === 0 && (
-                    <div className="mt-4 p-4 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
-                      <p className="font-semibold text-green-800 dark:text-green-200">
-                        ✅ Todos os canais tiveram atividade!
+
+                  {/* Caixa: Em andamento (tem chamados mas sem check) */}
+                  {notificacaoSelecionada?.dados_extras?.em_andamento_detalhes?.length > 0 && (
+                    <div className="mt-4 p-4 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+                      <p className="font-semibold text-amber-800 dark:text-amber-200 mb-2">
+                        🕐 Em andamento ({notificacaoSelecionada.dados_extras.em_andamento_detalhes.length}):
                       </p>
+                      <ul className="list-disc list-inside space-y-1">
+                        {notificacaoSelecionada.dados_extras.em_andamento_detalhes.map((d, idx) => (
+                          <li key={idx} className="text-amber-700 dark:text-amber-300 text-sm">
+                            <strong>{d.canal}</strong>
+                            {d.atendimentos > 0 && (
+                              <span className="text-amber-600/80 dark:text-amber-400/80">
+                                {' '}— {d.atendimentos} atendimento{d.atendimentos > 1 ? 's' : ''}
+                              </span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Caixa: Sem atividade */}
+                  {notificacaoSelecionada?.dados_extras?.canais_sem_atividade?.length > 0 && (
+                    <div className="mt-4 p-4 rounded-lg bg-slate-50 dark:bg-slate-900/30 border border-slate-200 dark:border-slate-700">
+                      <p className="font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                        ⚠️ Sem atividade ({notificacaoSelecionada.dados_extras.canais_sem_atividade.length}):
+                      </p>
+                      <ul className="list-disc list-inside space-y-1">
+                        {notificacaoSelecionada.dados_extras.canais_sem_atividade.map((canal, idx) => (
+                          <li key={idx} className="text-slate-600 dark:text-slate-400 text-sm">{canal}</li>
+                        ))}
+                      </ul>
                     </div>
                   )}
                 </div>

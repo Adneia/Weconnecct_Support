@@ -1,11 +1,13 @@
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
 from typing import Optional, List
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+import re
 import uuid
 
 from utils.database import db
 from utils.auth import get_current_user
-from utils.helpers import parse_date_safe, generate_reversa_code
+from utils.helpers import parse_date_safe, generate_reversa_code, calcular_dias_uteis, BRT_TZ, now_brt
+from utils.email_sender import send_email
 from models.chamado import Chamado, ChamadoCreate, ChamadoUpdate
 from models.historico import Historico
 from data.motivo_pendencia_mapping import get_motivo_from_status, MOTIVOS_AUTO_ATUALIZAVEIS
@@ -21,7 +23,8 @@ router = APIRouter(prefix="/api")
 async def notificar_inicio_atendimentos(user: dict):
     """Envia notificação para Adnéia quando um atendente criar o primeiro chamado do dia."""
     try:
-        hoje = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        # "Dia" em BRT — convertido pra UTC pra filtrar Mongo (data_abertura em UTC).
+        hoje = now_brt().replace(hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc)
         user_email = user.get('email', '')
         # Se for a própria Adnéia, não notificar
         if 'adneia' in user_email.lower():
@@ -57,6 +60,69 @@ async def notificar_inicio_atendimentos(user: dict):
         logger.error(f"Erro ao notificar início de atendimentos: {e}")
 
 
+async def notificar_csu_integracao(chamado_dict: dict):
+    """
+    Envia alerta para Adnéia APENAS quando houver mais de 5 atendimentos
+    CSU + Falha de Integração no mesmo dia.
+    E-mail individual por atendimento foi removido.
+    """
+    try:
+        parceiro = (chamado_dict.get("parceiro") or "").upper()
+        categoria = (chamado_dict.get("categoria") or "").lower()
+        motivo = (chamado_dict.get("motivo") or "").lower()
+
+        is_csu = "CSU" in parceiro
+        is_integracao = "integra" in categoria or "integra" in motivo
+
+        if not (is_csu and is_integracao):
+            return
+
+        # Conta quantos atendimentos CSU + Falha Integração foram abertos hoje (dia BRT).
+        # O contador rolar para "1" às 00:00 BRT (não às 00:00 UTC = 21h BRT do dia anterior).
+        _hoje_brt = now_brt()
+        hoje_inicio = _hoje_brt.replace(hour=0, minute=0, second=0, microsecond=0).astimezone(timezone.utc)
+        hoje_fim    = _hoje_brt.replace(hour=23, minute=59, second=59, microsecond=999999).astimezone(timezone.utc)
+
+        total_hoje = await db.chamados.count_documents({
+            "parceiro":  {"$regex": "CSU", "$options": "i"},
+            "categoria": {"$regex": "integra", "$options": "i"},
+            "data_abertura": {"$gte": hoje_inicio.isoformat(), "$lte": hoje_fim.isoformat()},
+        })
+
+        # Só envia quando cruzar o limiar de 5 (dispara exatamente na 6ª ocorrência)
+        if total_hoje != 6:
+            logger.info(f"CSU Integração hoje: {total_hoje} atendimentos — sem alerta (limiar: >5)")
+            return
+
+        id_atd = chamado_dict.get("id_atendimento", "-")
+
+        subject = f"[ELO] ⚠️ Alerta: {total_hoje} atendimentos CSU – Falha de Integração hoje"
+
+        html_body = f"""
+        <div style="font-family: Arial, sans-serif; font-size: 14px; color: #333;">
+          <h2 style="color: #c0392b;">⚠️ Alerta: Volume alto de Falhas de Integração CSU</h2>
+          <p>Foram registrados <strong>{total_hoje} atendimentos</strong> de
+             <strong>CSU – Falha de Integração</strong> hoje ({datetime.now(timezone.utc).strftime('%d/%m/%Y')}).</p>
+          <p>Último atendimento registrado: <strong>{id_atd}</strong></p>
+          <p style="margin-top:16px; color:#666; font-size:12px;">
+            Mensagem automática do sistema ELO – WeConnect.
+          </p>
+        </div>
+        """
+
+        plain_body = (
+            f"Alerta: {total_hoje} atendimentos CSU - Falha de Integracao hoje.\n"
+            f"Ultimo atendimento: {id_atd}\n"
+        )
+
+        destinatarios = ["adneia.campos@weconnect360.com.br"]
+        send_email(destinatarios, subject, html_body, plain_body)
+        logger.info(f"Alerta CSU Integração enviado para {destinatarios} — {total_hoje} atendimentos hoje")
+
+    except Exception as e:
+        logger.error(f"Erro ao notificar CSU integração: {e}")
+
+
 async def generate_atendimento_id():
     now = datetime.now(timezone.utc)
     year = now.year
@@ -74,6 +140,323 @@ async def generate_atendimento_id():
     return f"ATD-{year}-{str(last_num + 1).zfill(4)}"
 
 
+def _parse_data_status(s):
+    """Converte data_status ('DD/MM/YYYY [HH:MM:SS]' ou ISO) em datetime (BRT). None se inválido."""
+    if not s:
+        return None
+    s = str(s).strip()
+    m = re.match(r'(\d{1,2})/(\d{1,2})/(\d{2,4})', s)
+    if m:
+        d, mo, y = int(m.group(1)), int(m.group(2)), int(m.group(3))
+        if y < 100:
+            y += 2000
+        try:
+            return datetime(y, mo, d, tzinfo=timezone(timedelta(hours=-3)))
+        except Exception:
+            return None
+    try:
+        return datetime.fromisoformat(s.replace('Z', '+00:00'))
+    except Exception:
+        return None
+
+
+def _dias_uteis_entre(dt0, dt1):
+    """Dias úteis entre dt0 (exclusivo) e dt1, ignorando sáb/dom."""
+    if not dt0 or not dt1:
+        return 0
+    cur = dt0.date()
+    end = dt1.date()
+    dias = 0
+    while cur < end:
+        cur += timedelta(days=1)
+        if cur.weekday() < 5:
+            dias += 1
+    return dias
+
+
+async def _auto_verificar_enviado_travado():
+    """
+    Marca como 'Verificar' (verificar_adneia=true) e adiciona nota na observação
+    os atendimentos pendentes em 'Enviado' com +3 dias úteis sem movimentação no
+    transporte (data_status do pedido). Idempotente via flag verificar_travado_auto.
+    """
+    chamados = await db.chamados.find(
+        {"pendente": True, "motivo_pendencia": "Enviado", "verificar_travado_auto": {"$ne": True}},
+        {"_id": 0, "id": 1, "numero_pedido": 1, "anotacoes": 1}
+    ).to_list(5000)
+    if not chamados:
+        return {"marcados": 0}
+
+    nums = [c["numero_pedido"] for c in chamados if c.get("numero_pedido")]
+    peds = {}
+    async for p in db.pedidos_erp.find({"numero_pedido": {"$in": nums}}, {"_id": 0, "numero_pedido": 1, "data_status": 1}):
+        peds[p["numero_pedido"]] = p.get("data_status", "")
+
+    agora = datetime.now(timezone(timedelta(hours=-3)))
+    data_br = agora.strftime("%d/%m/%Y")
+    marcados = 0
+    for c in chamados:
+        dt = _parse_data_status(peds.get(c.get("numero_pedido")))
+        if not dt:
+            continue
+        du = _dias_uteis_entre(dt, agora)
+        if du <= 3:
+            continue
+        nota = f"[{data_br}] Entrou como crítico — {du} dias úteis sem movimentação no transporte"
+        obs = c.get("anotacoes") or ""
+        nova = (nota + ("\n" + obs if obs else "")).strip()
+        await db.chamados.update_one(
+            {"id": c["id"]},
+            {"$set": {"verificar_adneia": True, "verificar_travado_auto": True, "anotacoes": nova}}
+        )
+        marcados += 1
+    logger.info(f"[auto-verificar-travado] {marcados} 'Enviado' marcados como crítico (+3 dias úteis)")
+    return {"marcados": marcados}
+
+
+async def _auto_verificar_logistica_travado():
+    """
+    Marca como 'Verificar' + nota os atendimentos pendentes em 'Ag. Logística'
+    com +8 dias úteis sem movimentação no transporte (data_status).
+    Idempotente via flag verificar_logistica_auto.
+    """
+    chamados = await db.chamados.find(
+        {"pendente": True, "motivo_pendencia": "Ag. Logística", "verificar_logistica_auto": {"$ne": True}},
+        {"_id": 0, "id": 1, "numero_pedido": 1, "anotacoes": 1}
+    ).to_list(5000)
+    if not chamados:
+        return {"marcados": 0}
+
+    nums = [c["numero_pedido"] for c in chamados if c.get("numero_pedido")]
+    peds = {}
+    async for p in db.pedidos_erp.find({"numero_pedido": {"$in": nums}}, {"_id": 0, "numero_pedido": 1, "data_status": 1, "status_pedido": 1}):
+        peds[p["numero_pedido"]] = p
+
+    agora = datetime.now(timezone(timedelta(hours=-3)))
+    data_br = agora.strftime("%d/%m/%Y")
+    marcados = 0
+    for c in chamados:
+        p = peds.get(c.get("numero_pedido")) or {}
+        # Vale para TODOS os Ag. Logística (inclusive 'Entregue a Transportadora'):
+        # se não movimentou em +8 dias úteis, fica crítico mesmo estando no relatório.
+        dt = _parse_data_status(p.get("data_status"))
+        if not dt:
+            continue
+        du = _dias_uteis_entre(dt, agora)
+        if du <= 8:
+            continue
+        nota = f"[{data_br}] Entrou como crítico — {du} dias úteis sem movimentação em Ag. Logística (status '{p.get('status_pedido','')}')"
+        obs = c.get("anotacoes") or ""
+        nova = (nota + ("\n" + obs if obs else "")).strip()
+        await db.chamados.update_one(
+            {"id": c["id"]},
+            {"$set": {"verificar_adneia": True, "verificar_logistica_auto": True, "anotacoes": nova}}
+        )
+        marcados += 1
+    logger.info(f"[auto-verificar-logistica] {marcados} 'Ag. Logística' marcados como crítico (+8 dias úteis)")
+    return {"marcados": marcados}
+
+
+def _parse_anotacao_data(anotacoes):
+    """Extrai a data da última anotação (1ª linha): '[DD/MM/YYYY] ...' ou 'DD/MM - ...'. None se não achar."""
+    linha = (anotacoes or '').split('\n')[0].strip()
+    m = re.match(r'^\[(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?\]', linha) or \
+        re.match(r'^(\d{1,2})/(\d{1,2})(?:/(\d{2,4}))?\s*[-–]', linha)
+    if not m:
+        return None
+    d, mo = int(m.group(1)), int(m.group(2))
+    y = int(m.group(3)) if m.group(3) else datetime.now().year
+    if y < 100:
+        y += 2000
+    try:
+        return datetime(y, mo, d, tzinfo=timezone(timedelta(hours=-3)))
+    except Exception:
+        return None
+
+
+def _acao_cobranca_transportadora(motivo):
+    """Ação de cobrança por transportadora, baseada no motivo Ag. Transportadora - X."""
+    m = (motivo or '').lower()
+    if 'j&t' in m or 'jt' in m:
+        return 'acionar Merelin (J&T)'
+    if 'total' in m:
+        return 'enviar e-mail (Total)'
+    if 'asap' in m:
+        return 'mandar no grupo da CB (ASAP)'
+    return 'cobrar a transportadora'
+
+
+async def _auto_verificar_transportadora_parado():
+    """
+    Marca como 'Verificar' + nota os atendimentos pendentes em 'Ag. Transportadora - *'
+    sem alteração (última anotação) há +5 dias úteis. Idempotente via verificar_transp_auto.
+    """
+    motivos = ["Ag. Transportadora - Asap", "Ag. Transportadora - J&T", "Ag. Transportadora - Total"]
+    chamados = await db.chamados.find(
+        {"pendente": True, "motivo_pendencia": {"$in": motivos}, "verificar_transp_auto": {"$ne": True}},
+        {"_id": 0, "id": 1, "numero_pedido": 1, "anotacoes": 1, "motivo_pendencia": 1}
+    ).to_list(5000)
+    if not chamados:
+        return {"marcados": 0}
+
+    agora = datetime.now(timezone(timedelta(hours=-3)))
+    data_br = agora.strftime("%d/%m/%Y")
+    marcados = 0
+    for c in chamados:
+        dt = _parse_anotacao_data(c.get("anotacoes"))
+        if not dt:
+            continue
+        du = _dias_uteis_entre(dt, agora)
+        if du <= 5:
+            continue
+        acao = _acao_cobranca_transportadora(c.get("motivo_pendencia"))
+        nota = f"[{data_br}] Entrou como crítico — {du} dias úteis sem retorno da transportadora. Cobrar: {acao}"
+        obs = c.get("anotacoes") or ""
+        nova = (nota + ("\n" + obs if obs else "")).strip()
+        await db.chamados.update_one(
+            {"id": c["id"]},
+            {"$set": {"verificar_adneia": True, "verificar_transp_auto": True, "anotacoes": nova}}
+        )
+        marcados += 1
+    logger.info(f"[auto-verificar-transp] {marcados} 'Ag. Transportadora' marcados como crítico (+5 dias úteis)")
+    return {"marcados": marcados}
+
+
+async def _auto_verificar_por_anotacao(motivo, limite_dias, flag, cobranca):
+    """
+    Genérico: marca 'Verificar' + nota os pendentes em `motivo` sem alteração
+    (última anotação) há mais de `limite_dias` dias úteis. Idempotente via `flag`.
+    `cobranca` = texto da ação (ex.: 'Cobrar o cliente no zap').
+    """
+    chamados = await db.chamados.find(
+        {"pendente": True, "motivo_pendencia": motivo, flag: {"$ne": True}},
+        {"_id": 0, "id": 1, "anotacoes": 1}
+    ).to_list(5000)
+    if not chamados:
+        return {"marcados": 0}
+    agora = datetime.now(timezone(timedelta(hours=-3)))
+    data_br = agora.strftime("%d/%m/%Y")
+    marcados = 0
+    for c in chamados:
+        dt = _parse_anotacao_data(c.get("anotacoes"))
+        if not dt:
+            continue
+        du = _dias_uteis_entre(dt, agora)
+        if du <= limite_dias:
+            continue
+        nota = f"[{data_br}] Entrou como crítico — {du} dias úteis sem retorno. {cobranca}"
+        obs = c.get("anotacoes") or ""
+        nova = (nota + ("\n" + obs if obs else "")).strip()
+        await db.chamados.update_one(
+            {"id": c["id"]},
+            {"$set": {"verificar_adneia": True, flag: True, "anotacoes": nova}}
+        )
+        marcados += 1
+    if marcados:
+        logger.info(f"[auto-verificar] {marcados} '{motivo}' marcados como crítico (+{limite_dias} dias úteis)")
+    return {"marcados": marcados}
+
+
+async def _auto_verificar_compras_parado():
+    """
+    Marca como 'Verificar' + nota os atendimentos pendentes em 'Ag. Compras' que estão
+    há +3 dias úteis ALÉM do prazo do fornecedor (mesmo prazo do Relatório Ag. Compras:
+    dias_extras_padrao por fornecedor, default 5). Só aplica a 'aguardando estoque'.
+    Idempotente via flag verificar_compras_auto.
+    """
+    chamados = await db.chamados.find(
+        {"pendente": True, "motivo_pendencia": "Ag. Compras", "verificar_compras_auto": {"$ne": True}},
+        {"_id": 0, "id": 1, "numero_pedido": 1, "anotacoes": 1}
+    ).to_list(5000)
+    if not chamados:
+        return {"marcados": 0}
+
+    # Prazo por fornecedor (igual ao relatório Ag. Compras)
+    forn_prazo = {}
+    async for f in db.fornecedores.find({}, {"_id": 0, "nome": 1, "dias_extras_padrao": 1}):
+        forn_prazo[(f.get("nome") or "").lower()] = f.get("dias_extras_padrao", 5)
+
+    nums = [c["numero_pedido"] for c in chamados if c.get("numero_pedido")]
+    peds = {}
+    async for p in db.pedidos_erp.find(
+        {"numero_pedido": {"$in": nums}},
+        {"_id": 0, "numero_pedido": 1, "status_pedido": 1, "data_status": 1, "departamento": 1}
+    ):
+        peds[p["numero_pedido"]] = p
+
+    agora = datetime.now(timezone(timedelta(hours=-3)))
+    data_br = agora.strftime("%d/%m/%Y")
+    marcados = 0
+    for c in chamados:
+        p = peds.get(c.get("numero_pedido")) or {}
+        status = (p.get("status_pedido") or "").lower()
+        if "aguardando estoque" not in status:
+            continue  # prazo do fornecedor só se aplica em 'aguardando estoque'
+        dias = calcular_dias_uteis(p.get("data_status", ""))
+        prazo = forn_prazo.get((p.get("departamento") or "").lower(), 5)
+        if dias <= prazo + 3:
+            continue
+        nota = f"[{data_br}] Entrou como crítico — {dias} dias úteis em estoque (prazo fornecedor {prazo} + 3). Acionar Flávia no grupo AET"
+        obs = c.get("anotacoes") or ""
+        nova = (nota + ("\n" + obs if obs else "")).strip()
+        await db.chamados.update_one(
+            {"id": c["id"]},
+            {"$set": {"verificar_adneia": True, "verificar_compras_auto": True, "anotacoes": nova}}
+        )
+        marcados += 1
+    logger.info(f"[auto-verificar-compras] {marcados} 'Ag. Compras' marcados como crítico (+3 dias após prazo do fornecedor)")
+    return {"marcados": marcados}
+
+
+async def _auto_verificar_fornecedor_parado():
+    """
+    Marca como 'Verificar' + nota os atendimentos pendentes em 'Ag. Fornecedor'
+    sem alteração (última anotação) há +3 dias úteis. Idempotente via verificar_fornecedor_auto.
+    """
+    chamados = await db.chamados.find(
+        {"pendente": True, "motivo_pendencia": "Ag. Fornecedor", "verificar_fornecedor_auto": {"$ne": True}},
+        {"_id": 0, "id": 1, "anotacoes": 1}
+    ).to_list(5000)
+    if not chamados:
+        return {"marcados": 0}
+
+    agora = datetime.now(timezone(timedelta(hours=-3)))
+    data_br = agora.strftime("%d/%m/%Y")
+    marcados = 0
+    for c in chamados:
+        dt = _parse_anotacao_data(c.get("anotacoes"))
+        if not dt:
+            continue
+        du = _dias_uteis_entre(dt, agora)
+        if du <= 3:
+            continue
+        nota = f"[{data_br}] Entrou como crítico — {du} dias úteis sem retorno do fornecedor. Cobrar no grupo AET"
+        obs = c.get("anotacoes") or ""
+        nova = (nota + ("\n" + obs if obs else "")).strip()
+        await db.chamados.update_one(
+            {"id": c["id"]},
+            {"$set": {"verificar_adneia": True, "verificar_fornecedor_auto": True, "anotacoes": nova}}
+        )
+        marcados += 1
+    logger.info(f"[auto-verificar-fornecedor] {marcados} 'Ag. Fornecedor' marcados como crítico (+3 dias úteis)")
+    return {"marcados": marcados}
+
+
+def _classificar_em_devolucao(motivo, codigo_reversa=None, reversa_postada=None):
+    """
+    Normaliza o motivo genérico 'Em devolução' pela regra da reversa:
+      - tem reversa + postada pelo cliente → 'Em devolução - Correios'
+      - tem reversa + ainda não postada    → 'Aguardando'
+      - sem reversa                         → 'Em devolução - Transp.'
+    Demais motivos passam inalterados. Garante que 'Em devolução' nunca persista genérico.
+    """
+    if motivo != 'Em devolução':
+        return motivo
+    if codigo_reversa:
+        return 'Em devolução - Correios' if reversa_postada else 'Aguardando'
+    return 'Em devolução - Transp.'
+
+
 def sync_to_google_sheets(chamado_dict: dict, pedido: dict = None):
     try:
         from google_sheets import sheets_client
@@ -83,9 +466,52 @@ def sync_to_google_sheets(chamado_dict: dict, pedido: dict = None):
 
 
 def sync_devolucao_to_sheets(chamado_dict: dict, pedido: dict = None):
+    """
+    Sincroniza a devolução na planilha de gestão (mesma usada pelo dialog).
+    Usa add_devolucao_row (idempotente por numero_pedido — não duplica linha).
+    devolvido_por: Correios quando tem reversa; senão a transportadora.
+    """
     try:
         from google_sheets import sheets_client
-        sheets_client.add_devolucao(chamado_dict, pedido)
+        pedido = pedido or {}
+        cr = chamado_dict.get('codigo_reversa') or chamado_dict.get('reversa_codigo') or ''
+        transp = (pedido.get('transportadora') or chamado_dict.get('transportadora') or '').strip()
+        if cr:
+            devolvido_por = 'Correios'
+        elif transp:
+            t = transp.lower()
+            if 'total' in t or 'tex' in t:
+                devolvido_por = 'Total Express'
+            elif 'j&t' in t or 'jt express' in t:
+                devolvido_por = 'J&T'
+            elif 'asap' in t:
+                devolvido_por = 'ASAP Log'
+            else:
+                devolvido_por = transp
+        else:
+            devolvido_por = 'Transportadora'
+
+        row_data = {
+            'id_devolucao': f"DEV-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{str(uuid.uuid4())[:6].upper()}",
+            'id_atendimento': chamado_dict.get('id_atendimento', ''),
+            'data_entrada': datetime.now(timezone.utc).strftime('%d/%m/%Y'),
+            'numero_pedido': chamado_dict.get('numero_pedido', ''),
+            'cpf_cliente': chamado_dict.get('cpf_cliente') or pedido.get('cpf_cliente', ''),
+            'nome_cliente': chamado_dict.get('nome_cliente') or pedido.get('nome_cliente', ''),
+            'produto': chamado_dict.get('produto') or pedido.get('produto', ''),
+            'filial': pedido.get('uf_galpao') or chamado_dict.get('filial', ''),
+            'codigo_reversa': cr,
+            'canal_vendas': chamado_dict.get('parceiro') or chamado_dict.get('canal_vendas') or pedido.get('canal_vendas', ''),
+            'motivo': chamado_dict.get('motivo', ''),
+            'solicitacao': chamado_dict.get('solicitacao', ''),
+            'status': 'Em devolução',
+            'responsavel': chamado_dict.get('atendente', ''),
+            'atendimento': 'Ag. Estorno',
+            'devolvido_por': devolvido_por,
+            'status_galpao': 'AGUARDANDO',
+        }
+        sheets_client.add_devolucao_row(row_data)
+        logger.info(f"[devolucao-sync] {row_data['numero_pedido']} sincronizado na planilha (auto)")
     except Exception as e:
         logger.error(f"Error syncing devolucao to Sheets: {e}")
 
@@ -95,7 +521,7 @@ def sync_update_to_google_sheets(numero_pedido: str, updates: dict, chamado_comp
         from google_sheets import sheets_client
         sheets_client.update_atendimento(numero_pedido, updates)
         motivo_pendencia = updates.get('motivo_pendencia', '')
-        if motivo_pendencia in ['Em devolução', 'Devolvido'] and chamado_completo:
+        if motivo_pendencia in ['Em devolução', 'Em devolução - Correios', 'Em devolução - Transp.', 'Devolvido'] and chamado_completo:
             chamado_merged = {**chamado_completo, **updates}
             sync_devolucao_to_sheets(chamado_merged, pedido_info)
     except Exception as e:
@@ -176,6 +602,12 @@ async def create_chamado(
             motivos_auto = ["Ag. Compras", "Ag. Logística", "Enviado", "Entregue", ""]
             if not chamado.motivo_pendencia or chamado.motivo_pendencia in motivos_auto:
                 chamado.motivo_pendencia = novo_motivo
+    # Normaliza 'Em devolução' genérico → Correios/Transp./Aguardando pela reversa
+    chamado.motivo_pendencia = _classificar_em_devolucao(
+        chamado.motivo_pendencia,
+        codigo_reversa=getattr(chamado, 'codigo_reversa', None),
+        reversa_postada=getattr(chamado, 'reversa_postada', None),
+    )
     chamado_dict = chamado.model_dump()
     chamado_dict['data_abertura'] = chamado_dict['data_abertura'].isoformat()
     if chamado_dict.get('data_fechamento'):
@@ -192,9 +624,12 @@ async def create_chamado(
     hist_dict['data_hora'] = hist_dict['data_hora'].isoformat()
     await db.historico.insert_one(hist_dict)
     background_tasks.add_task(sync_to_google_sheets, chamado_dict, pedido)
-    
+
     # Notificar Adnéia quando um atendente iniciar os atendimentos do dia
     background_tasks.add_task(notificar_inicio_atendimentos, current_user)
+
+    # Notificar Karina + Leticia em atendimentos CSU + Falha Integração
+    background_tasks.add_task(notificar_csu_integracao, chamado_dict)
     
     return {
         "id": chamado.id,
@@ -283,7 +718,7 @@ async def list_chamados(
     if pedido_numbers:
         pedidos = await db.pedidos_erp.find(
             {"numero_pedido": {"$in": pedido_numbers}},
-            {"_id": 0, "numero_pedido": 1, "status_pedido": 1, "data_status": 1, "nome_cliente": 1, "cpf_cliente": 1}
+            {"_id": 0, "numero_pedido": 1, "status_pedido": 1, "data_status": 1, "nome_cliente": 1, "cpf_cliente": 1, "pedido_externo": 1}
         ).to_list(len(pedido_numbers))
         pedidos_dict = {p['numero_pedido']: p for p in pedidos}
         for c in chamados:
@@ -291,6 +726,7 @@ async def list_chamados(
             if pedido:
                 c['status_pedido'] = pedido.get('status_pedido', '')
                 c['data_ultimo_status'] = pedido.get('data_status', '')
+                c['pedido_externo'] = pedido.get('pedido_externo', '')
                 # Sempre buscar nome/CPF do ERP para garantir consistência entre duplicatas
                 if pedido.get('nome_cliente'):
                     c['nome_cliente'] = pedido.get('nome_cliente')
@@ -344,6 +780,18 @@ async def update_chamado(
         raise HTTPException(status_code=404, detail="Chamado não encontrado")
     update_data = {k: v for k, v in chamado_data.model_dump().items() if v is not None}
 
+    # Normaliza 'Em devolução' genérico → Correios/Transp./Aguardando pela reversa
+    if update_data.get('motivo_pendencia') == 'Em devolução':
+        _cr = update_data.get('codigo_reversa', existing.get('codigo_reversa'))
+        _rp = update_data.get('reversa_postada', existing.get('reversa_postada'))
+        update_data['motivo_pendencia'] = _classificar_em_devolucao('Em devolução', codigo_reversa=_cr, reversa_postada=_rp)
+
+    # Reclame Aqui — registra data em que foi vinculado pela primeira vez
+    sol_novo = (update_data.get('solicitacao') or '').lower()
+    sol_antigo = (existing.get('solicitacao') or '').lower()
+    if 'reclame aqui' in sol_novo and 'reclame aqui' not in sol_antigo and not existing.get('data_reclame_aqui'):
+        update_data['data_reclame_aqui'] = datetime.now(timezone.utc).isoformat()
+
     # AJUSTE 2 — Limpar "Verificar" ao mudar Motivo de Pendência
     motivo_antigo = existing.get('motivo_pendencia', '')
     motivo_novo = update_data.get('motivo_pendencia', motivo_antigo)
@@ -353,7 +801,7 @@ async def update_chamado(
         update_data['data_resolucao'] = datetime.now(timezone.utc).isoformat()
     if 'pendente' in update_data and not update_data['pendente'] and existing.get('pendente', True):
         update_data['data_fechamento'] = datetime.now(timezone.utc).isoformat()
-        motivos_finalizadores = ["Entregue", "Estornado", "Atendido", "Em devolução", "Devolvido", "Encerrado"]
+        motivos_finalizadores = ["Entregue", "Estornado", "Atendido", "Em devolução", "Em devolução - Correios", "Em devolução - Transp.", "Devolvido", "Encerrado"]
         motivo_no_payload = update_data.get('motivo_pendencia') or None  # normaliza string vazia
         # Se um motivo finalizador foi explicitamente enviado no payload, preserva ele
         if motivo_no_payload and motivo_no_payload in motivos_finalizadores:
@@ -386,13 +834,52 @@ async def update_chamado(
             chamado_completo = None
             pedido_info = None
             motivo_pendencia = update_data.get('motivo_pendencia', '')
-            if motivo_pendencia in ['Em devolução', 'Devolvido']:
+            if motivo_pendencia in ['Em devolução', 'Em devolução - Correios', 'Em devolução - Transp.', 'Devolvido']:
                 chamado_completo = await db.chamados.find_one({"id": chamado_id}, {"_id": 0})
                 numero_pedido = existing.get('numero_pedido')
                 if numero_pedido:
                     pedido_info = await db.pedidos_erp.find_one({"numero_pedido": numero_pedido}, {"_id": 0})
             background_tasks.add_task(sync_update_to_google_sheets, numero_pedido_antigo, update_data, chamado_completo, pedido_info)
     return {"message": "Chamado atualizado com sucesso", "google_sheets_sync": "queued"}
+
+
+@router.post("/chamados/{chamado_id}/marcar-postado")
+async def marcar_postado(
+    chamado_id: str,
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Checkpoint do 'Aguardando': cliente postou o item.
+    Marca reversa como postada, muda o motivo para Em devolução (→ Correios pela reversa)
+    e sincroniza na planilha de gestão de devolução (como se fosse manual).
+    """
+    existing = await db.chamados.find_one({"id": chamado_id})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Chamado não encontrado")
+
+    cr = existing.get('codigo_reversa') or existing.get('reversa_codigo') or ''
+    agora = datetime.now(timezone(timedelta(hours=-3)))
+    novo_motivo = _classificar_em_devolucao('Em devolução', codigo_reversa=cr, reversa_postada=True)
+    nota = f"[{agora.strftime('%d/%m/%Y')}] Item postado pelo cliente — movido para {novo_motivo}"
+    obs = existing.get('anotacoes') or ''
+    nova_obs = (nota + ("\n" + obs if obs else "")).strip()
+
+    update = {
+        "reversa_postada": True,
+        "data_postagem_reversa": agora.strftime('%Y-%m-%d'),
+        "motivo_pendencia": novo_motivo,
+        "anotacoes": nova_obs,
+    }
+    await db.chamados.update_one({"id": chamado_id}, {"$set": update})
+
+    # Sincroniza atendimentos + planilha de devolução (o sync_update dispara a devolução)
+    numero_pedido = existing.get('numero_pedido')
+    chamado_completo = await db.chamados.find_one({"id": chamado_id}, {"_id": 0})
+    pedido_info = await db.pedidos_erp.find_one({"numero_pedido": numero_pedido}, {"_id": 0}) if numero_pedido else None
+    background_tasks.add_task(sync_update_to_google_sheets, numero_pedido, update, chamado_completo, pedido_info)
+
+    return {"success": True, "motivo_pendencia": novo_motivo}
 
 
 @router.put("/chamados/{chamado_id}/reabrir", response_model=dict)

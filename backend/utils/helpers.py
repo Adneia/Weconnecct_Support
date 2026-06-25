@@ -1,5 +1,56 @@
 from datetime import datetime, timezone, timedelta
+from typing import Optional, Union
 import pandas as pd
+
+# ── Timezone de Brasília (UTC-3) ──────────────────────────────────────────────
+# O servidor roda em UTC mas dashboards/relatórios devem mostrar data BRT.
+# Use SEMPRE estes helpers ao agrupar/comparar/exibir DIA — nunca slice [:10]
+# de uma string UTC nem `datetime.now(timezone.utc).date()` para "hoje".
+BRT_TZ = timezone(timedelta(hours=-3))
+
+
+def now_brt() -> datetime:
+    """datetime atual já no fuso de Brasília (aware)."""
+    return datetime.now(timezone.utc).astimezone(BRT_TZ)
+
+
+def today_brt():
+    """Data de hoje (date) em horário de Brasília."""
+    return now_brt().date()
+
+
+def date_brt_str(iso_str: Optional[Union[str, datetime]]) -> str:
+    """Converte string ISO (qualquer tz, default UTC) ou datetime para 'YYYY-MM-DD' em BRT.
+    Retorna '' se vazio ou inválido."""
+    if not iso_str:
+        return ""
+    try:
+        if isinstance(iso_str, datetime):
+            dt = iso_str
+        else:
+            s = str(iso_str).replace("Z", "+00:00")
+            dt = datetime.fromisoformat(s)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(BRT_TZ).strftime("%Y-%m-%d")
+    except Exception:
+        return str(iso_str)[:10] if iso_str else ""
+
+
+def to_brt(dt: Union[datetime, str]) -> Optional[datetime]:
+    """Converte datetime/string ISO para datetime aware em BRT. None se vazio."""
+    if dt is None or dt == "":
+        return None
+    try:
+        if isinstance(dt, str):
+            d = datetime.fromisoformat(dt.replace("Z", "+00:00"))
+        else:
+            d = dt
+        if d.tzinfo is None:
+            d = d.replace(tzinfo=timezone.utc)
+        return d.astimezone(BRT_TZ)
+    except Exception:
+        return None
 
 
 def parse_date_safe(date_value) -> datetime:
@@ -163,9 +214,21 @@ def extract_pedido_data(row, column_mapping, original_columns):
                     # Remover .0 de números inteiros lidos como float pelo pandas
                     if str_value.endswith('.0') and str_value[:-2].isdigit():
                         str_value = str_value[:-2]
+                    # Normalizar CPF: remover formatação e completar com zeros à esquerda
+                    if field == 'cpf_cliente':
+                        digits = ''.join(c for c in str_value if c.isdigit())
+                        str_value = digits.zfill(11) if digits else str_value
                     pedido_data[field] = str_value
                 break
     return pedido_data
+
+
+def normalize_cpf(cpf_raw) -> str:
+    """Remove formatação do CPF e completa com zeros à esquerda até 11 dígitos."""
+    if not cpf_raw:
+        return None
+    digits = ''.join(c for c in str(cpf_raw) if c.isdigit())
+    return digits.zfill(11) if digits else None
 
 
 def should_skip_old_pedido(pedido_data, data_limite):

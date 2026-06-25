@@ -38,6 +38,7 @@ import {
   getCategoriaPorStatus, getTransportadoraRastreio,
 } from '../components/atendimento/textos';
 import { replaceAllPlaceholders } from '../components/atendimento/textReplacer';
+import ProporSimilarModal from '../components/atendimento/ProporSimilarModal';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -47,6 +48,7 @@ const NovoAtendimento = () => {
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
   const filterParam = searchParams.get('filter');
+  const entregaParam = searchParams.get('entrega');
 
   // --- State ---
   const [loading, setLoading] = useState(false);
@@ -60,6 +62,7 @@ const NovoAtendimento = () => {
   const [showPedidosDialog, setShowPedidosDialog] = useState(false);
   const [showTextoDialog, setShowTextoDialog] = useState(false);
   const [textoPadrao, setTextoPadrao] = useState('');
+  const [textoTemplate, setTextoTemplate] = useState('');
   const [textoDialogMotivo, setTextoDialogMotivo] = useState('');
   const textoAreaRef = useRef(null);
   const [codigoReversa, setCodigoReversa] = useState('');
@@ -104,18 +107,26 @@ const NovoAtendimento = () => {
   const [pendingSubmitData, setPendingSubmitData] = useState(null);
   const [reversaPostada, setReversaPostada] = useState(false);
   const [dataPostagemReversa, setDataPostagemReversa] = useState('');
+  const [awbTotal, setAwbTotal] = useState(null);
+  const [jmsJt, setJmsJt] = useState(null);
+  const [cancelamentosCheck, setCancelamentosCheck] = useState(null);
+  const [cancelamentosExpanded, setCancelamentosExpanded] = useState(false);
+  const [avisosCompras, setAvisosCompras] = useState(null);
+  const [avisosExpanded, setAvisosExpanded] = useState(false);
+  const [estoqueSimilar, setEstoqueSimilar] = useState(null);  // {fisico_disponivel, xd_total, ...}
+  const [showProporSimilar, setShowProporSimilar] = useState(false);
 
   const [formData, setFormData] = useState({
     numero_pedido: '', solicitacao: '', parceiro: '',
     categoria: '', categoria_inicial: '', motivo: '',
-    anotacoes: '', atendente: ''
+    anotacoes: '', atendente: '', nova_entrega: ''
   });
 
   const navigate = useNavigate();
   const { getAuthHeader, user } = useAuth();
 
   // Context for text replacement
-  const getTextContext = () => ({ user, formData, pedidoErp, codigoReversa, dataVencimentoReversa });
+  const getTextContext = () => ({ user, formData, pedidoErp, codigoReversa, dataVencimentoReversa, awbTotal, jmsJt });
 
   // --- Effects ---
   useEffect(() => {
@@ -123,6 +134,82 @@ const NovoAtendimento = () => {
       setFormData(prev => ({ ...prev, atendente: user.name }));
     }
   }, [user, isEditMode]);
+
+  // Busca AWB da Total Express pela nota fiscal — APENAS quando a transportadora atual é Total Express.
+  // Antes buscava independente, mas isso mostrava AWB stale para pedidos que foram redirecionados
+  // a outra transportadora (J&T, ASAP, etc).
+  useEffect(() => {
+    const transp = (pedidoErp?.transportadora || '').toLowerCase();
+    const ehTotal = transp.includes('total');
+    if (!pedidoErp?.nota_fiscal || !ehTotal) { setAwbTotal(null); return; }
+    const nota = String(pedidoErp.nota_fiscal).split('.')[0];
+    axios.get(`${API_URL}/api/base-total/${nota}`, { headers: getAuthHeader() })
+      .then(r => setAwbTotal(r.data?.awb ? r.data : null))
+      .catch(() => setAwbTotal(null));
+  }, [pedidoErp, getAuthHeader]);
+
+  // Busca JMS da J&T pelo número de pedido — APENAS quando a transportadora atual é J&T.
+  useEffect(() => {
+    const transp = (pedidoErp?.transportadora || '').toLowerCase();
+    const ehJt = transp.includes('j&t') || transp.includes('jt express');
+    if (!pedidoErp?.numero_pedido || !ehJt) { setJmsJt(null); return; }
+    const numPed = String(pedidoErp.numero_pedido).split('.')[0];
+    axios.get(`${API_URL}/api/base-jt/${numPed}`, { headers: getAuthHeader() })
+      .then(r => setJmsJt(r.data?.jms ? r.data : null))
+      .catch(() => setJmsJt(null));
+  }, [pedidoErp, getAuthHeader]);
+
+  // Verifica se o pedido consta na lista de Cancelamentos (AES/ETR/Erro Nota)
+  useEffect(() => {
+    if (!pedidoErp?.numero_pedido) { setCancelamentosCheck(null); setCancelamentosExpanded(false); return; }
+    const num = String(pedidoErp.numero_pedido).split('.')[0];
+    axios.get(`${API_URL}/api/cancelamentos/check/${num}`, { headers: getAuthHeader() })
+      .then(r => setCancelamentosCheck(r.data?.has_cancelamento ? r.data : null))
+      .catch(() => setCancelamentosCheck(null));
+  }, [pedidoErp, getAuthHeader]);
+
+  // Verifica se há aviso do Smart Compras (produto não vem / faturou depois) para o pedido
+  useEffect(() => {
+    if (!pedidoErp?.numero_pedido) { setAvisosCompras(null); setAvisosExpanded(false); return; }
+    const num = String(pedidoErp.numero_pedido).split('.')[0];
+    axios.get(`${API_URL}/api/avisos-compras/check/${num}`, { headers: getAuthHeader() })
+      .then(r => setAvisosCompras(r.data?.has_aviso ? r.data : null))
+      .catch(() => setAvisosCompras(null));
+  }, [pedidoErp, getAuthHeader]);
+
+  // Marca um aviso do Smart Compras como tratado (some do card) e re-checa
+  const tratarAviso = async (avisoId) => {
+    if (!window.confirm('Marcar este aviso do Smart Compras como tratado? Ele some do card.')) return;
+    try {
+      await axios.put(`${API_URL}/api/avisos-compras/${avisoId}`, { status: 'tratado' }, { headers: getAuthHeader() });
+      const num = String(pedidoErp?.numero_pedido || '').split('.')[0];
+      const r = await axios.get(`${API_URL}/api/avisos-compras/check/${num}`, { headers: getAuthHeader() });
+      setAvisosCompras(r.data?.has_aviso ? r.data : null);
+      toast.success('Aviso do Smart Compras tratado');
+    } catch {
+      toast.error('Não consegui tratar o aviso');
+    }
+  };
+
+  // Busca estoque (físico + XD) quando o pedido está em "Aguardando estoque" ou
+  // "Pedido aprovado" — para mostrar o estoque no card e habilitar "Propor Similar".
+  useEffect(() => {
+    const status = (pedidoErp?.status_pedido || '').toLowerCase().trim();
+    const precisa = status.includes('aguardando estoque') || status.includes('pedido aprovado');
+    const sku = pedidoErp?.codigo_item_vtex;
+    if (!precisa || !sku) { setEstoqueSimilar(null); return; }
+    const ent = String(pedidoErp.numero_pedido || '').split('.')[0];
+    axios.get(`${API_URL}/api/produtos/estoque/${encodeURIComponent(sku)}?entrega=${encodeURIComponent(ent)}`, { headers: getAuthHeader() })
+      .then(r => setEstoqueSimilar(r.data || null))
+      .catch(() => setEstoqueSimilar(null));
+  }, [pedidoErp, getAuthHeader]);
+
+  // Re-aplica placeholders quando awbTotal/jmsJt carrega enquanto o modal de texto está aberto
+  useEffect(() => {
+    if (showTextoDialog && textoTemplate) {
+      setTextoPadrao(replaceAllPlaceholders(textoTemplate, { user, formData, pedidoErp, codigoReversa, dataVencimentoReversa, awbTotal, jmsJt }));
+    }
+  }, [awbTotal, jmsJt]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [skipSearchEffect, setSkipSearchEffect] = useState(false);
 
@@ -152,6 +239,15 @@ const NovoAtendimento = () => {
     if (isEditMode && atendimentoId) loadAtendimento(atendimentoId);
   }, [atendimentoId, isEditMode]);
 
+  // Deep-link: /chamados/novo?entrega=X já busca o pedido (vem da lista "Avisos de Compras")
+  useEffect(() => {
+    if (entregaParam && !isEditMode) {
+      setSearchType('entrega');
+      setSearchValue(String(entregaParam).split('.')[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entregaParam, isEditMode]);
+
   // --- Business Logic ---
   const loadAtendimento = async (id) => {
     setLoadingAtendimento(true);
@@ -166,6 +262,7 @@ const NovoAtendimento = () => {
         categoria_inicial: atd.categoria_inicial || atd.categoria || '',
         motivo: atd.motivo || '', anotacoes: atd.anotacoes || '',
         atendente: atd.atendente || 'Letícia Martelo',
+        nova_entrega: atd.nova_entrega || '',
         pendente: atd.pendente !== undefined ? atd.pendente : true
       });
       setAnotacoesOriginais(atd.anotacoes || '');
@@ -336,6 +433,7 @@ const NovoAtendimento = () => {
     setSelectedAssistenciaAguardando(`Reversa Assistência - ${fornecedor}`); openTextoDialogWithMotivo();
   };
   const handleLoadTextoRaw = (texto, _titulo) => {
+    setTextoTemplate(texto);
     setTextoPadrao(replaceAllPlaceholders(texto, getTextContext()));
     openTextoDialogWithMotivo();
   };
@@ -348,10 +446,7 @@ const NovoAtendimento = () => {
     } else {
       const el = document.createElement('textarea');
       el.value = text;
-      el.style.position = 'fixed';
-      el.style.top = '-9999px';
-      el.style.left = '-9999px';
-      el.setAttribute('readonly', '');
+      el.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;z-index:9999';
       document.body.appendChild(el);
       el.focus();
       el.select();
@@ -371,7 +466,7 @@ const NovoAtendimento = () => {
   const handleMotivoPendenciaChange = async (value) => {
     setMotivoPendencia(value);
     if (fieldErrors.motivoPendencia) setFieldErrors(prev => ({ ...prev, motivoPendencia: false }));
-    if (value === 'Em devolução' || value === 'Devolvido') {
+    if (['Em devolução', 'Em devolução - Correios', 'Em devolução - Transp.', 'Devolvido'].includes(value)) {
       setStatusDevolucao(''); setDevolucaoRegistrada(false);
       if (formData.numero_pedido) setShowDevolucaoDialog(true);
     }
@@ -402,7 +497,7 @@ const NovoAtendimento = () => {
     }
     if (hasError) { setFieldErrors(newErrors); return; }
 
-    const isDevolucao = motivoPendencia === 'Em devolução' || motivoPendencia === 'Devolvido';
+    const isDevolucao = ['Em devolução', 'Em devolução - Correios', 'Em devolução - Transp.', 'Devolvido'].includes(motivoPendencia);
     if (isDevolucao && !statusDevolucao && !devolucaoRegistrada) {
       setPendingSubmitData({ formData, motivoPendencia, codigoReversa, dataVencimentoReversa, retornarChamado, verificarAdneia, encerrarAoCriar });
       setShowDevolucaoDialog(true); return;
@@ -662,13 +757,130 @@ const NovoAtendimento = () => {
           </Card>
         )}
 
+        {/* Alerta: Pedido consta na lista de Cancelamentos */}
+        {pedidoErp && cancelamentosCheck?.has_cancelamento && (
+          <Card className="border-red-300 bg-red-50/50 dark:bg-red-950/20 dark:border-red-800" data-testid="alerta-cancelamento">
+            <CardContent className="py-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-red-700 dark:text-red-300 text-sm font-medium">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                  <span>🔔 Este pedido consta na lista de Cancelamentos</span>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setCancelamentosExpanded(!cancelamentosExpanded)}
+                  className="h-7 w-7 p-0 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/30"
+                  data-testid="expand-cancelamento-btn"
+                  aria-label={cancelamentosExpanded ? 'Recolher' : 'Expandir'}
+                >
+                  {cancelamentosExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </Button>
+              </div>
+              {cancelamentosExpanded && (
+                <div className="mt-3 space-y-2 pl-6 text-sm">
+                  {(cancelamentosCheck.tipos || []).map((c, idx) => {
+                    const tipoLabel = c.tipo === 'aes'
+                      ? '🛒 AES (Compras)'
+                      : c.tipo === 'etr'
+                        ? '🏭 ETR (Produção)'
+                        : '📄 Erro na Nota';
+                    const isEncerrado = c.status === 'encerrado';
+                    return (
+                      <div key={idx} className="border-l-2 border-red-300 dark:border-red-700 pl-3 py-1">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-red-800 dark:text-red-200">
+                          <span className="font-semibold">{tipoLabel}</span>
+                          <span>·</span>
+                          <span className={isEncerrado ? 'text-emerald-700 dark:text-emerald-300' : 'text-orange-700 dark:text-orange-300'}>
+                            {isEncerrado ? '✓ Encerrado' : '⚠ Pendente'}
+                          </span>
+                          {c.data && (<><span>·</span><span>{c.data}</span></>)}
+                          {c.ticket && (<><span>·</span><span>Ticket: {c.ticket}</span></>)}
+                          {(c.motivo || c.motivo_rejeicao) && (<><span>·</span><span>{c.motivo || c.motivo_rejeicao}</span></>)}
+                          {c.acao && (<><span>·</span><span>Ação: {c.acao}</span></>)}
+                        </div>
+                        {c.observacao && (
+                          <p className="text-xs text-red-700/80 dark:text-red-300/80 mt-1">{c.observacao}</p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Alerta: Produto identificado pelo Smart Compras (não vem / faturou depois) */}
+        {pedidoErp && avisosCompras?.has_aviso && (
+          <Card className="border-red-300 bg-red-50/50 dark:bg-red-950/20 dark:border-red-800" data-testid="alerta-smart-compras">
+            <CardContent className="py-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-red-700 dark:text-red-300 text-sm font-medium">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                  <span>🛒 Compras (Smart Compras): item sem previsão de chegada — ver similar ou cancelar</span>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setAvisosExpanded(!avisosExpanded)}
+                  className="h-7 w-7 p-0 text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/30"
+                  data-testid="expand-smart-compras-btn"
+                  aria-label={avisosExpanded ? 'Recolher' : 'Expandir'}
+                >
+                  {avisosExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </Button>
+              </div>
+              {avisosExpanded && (
+                <div className="mt-3 space-y-2 pl-6 text-sm">
+                  {(avisosCompras.avisos || []).map((a, idx) => {
+                    const faturou = a.status === 'faturado';
+                    return (
+                      <div key={idx} className="border-l-2 border-red-300 dark:border-red-700 pl-3 py-1">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-red-800 dark:text-red-200">
+                          <span className="font-semibold">{a.produto || a.sku}</span>
+                          {a.sku && (<><span>·</span><span className="font-mono">{a.sku}</span></>)}
+                          <span>·</span>
+                          <span className={faturou ? 'text-orange-700 dark:text-orange-300 font-semibold' : 'text-red-700 dark:text-red-300'}>
+                            {faturou ? '⚠ Foi faturado depois — retornar chamado' : 'Identificado pelo Smart Compras'}
+                          </span>
+                          {a.numero_po && (<><span>·</span><span>PO: {a.numero_po}</span></>)}
+                        </div>
+                        {a.comentario && (
+                          <p className="text-xs text-red-700/80 dark:text-red-300/80 mt-1">{a.comentario}</p>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => tratarAviso(a.id)}
+                          className="mt-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 hover:underline"
+                          data-testid="tratar-smart-compras-btn"
+                        >✓ tratar (some do card)</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Dados do Pedido */}
         {pedidoErp && (
           <Card className="border-emerald-200 dark:border-emerald-800 bg-emerald-50/30 dark:bg-emerald-950/20" data-testid="pedido-info">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-lg flex items-center gap-2"><Package className="h-5 w-5 text-emerald-600" /> Pedido #{pedidoErp.numero_pedido}</CardTitle>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Package className="h-5 w-5 text-emerald-600" />
+                    Entrega #{pedidoErp.numero_pedido}
+                    {pedidoErp.pedido_externo && (
+                      <span className="text-sm font-normal text-muted-foreground">
+                        · Pedido: <span className="font-mono font-semibold text-slate-700 dark:text-slate-200">{pedidoErp.pedido_externo}</span>
+                      </span>
+                    )}
+                  </CardTitle>
                   {pedidoErp.nome_cliente && <p className="text-sm text-muted-foreground mt-0.5">{pedidoErp.nome_cliente}</p>}
                 </div>
                 <div className="flex items-center gap-2">
@@ -676,6 +888,17 @@ const NovoAtendimento = () => {
                     <Badge className={getStatusBadgeColor(pedidoErp.status_pedido)}>{pedidoErp.status_pedido || 'Sem status'}</Badge>
                     {pedidoErp.data_status && <span className="text-xs text-muted-foreground">Últ. Ponto: {pedidoErp.data_status}</span>}
                     {pedidoErp.dt_prometida && <span className="text-xs text-orange-500 font-medium">Dt. Prometida: {pedidoErp.dt_prometida}</span>}
+                    {/* Ação decidida no backend conforme físico/XD por filial */}
+                    {estoqueSimilar?.found && estoqueSimilar.acao === 'propor_similar' && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setShowProporSimilar(true); }}
+                        className="mt-1 inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-purple-100 text-purple-700 border border-purple-300 hover:bg-purple-200 font-semibold whitespace-nowrap"
+                        title="Sem estoque físico (e sem XD suficiente na origem) — localizar produto similar e gerar texto padrão"
+                      >
+                        🔄 Propor Similar
+                      </button>
+                    )}
                   </div>
                   <Button type="button" variant="ghost" size="sm" onClick={() => setPedidoExpanded(!pedidoExpanded)} className="h-8 w-8 p-0" data-testid="expand-pedido-btn">
                     {pedidoExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
@@ -721,6 +944,15 @@ const NovoAtendimento = () => {
                         CEP: {String(pedidoErp.cep).padStart(8, '0')} <Copy className="h-3 w-3 text-muted-foreground" />
                       </p>
                     )}
+                    {(pedidoErp.endereco_rua || pedidoErp.endereco_numero) && (
+                      <p className="text-muted-foreground">
+                        {[pedidoErp.endereco_rua, pedidoErp.endereco_numero].filter(Boolean).join(', ')}
+                        {pedidoErp.endereco_complemento ? ` - ${pedidoErp.endereco_complemento}` : ''}
+                      </p>
+                    )}
+                    {pedidoErp.endereco_bairro && (
+                      <p className="text-muted-foreground">{pedidoErp.endereco_bairro}</p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -739,6 +971,30 @@ const NovoAtendimento = () => {
                     {pedidoErp.quantidade && <p className="text-muted-foreground">Qtde: {pedidoErp.quantidade}</p>}
                     {(pedidoErp.estoque_disponivel !== undefined && pedidoErp.estoque_disponivel !== null) && (
                       <p className={`font-medium ${Number(pedidoErp.estoque_disponivel) > 0 ? 'text-green-600' : 'text-red-600'}`}>Estoque Disp.: {pedidoErp.estoque_disponivel}</p>
+                    )}
+                    {/* Estoque Físico + XD por filial (somente Aguardando estoque / Pedido aprovado) */}
+                    {estoqueSimilar?.found && (
+                      <div className="mt-1 space-y-1">
+                        <p className="font-medium">
+                          Estoque Físico:{' '}
+                          <span className={estoqueSimilar.fisico_total > 0 ? 'text-green-600' : 'text-red-600'}>{estoqueSimilar.fisico_total}</span>
+                          {estoqueSimilar.ufs_fisico?.length > 0 && <span className="text-xs text-muted-foreground"> ({estoqueSimilar.ufs_fisico.join('/')})</span>}
+                          {'  ·  '}XD:{' '}
+                          <span className={estoqueSimilar.xd_total > 0 ? 'text-amber-600' : 'text-red-600'}>{estoqueSimilar.xd_total}</span>
+                          {estoqueSimilar.ufs_xd?.length > 0 && <span className="text-xs text-muted-foreground"> ({estoqueSimilar.ufs_xd.join('/')})</span>}
+                          {estoqueSimilar.uf_entrega && <span className="text-xs text-muted-foreground"> · origem: {estoqueSimilar.uf_entrega}</span>}
+                        </p>
+                        {estoqueSimilar.acao === 'alerta_fisico_outra_filial' && (
+                          <p className="text-xs px-2 py-1 rounded bg-amber-50 text-amber-700 border border-amber-300 font-medium">
+                            ⚠️ Há estoque físico em outra filial ({estoqueSimilar.ufs_fisico?.join('/')}) — a origem é {estoqueSimilar.uf_entrega || '—'}. Necessário subir pedido manual.
+                          </p>
+                        )}
+                        {estoqueSimilar.acao === 'alerta_xd_outra_filial' && (
+                          <p className="text-xs px-2 py-1 rounded bg-amber-50 text-amber-700 border border-amber-300 font-medium">
+                            ⚠️ XD em outra filial ({estoqueSimilar.ufs_xd?.join('/')}, {estoqueSimilar.xd_outras} un.) — a origem é {estoqueSimilar.uf_entrega || '—'}. Necessário subir pedido manual.
+                          </p>
+                        )}
+                      </div>
                     )}
                     {pedidoErp.preco_final && (
                       <p className="text-muted-foreground cursor-pointer hover:text-primary flex items-center gap-1" onClick={() => copyToClipboard(parseFloat(pedidoErp.preco_final).toFixed(2))} title="Copiar valor">
@@ -759,6 +1015,74 @@ const NovoAtendimento = () => {
                     {pedidoErp.canal_vendas && <p className="text-muted-foreground">Canal: {pedidoErp.canal_vendas}</p>}
                     {pedidoErp.data_status && <p className="text-muted-foreground">Atualização: {pedidoErp.data_status}</p>}
                     {pedidoErp.dt_prometida && <p className="text-muted-foreground">Dt. Prometida: {pedidoErp.dt_prometida}</p>}
+                    {awbTotal && (
+                      <div className={`mt-2 flex items-center gap-2 px-2 py-1.5 border rounded-md ${
+                        awbTotal.descricao_status === 'AWB EXCLUÍDO'
+                          ? 'bg-slate-50 dark:bg-slate-800/40 border-slate-300 dark:border-slate-600'
+                          : 'bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800'
+                      }`}>
+                        <Truck className={`h-3.5 w-3.5 flex-shrink-0 ${awbTotal.descricao_status === 'AWB EXCLUÍDO' ? 'text-slate-400' : 'text-orange-500'}`} />
+                        <div className="flex-1 min-w-0">
+                          <span className={`text-[11px] font-medium uppercase tracking-wide ${awbTotal.descricao_status === 'AWB EXCLUÍDO' ? 'text-slate-400' : 'text-orange-500'}`}>
+                            AWB Total Express
+                          </span>
+                          <p className={`font-mono font-semibold text-sm leading-tight ${awbTotal.descricao_status === 'AWB EXCLUÍDO' ? 'text-slate-400 line-through' : 'text-orange-800 dark:text-orange-300'}`}>
+                            {awbTotal.awb}
+                          </p>
+                          {awbTotal.descricao_status && (
+                            <p className={`text-[11px] truncate ${awbTotal.descricao_status === 'AWB EXCLUÍDO' ? 'text-slate-400 font-medium' : 'text-orange-600/80 dark:text-orange-400/80'}`}>
+                              {awbTotal.descricao_status}
+                            </p>
+                          )}
+                          {awbTotal.awb_anterior && (
+                            <p className="text-[11px] text-slate-400 truncate">
+                              Anterior: <span className="font-mono">{awbTotal.awb_anterior}</span>
+                            </p>
+                          )}
+                        </div>
+                        {awbTotal.descricao_status !== 'AWB EXCLUÍDO' && (
+                          <button
+                            type="button"
+                            onClick={() => { navigator.clipboard.writeText(awbTotal.awb); toast.success('AWB copiado!'); }}
+                            className="text-orange-500 hover:text-orange-700 flex-shrink-0"
+                            title="Copiar AWB"
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {jmsJt && (
+                      <div className="mt-2 flex items-center gap-2 px-2 py-1.5 border rounded-md bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800">
+                        <Truck className="h-3.5 w-3.5 flex-shrink-0 text-red-500" />
+                        <div className="flex-1 min-w-0">
+                          <span className="text-[11px] font-medium uppercase tracking-wide text-red-500">
+                            JMS J&T Express
+                          </span>
+                          <p className="font-mono font-semibold text-sm leading-tight text-red-800 dark:text-red-300">
+                            {jmsJt.jms}
+                          </p>
+                          {jmsJt.descricao_status && (
+                            <p className="text-[11px] truncate text-red-600/80 dark:text-red-400/80">
+                              {jmsJt.descricao_status}
+                            </p>
+                          )}
+                          {jmsJt.jms_anterior && (
+                            <p className="text-[11px] text-slate-400 truncate">
+                              Anterior: <span className="font-mono">{jmsJt.jms_anterior}</span>
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => { navigator.clipboard.writeText(jmsJt.jms); toast.success('JMS copiado!'); }}
+                          className="text-red-500 hover:text-red-700 flex-shrink-0"
+                          title="Copiar JMS"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -892,6 +1216,28 @@ const NovoAtendimento = () => {
               parceiro={formData.parceiro}
               onLoadTextoRaw={handleLoadTextoRaw}
             />
+
+            {/* Reenvio: nova entrega (só em Ag. Logística) */}
+            {motivoPendencia === 'Ag. Logística' && (
+              <Card className="border-blue-200 dark:border-blue-900 bg-blue-50/30 dark:bg-blue-950/20">
+                <CardContent className="py-3">
+                  <label className="text-sm font-medium flex items-center gap-2">
+                    <Truck className="h-4 w-4 text-blue-600" /> Nova entrega (reenvio)
+                  </label>
+                  <p className="text-xs text-muted-foreground mt-0.5 mb-1.5">
+                    Se foi gerada uma nova entrega para este pedido, informe aqui. Quando o pedido atual
+                    for entregue/finalizado, o sync passa a seguir esta nova entrega (em vez de Ag. Parceiro).
+                  </p>
+                  <input
+                    type="text"
+                    value={formData.nova_entrega || ''}
+                    onChange={(e) => handleChange('nova_entrega', e.target.value)}
+                    placeholder="Nº da nova entrega (ex.: 123456789)"
+                    className="w-full max-w-xs px-3 py-2 text-sm border rounded bg-background focus:ring-1 focus:ring-blue-300 font-mono"
+                  />
+                </CardContent>
+              </Card>
+            )}
 
             {/* Ações */}
             <AcoesFormulario
@@ -1044,6 +1390,10 @@ const NovoAtendimento = () => {
           <DialogFooter><Button variant="ghost" onClick={() => setShowDevolucaoDialog(false)} disabled={loading}>Cancelar</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {showProporSimilar && pedidoErp && (
+        <ProporSimilarModal pedido={pedidoErp} onClose={() => setShowProporSimilar(false)} />
+      )}
     </div>
   );
 };

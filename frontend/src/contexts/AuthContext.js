@@ -68,9 +68,13 @@ export const AuthProvider = ({ children }) => {
   };
 
   const isDashboardOnly = user?.role === 'dashboard';
+  // Perfil "consulta": somente leitura, acessa apenas Dashboard, Atendimentos,
+  // Pag. Não Aprovado e Cancelamentos (+ Perfil).
+  const isConsulta = user?.role === 'consulta';
+  const CONSULTA_PATHS = ['/dashboard', '/chamados', '/pagamento', '/cancelamentos', '/perfil'];
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout, getAuthHeader, isDashboardOnly }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, logout, getAuthHeader, isDashboardOnly, isConsulta, CONSULTA_PATHS }}>
       {children}
     </AuthContext.Provider>
   );

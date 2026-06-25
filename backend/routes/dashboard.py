@@ -1,13 +1,20 @@
 from fastapi import APIRouter, Depends
 from typing import Optional
 from datetime import datetime, timezone, timedelta
+import asyncio
 
 from utils.database import db
 from utils.auth import get_current_user
-from utils.helpers import parse_date_safe
+from utils.helpers import parse_date_safe, BRT_TZ, now_brt, today_brt, date_brt_str
 
 import logging
 logger = logging.getLogger(__name__)
+
+_visao_geral_cache: dict = {}
+_CACHE_TTL = 120  # segundos
+
+# Alias local para compatibilidade com chamadas existentes neste arquivo.
+_data_brt_str = date_brt_str
 
 router = APIRouter(prefix="/api")
 
@@ -92,16 +99,55 @@ async def get_dashboard_visao_geral(
     fornecedor: Optional[str] = None,
     current_user: dict = Depends(get_current_user)
 ):
+    # ── Cache ──
+    cache_key = f"{periodo_dias}:{canal}:{fornecedor}"
+    now_ts = datetime.now(timezone.utc).timestamp()
+    if cache_key in _visao_geral_cache:
+        cached_ts, cached_data = _visao_geral_cache[cache_key]
+        if now_ts - cached_ts < _CACHE_TTL:
+            return cached_data
+
     now = datetime.now(timezone.utc)
-    base_query = {}
+    base_query: dict = {}
     if canal:
         base_query["$or"] = [{"parceiro": canal}, {"canal_vendas": canal}]
     if fornecedor:
-        base_query["codigo_fornecedor"] = fornecedor
-    total = await db.chamados.count_documents(base_query)
-    pendentes = await db.chamados.count_documents({**base_query, "pendente": True})
-    resolvidos = await db.chamados.count_documents({**base_query, "pendente": False})
-    mais_antigo = await db.chamados.find_one({"pendente": True}, {"_id": 0, "data_abertura": 1, "id_atendimento": 1}, sort=[("data_abertura", 1)])
+        pedidos_forn = await db.pedidos_erp.distinct("numero_pedido", {"departamento": fornecedor})
+        base_query["numero_pedido"] = {"$in": pedidos_forn}
+
+    pipeline_tempo = [
+        {"$match": {"pendente": False, "data_fechamento": {"$ne": None}}},
+        {"$project": {"tempo": {"$subtract": [{"$dateFromString": {"dateString": "$data_fechamento"}}, {"$dateFromString": {"dateString": "$data_abertura"}}]}}},
+        {"$group": {"_id": None, "media": {"$avg": "$tempo"}}}
+    ]
+    pipeline_sla = [
+        {"$match": {"pendente": False, "data_fechamento": {"$ne": None}, "data_abertura": {"$ne": None}}},
+        {"$project": {"tempo_ms": {"$subtract": [{"$dateFromString": {"dateString": "$data_fechamento"}}, {"$dateFromString": {"dateString": "$data_abertura"}}]}}},
+        {"$group": {"_id": None, "total": {"$sum": 1},
+            "em_1d": {"$sum": {"$cond": [{"$lte": ["$tempo_ms", 86400000]}, 1, 0]}},
+            "em_3d": {"$sum": {"$cond": [{"$lte": ["$tempo_ms", 259200000]}, 1, 0]}},
+            "em_7d": {"$sum": {"$cond": [{"$lte": ["$tempo_ms", 604800000]}, 1, 0]}}}}
+    ]
+    pipeline_por_canal = [
+        {"$group": {"_id": {"$ifNull": ["$parceiro", "$canal_vendas"]}, "total": {"$sum": 1},
+                    "pendentes": {"$sum": {"$cond": [{"$eq": ["$pendente", True]}, 1, 0]}},
+                    "fechados": {"$sum": {"$cond": [{"$eq": ["$pendente", False]}, 1, 0]}}}},
+        {"$match": {"_id": {"$ne": None}}}, {"$sort": {"total": -1}}
+    ]
+
+    # ── 1. Queries de topo em paralelo ──
+    (total, pendentes, resolvidos, mais_antigo,
+     tempo_result, sla_raw, por_canal_raw, total_pedidos) = await asyncio.gather(
+        db.chamados.count_documents(base_query),
+        db.chamados.count_documents({**base_query, "pendente": True}),
+        db.chamados.count_documents({**base_query, "pendente": False}),
+        db.chamados.find_one({"pendente": True}, {"_id": 0, "data_abertura": 1, "id_atendimento": 1}, sort=[("data_abertura", 1)]),
+        db.chamados.aggregate(pipeline_tempo).to_list(1),
+        db.chamados.aggregate(pipeline_sla).to_list(1),
+        db.chamados.aggregate(pipeline_por_canal).to_list(50),
+        db.pedidos_erp.count_documents({}),
+    )
+
     dias_mais_antigo = 0
     data_mais_antigo = None
     id_mais_antigo = None
@@ -110,46 +156,62 @@ async def get_dashboard_visao_geral(
         dias_mais_antigo = (now - data_abertura).days
         data_mais_antigo = mais_antigo['data_abertura']
         id_mais_antigo = mais_antigo.get('id_atendimento')
-    pipeline_tempo = [
-        {"$match": {"pendente": False, "data_fechamento": {"$ne": None}}},
-        {"$project": {"tempo": {"$subtract": [{"$dateFromString": {"dateString": "$data_fechamento"}}, {"$dateFromString": {"dateString": "$data_abertura"}}]}}},
-        {"$group": {"_id": None, "media": {"$avg": "$tempo"}}}
-    ]
-    tempo_result = await db.chamados.aggregate(pipeline_tempo).to_list(1)
-    tempo_medio = round((tempo_result[0]['media'] / (1000 * 60 * 60 * 24)), 2) if tempo_result and tempo_result[0]['media'] else 0
-    por_mes = []
-    for i in range(5, -1, -1):
-        mes_ref = now - timedelta(days=i*30)
-        mes_inicio = mes_ref.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        mes_fim = (mes_ref.replace(year=mes_ref.year + 1, month=1, day=1) if mes_ref.month == 12 else mes_ref.replace(month=mes_ref.month + 1, day=1)) - timedelta(seconds=1)
-        count = await db.chamados.count_documents({"data_abertura": {"$gte": mes_inicio.isoformat(), "$lte": mes_fim.isoformat()}})
-        por_mes.append({"mes": mes_ref.strftime("%b/%y"), "total": count})
-    dias_grafico = min(periodo_dias, 30)
-    por_dia = []
-    for i in range(dias_grafico - 1, -1, -1):
-        dia = now - timedelta(days=i)
-        dia_inicio = dia.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
-        dia_fim = dia.replace(hour=23, minute=59, second=59, microsecond=999999).isoformat()
-        abertos = await db.chamados.count_documents({"data_abertura": {"$gte": dia_inicio, "$lte": dia_fim}})
-        resolvidos_dia = await db.chamados.count_documents({"data_fechamento": {"$gte": dia_inicio, "$lte": dia_fim}})
-        por_dia.append({"data": dia.strftime("%d/%m"), "abertos": abertos, "resolvidos": resolvidos_dia})
-    total_pedidos = await db.pedidos_erp.count_documents({})
 
-    # Dias uteis e canais diarios
+    tempo_medio = round((tempo_result[0]['media'] / 86400000), 2) if tempo_result and tempo_result[0]['media'] else 0
+
+    sla_data = {"em_1d": 0, "em_3d": 0, "em_7d": 0}
+    if sla_raw and sla_raw[0]["total"] > 0:
+        sla_t = sla_raw[0]["total"]
+        sla_data = {k: round(sla_raw[0][k] / sla_t * 100, 1) for k in ("em_1d", "em_3d", "em_7d")}
+
+    por_canal = [{"canal": item['_id'] or 'Sem Canal', "ar": item['total'], "a": item['pendentes'], "f": item['fechados']} for item in por_canal_raw]
+    taxa_contato = round((total / total_pedidos) * 100, 1) if total_pedidos > 0 else 0
+    taxa_pendencia = round((pendentes / total_pedidos) * 100, 1) if total_pedidos > 0 else 0
+    taxa_resolucao = round((resolvidos / total) * 100, 1) if total > 0 else 0
+
+    # ── 2. Por dia (gráfico) em paralelo ──
+    dias_grafico = min(periodo_dias, 30)
+    # Dashboards agrupam por DATA DE BRASÍLIA (UTC-3). Sem essa conversão, atendimentos
+    # criados entre 21:00 e 23:59 BRT vão pro dia seguinte na grade.
+    hoje = now.astimezone(BRT_TZ).date()
+
+    async def get_dia_chart(i):
+        dia = now - timedelta(days=i)
+        d0 = dia.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+        d1 = dia.replace(hour=23, minute=59, second=59, microsecond=999999).isoformat()
+        ab, res = await asyncio.gather(
+            db.chamados.count_documents({"data_abertura": {"$gte": d0, "$lte": d1}}),
+            db.chamados.count_documents({"data_fechamento": {"$gte": d0, "$lte": d1}})
+        )
+        return {"data": dia.strftime("%d/%m"), "abertos": ab, "resolvidos": res}
+
+    por_dia = list(await asyncio.gather(*[get_dia_chart(i) for i in range(dias_grafico - 1, -1, -1)]))
+
+    # ── 3. Por mês em paralelo ──
+    async def get_mes_chart(i):
+        mes_ref = now - timedelta(days=i * 30)
+        mes_inicio = mes_ref.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        mes_fim = (mes_ref.replace(year=mes_ref.year + 1, month=1, day=1) if mes_ref.month == 12
+                   else mes_ref.replace(month=mes_ref.month + 1, day=1)) - timedelta(seconds=1)
+        count = await db.chamados.count_documents({"data_abertura": {"$gte": mes_inicio.isoformat(), "$lte": mes_fim.isoformat()}})
+        return {"mes": mes_ref.strftime("%b/%y"), "total": count,
+                "taxa_contato": round(count / total_pedidos * 100, 2) if total_pedidos > 0 else 0}
+
+    por_mes = list(await asyncio.gather(*[get_mes_chart(i) for i in range(5, -1, -1)]))
+
+    # ── 4. Dias úteis desde 02/03/2026 (em datas BRT) ──
     dias_uteis = []
-    hoje = now.date()
-    dia_inicio_ref = datetime(2026, 3, 2, tzinfo=timezone.utc)
-    dia_iter = dia_inicio_ref
+    dia_iter = datetime(2026, 3, 2, tzinfo=BRT_TZ)
     while dia_iter.date() <= hoje:
         if dia_iter.weekday() < 5:
             dias_uteis.append(dia_iter)
         dia_iter += timedelta(days=1)
 
     CANAIS_CONFIG = [
-        {"nome": "Reclame aqui", "variacoes": ["Reclame aqui", "Reclame Aqui", "RECLAME AQUI"], "buscar_solicitacao": True},
-        {"nome": "ZAP/E-mail", "variacoes": ["ZAP", "E-mail", "Email", "Zap", "zap"], "buscar_solicitacao": True},
+        {"nome": "Reclame aqui", "variacoes": ["reclame aqui"], "buscar_solicitacao": True, "usar_data_ra": True},
+        {"nome": "ZAP/E-mail", "variacoes": ["zap", "e-mail", "email"], "buscar_solicitacao": True},
         {"nome": "Mercado Livre", "variacoes": ["Mercado Livre"]},
-        {"nome": "LL Loyalty", "variacoes": ["LL Loyalty", "LL Loyalt"]},
+        {"nome": "LL Loyalty", "variacoes": ["LL Loyalty", "LL Loyalt", "LL Loyalts", "LL loyals", "LL Loyals"]},
         {"nome": "Sicredi", "variacoes": ["Sicredi", "SICREDI"]},
         {"nome": "CSU", "variacoes": ["CSU"]},
         {"nome": "Nicequest", "variacoes": ["Nicequest", "NiceQuest", "NICEQUEST"]},
@@ -163,90 +225,94 @@ async def get_dashboard_visao_geral(
         {"nome": "ShopHub", "variacoes": ["ShopHub", "SHOPHUB"]},
         {"nome": "Bradesco", "variacoes": ["Bradesco"]},
     ]
+
+    # ── 5. 1 query só — processa tudo em Python ──
+    chamados_all = await db.chamados.find(
+        {},
+        {"parceiro": 1, "canal_vendas": 1, "solicitacao": 1,
+         "data_abertura": 1, "data_fechamento": 1, "pendente": 1,
+         "data_reclame_aqui": 1, "_id": 0}
+    ).to_list(None)
+
+    # Pré-calcula prefixos de data uma vez só — convertendo de UTC para BRT
+    # para que a grade reflita corretamente o dia em horário de Brasília.
+    for c in chamados_all:
+        ab = c.get("data_abertura") or ""
+        c["_ab10"] = _data_brt_str(ab)
+        c["_fc10"] = _data_brt_str(c.get("data_fechamento") or "")
+        # Para Reclame Aqui: usa data_reclame_aqui se disponível, senão data_abertura
+        ra = c.get("data_reclame_aqui") or ab
+        c["_ra10"] = _data_brt_str(ra)
+
+    def match_canal(c, cfg):
+        if cfg.get("buscar_solicitacao"):
+            sol = (c.get("solicitacao") or "").lower()
+            return any(v in sol for v in cfg["variacoes"])
+        # Normaliza (minúsculas + sem espaços nas pontas) para pegar variantes sujas:
+        # 'CSU ', 'Livelo ', 'LL loyalts', 'LL Loyalts ' etc.
+        val = (c.get("parceiro") or c.get("canal_vendas") or "").strip().lower()
+        return any(v.strip().lower() == val for v in cfg["variacoes"]) if val else False
+
+    # Atribuição EXCLUSIVA de canal: cada atendimento conta em UMA única linha.
+    # Usa a primeira correspondência na ordem de CANAIS_CONFIG (Reclame aqui/ZAP têm
+    # prioridade sobre o parceiro). Evita dupla contagem na soma das colunas.
+    for c in chamados_all:
+        c["_canal"] = None
+        for cfg in CANAIS_CONFIG:
+            if match_canal(c, cfg):
+                c["_canal"] = cfg["nome"]
+                break
+
+    dias_str_list = [d.strftime("%Y-%m-%d") for d in dias_uteis]
+    dias_key_list = [d.strftime("%d/%m") for d in dias_uteis]
+    hoje_str = hoje.strftime("%Y-%m-%d")
+
     por_canal_dia = []
-    totais_por_dia = {}
-    for dia in dias_uteis:
-        totais_por_dia[dia.strftime("%d/%m")] = {"ar": 0, "a": 0, "f": 0}
-    for canal_config in CANAIS_CONFIG:
-        canal_nome = canal_config["nome"]
-        variacoes = canal_config["variacoes"]
-        canal_data = {"canal": canal_nome, "dias": {}}
+    totais_por_dia = {k: {"ar": 0, "a": 0, "f": 0} for k in dias_key_list}
+
+    for cfg in CANAIS_CONFIG:
+        grp = [c for c in chamados_all if c["_canal"] == cfg["nome"]]
+        dias_dict: dict = {}
         total_canal = {"ar": 0, "a": 0, "f": 0}
-        for dia in dias_uteis:
-            dia_key = dia.strftime("%d/%m")
-            dia_str = dia.strftime("%Y-%m-%d")
-            dia_regex = f"^{dia_str}"
-            canal_or_conditions = []
-            buscar_solicitacao = canal_config.get("buscar_solicitacao", False)
-            for var in variacoes:
-                if buscar_solicitacao:
-                    canal_or_conditions.append({"solicitacao": {"$regex": var, "$options": "i"}})
-                else:
-                    canal_or_conditions.append({"parceiro": var})
-                    canal_or_conditions.append({"canal_vendas": var})
-            ar = await db.chamados.count_documents({"$or": canal_or_conditions, "data_abertura": {"$regex": dia_regex}})
-            if dia.date() == hoje:
-                a = await db.chamados.count_documents({"$or": canal_or_conditions, "pendente": True})
-            else:
-                dia_fim_str = f"{dia_str}T23:59:59"
-                a = await db.chamados.count_documents({"$or": canal_or_conditions, "pendente": True, "data_abertura": {"$lte": dia_fim_str}})
-            f = await db.chamados.count_documents({"$or": canal_or_conditions, "pendente": False, "data_fechamento": {"$regex": dia_regex}})
-            canal_data["dias"][dia_key] = {"ar": ar, "a": a, "f": f}
+        usar_data_ra = cfg.get("usar_data_ra", False)
+
+        # Saldo rolante por dia:
+        #   AR = abertos NAQUELE dia
+        #   A  = saldo de abertura do dia (itens abertos em dias ANTERIORES e ainda não fechados)
+        #   F  = fechados NAQUELE dia
+        # Resultado do dia = A + AR - F  →  é exatamente o A do dia seguinte.
+        # Tudo calculado pela data (abertura/fechamento), não pelo status atual — assim a
+        # conta fecha como um saldo histórico real.
+        for dia_str, dia_key in zip(dias_str_list, dias_key_list):
+            ab_field = "_ra10" if usar_data_ra else "_ab10"
+            # Abertos no dia
+            ar = sum(1 for c in grp if c[ab_field] == dia_str)
+            # Fechados no dia (pela data de fechamento)
+            f  = sum(1 for c in grp if c["_fc10"] == dia_str)
+            # Saldo de abertura: abertos ANTES do dia e que NÃO foram fechados antes do dia
+            a = sum(1 for c in grp
+                    if c[ab_field] and c[ab_field] < dia_str
+                    and (c["_fc10"] == "" or c["_fc10"] >= dia_str))
+
+            dias_dict[dia_key] = {"ar": ar, "a": a, "f": f}
             total_canal["ar"] += ar
-            total_canal["f"] += f
-            if dia_key not in totais_por_dia:
-                totais_por_dia[dia_key] = {"ar": 0, "a": 0, "f": 0}
-            totais_por_dia[dia_key]["ar"] += ar
-            totais_por_dia[dia_key]["a"] += a
-            totais_por_dia[dia_key]["f"] += f
+            total_canal["f"]  += f
+            if dia_key in totais_por_dia:
+                totais_por_dia[dia_key]["ar"] += ar
+                totais_por_dia[dia_key]["a"]  += a
+                totais_por_dia[dia_key]["f"]  += f
+
         if dias_uteis:
-            ultimo_dia_key = dias_uteis[-1].strftime("%d/%m")
-            total_canal["a"] = canal_data["dias"].get(ultimo_dia_key, {}).get("a", 0)
-        canal_data["total"] = total_canal
-        por_canal_dia.append(canal_data)
-    dias_headers = []
+            # Coluna-resumo "A": backlog atual = resultado (saldo de fechamento) do último dia
+            ult = dias_dict.get(dias_key_list[-1], {"a": 0, "ar": 0, "f": 0})
+            total_canal["a"] = ult["a"] + ult["ar"] - ult["f"]
+
+        por_canal_dia.append({"canal": cfg["nome"], "dias": dias_dict, "total": total_canal})
+
     dias_semana_pt = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"]
-    for dia in dias_uteis:
-        dias_headers.append({"data": dia.strftime("%d/%m"), "dia_semana": dias_semana_pt[dia.weekday()], "dia_num": dia.strftime("%d")})
-    pipeline_por_canal = [
-        {"$group": {"_id": {"$ifNull": ["$parceiro", "$canal_vendas"]}, "total": {"$sum": 1},
-                    "pendentes": {"$sum": {"$cond": [{"$eq": ["$pendente", True]}, 1, 0]}},
-                    "fechados": {"$sum": {"$cond": [{"$eq": ["$pendente", False]}, 1, 0]}}}},
-        {"$match": {"_id": {"$ne": None}}}, {"$sort": {"total": -1}}
-    ]
-    por_canal_raw = await db.chamados.aggregate(pipeline_por_canal).to_list(50)
-    por_canal = [{"canal": item['_id'] or 'Sem Canal', "ar": item['total'], "a": item['pendentes'], "f": item['fechados']} for item in por_canal_raw]
-    taxa_contato = round((total / total_pedidos) * 100, 1) if total_pedidos > 0 else 0
-    taxa_pendencia = round((pendentes / total_pedidos) * 100, 1) if total_pedidos > 0 else 0
-    taxa_resolucao = round((resolvidos / total) * 100, 1) if total > 0 else 0
+    dias_headers = [{"data": d.strftime("%d/%m"), "dia_semana": dias_semana_pt[d.weekday()], "dia_num": d.strftime("%d")} for d in dias_uteis]
 
-    # SLA: % resolved within 1, 3, 7 days
-    ms_to_days = 1000 * 60 * 60 * 24
-    pipeline_sla = [
-        {"$match": {"pendente": False, "data_fechamento": {"$ne": None}, "data_abertura": {"$ne": None}}},
-        {"$project": {"tempo_ms": {"$subtract": [{"$dateFromString": {"dateString": "$data_fechamento"}}, {"$dateFromString": {"dateString": "$data_abertura"}}]}}},
-        {"$group": {
-            "_id": None,
-            "total": {"$sum": 1},
-            "em_1d": {"$sum": {"$cond": [{"$lte": ["$tempo_ms", ms_to_days * 1]}, 1, 0]}},
-            "em_3d": {"$sum": {"$cond": [{"$lte": ["$tempo_ms", ms_to_days * 3]}, 1, 0]}},
-            "em_7d": {"$sum": {"$cond": [{"$lte": ["$tempo_ms", ms_to_days * 7]}, 1, 0]}}
-        }}
-    ]
-    sla_raw = await db.chamados.aggregate(pipeline_sla).to_list(1)
-    sla_data = {"em_1d": 0, "em_3d": 0, "em_7d": 0}
-    if sla_raw and sla_raw[0]["total"] > 0:
-        sla_t = sla_raw[0]["total"]
-        sla_data = {
-            "em_1d": round(sla_raw[0]["em_1d"] / sla_t * 100, 1),
-            "em_3d": round(sla_raw[0]["em_3d"] / sla_t * 100, 1),
-            "em_7d": round(sla_raw[0]["em_7d"] / sla_t * 100, 1)
-        }
-
-    # Update por_mes to include taxa_contato
-    for m in por_mes:
-        m["taxa_contato"] = round(m["total"] / total_pedidos * 100, 2) if total_pedidos > 0 else 0
-    return {
+    result = {
         "total": total, "pendentes": pendentes, "resolvidos": resolvidos,
         "tempo_medio": tempo_medio, "dias_mais_antigo": dias_mais_antigo,
         "data_mais_antigo": data_mais_antigo, "id_mais_antigo": id_mais_antigo,
@@ -256,6 +322,8 @@ async def get_dashboard_visao_geral(
         "por_canal": por_canal, "por_canal_dia": por_canal_dia,
         "dias_headers": dias_headers, "totais_por_dia": totais_por_dia
     }
+    _visao_geral_cache[cache_key] = (now_ts, result)
+    return result
 
 
 @router.get("/dashboard/v2/volume-canal")
@@ -303,8 +371,11 @@ async def get_dashboard_classificacao(periodo_dias: int = 30, canal: Optional[st
     base_match = {}
     if periodo_dias < 365:
         base_match["data_abertura"] = {"$gte": periodo_inicio}
+    # Filtro de canal normalizado (pega variantes de caixa/espaço/grafia)
+    ped_match = {}
     if canal:
-        base_match["$or"] = [{"parceiro": canal}, {"canal_vendas": canal}]
+        base_match["$expr"] = _canal_match_chamados(canal)["$expr"]
+        ped_match["$expr"] = _canal_match_pedidos(canal)["$expr"]
     pipeline_cat = [{"$match": base_match}, {"$group": {"_id": "$categoria", "count": {"$sum": 1}}}, {"$sort": {"count": -1}}]
     por_categoria = await db.chamados.aggregate(pipeline_cat).to_list(50)
     pipeline_pend_cat = [{"$match": {**base_match, "pendente": True}}, {"$group": {"_id": "$categoria", "count": {"$sum": 1}}}, {"$sort": {"count": -1}}]
@@ -337,14 +408,15 @@ async def get_dashboard_classificacao(periodo_dias: int = 30, canal: Optional[st
         {"$limit": 15}
     ]
     por_fornecedor = await db.chamados.aggregate(pipeline_forn).to_list(15)
-    # Total de vendas por marca no tabelão
+    # Total de vendas por marca no tabelão (respeita o filtro de canal)
     pipeline_vendas_marca = [
-        {"$match": {"departamento": {"$nin": [None, "", "nan", "N/A"]}}},
+        {"$match": {**ped_match, "departamento": {"$nin": [None, "", "nan", "N/A"]}}},
         {"$group": {"_id": "$departamento", "total_vendas": {"$sum": 1}}},
     ]
     vendas_por_marca_raw = await db.pedidos_erp.aggregate(pipeline_vendas_marca).to_list(500)
     vendas_por_marca = {v['_id']: v['total_vendas'] for v in vendas_por_marca_raw}
-    total_pedidos = await db.pedidos_erp.count_documents({})
+    # Denominador: total de pedidos do canal selecionado (ou geral)
+    total_pedidos = await db.pedidos_erp.count_documents(ped_match)
     # Calcular total de pendentes para proporcional de pend_categoria
     total_pendentes = sum(c['count'] for c in pend_categoria)
     # Criar mapa categoria -> total para calcular taxa de pendencia por categoria
@@ -525,6 +597,44 @@ async def get_dashboard_reincidencia(periodo_dias: int = 30, current_user: dict 
     }
 
 
+_CANAL_NOME_MAP = {
+    'll loyalty': 'LL Loyalty',
+    'll loyalt': 'LL Loyalty',
+    'll loyalts': 'LL Loyalty',
+    'll loyals': 'LL Loyalty',
+    'nicequest': 'NiceQuest',
+    'sicredi': 'Sicredi',
+    'senff': 'SENFF',
+}
+
+
+def _canal_variantes(canal: str) -> list:
+    """Todas as formas (minúsculas/sem espaços) que mapeiam para o canal canônico.
+    Pega variantes sujas dos dados: 'CSU ', 'LL loyalty', 'LL Loyalts ', etc."""
+    base = (canal or "").lower().strip()
+    variantes = {base}
+    for k, v in _CANAL_NOME_MAP.items():
+        if v == canal:
+            variantes.add(k)
+    return [v for v in variantes if v]
+
+
+def _canal_match_chamados(canal: str) -> dict:
+    """Trecho de $match p/ chamados normalizando parceiro/canal_vendas (case/espaço/variações)."""
+    return {"$expr": {"$in": [
+        {"$toLower": {"$trim": {"input": {"$ifNull": ["$parceiro", {"$ifNull": ["$canal_vendas", ""]}]}}}},
+        _canal_variantes(canal),
+    ]}}
+
+
+def _canal_match_pedidos(canal: str) -> dict:
+    """Trecho de $match p/ pedidos_erp (campo canal_vendas)."""
+    return {"$expr": {"$in": [
+        {"$toLower": {"$trim": {"input": {"$ifNull": ["$canal_vendas", ""]}}}},
+        _canal_variantes(canal),
+    ]}}
+
+
 @router.get("/dashboard/v2/filtros")
 async def get_dashboard_filtros(current_user: dict = Depends(get_current_user)):
     pipeline_canais = [{"$group": {"_id": {"$ifNull": ["$parceiro", "$canal_vendas"]}}}, {"$sort": {"_id": 1}}]
@@ -532,12 +642,78 @@ async def get_dashboard_filtros(current_user: dict = Depends(get_current_user)):
     canais_normalizados = {}
     for c in canais:
         if c['_id']:
-            key = c['_id'].lower()
-            if key not in canais_normalizados:
-                canais_normalizados[key] = 'NiceQuest' if key == 'nicequest' else c['_id']
-    pipeline_forn = [{"$group": {"_id": "$codigo_fornecedor"}}, {"$sort": {"_id": 1}}]
-    fornecedores = await db.chamados.aggregate(pipeline_forn).to_list(100)
+            key = c['_id'].lower().strip()
+            # Dedup pelo NOME FINAL canônico (mapa ou valor sem espaços nas pontas):
+            # agrupa 'CSU'/'CSU ', 'Livelo'/'Livelo ' e variações de 'LL Loyalty'.
+            nome_canonical = _CANAL_NOME_MAP.get(key) or c['_id'].strip()
+            canais_normalizados[nome_canonical] = nome_canonical
+    pipeline_forn = [
+        {"$match": {"departamento": {"$nin": [None, "", "nan", "N/A"]}}},
+        {"$group": {"_id": "$departamento"}},
+        {"$sort": {"_id": 1}}
+    ]
+    fornecedores = await db.pedidos_erp.aggregate(pipeline_forn).to_list(200)
     return {
         "canais": sorted(canais_normalizados.values()),
-        "fornecedores": [f['_id'] for f in fornecedores if f['_id']]
+        "fornecedores": sorted([f['_id'] for f in fornecedores if f['_id']])
     }
+
+
+# ── Canal Checks (OK por canal/dia) ──
+
+@router.get("/dashboard/canal-checks")
+async def get_canal_checks(current_user: dict = Depends(get_current_user)):
+    hoje = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    checks = await db.canal_checks.find({"data": hoje}, {"_id": 0}).to_list(200)
+    return {"data": hoje, "checks": {c["canal"]: {"marcado_por": c["marcado_por"], "marcado_em": c["marcado_em"]} for c in checks}}
+
+@router.post("/dashboard/canal-checks")
+async def toggle_canal_check(payload: dict, current_user: dict = Depends(get_current_user)):
+    canal = (payload.get("canal") or "").strip()
+    if not canal:
+        return {"error": "canal obrigatório"}
+    hoje = datetime.now(timezone.utc).strftime('%Y-%m-%d')
+    existing = await db.canal_checks.find_one({"canal": canal, "data": hoje})
+    if existing:
+        await db.canal_checks.delete_one({"canal": canal, "data": hoje})
+        return {"canal": canal, "data": hoje, "checked": False}
+    await db.canal_checks.insert_one({
+        "canal": canal, "data": hoje,
+        "marcado_por": current_user.get("name", current_user.get("email", "?")),
+        "marcado_em": datetime.now(timezone.utc).isoformat()
+    })
+    return {"canal": canal, "data": hoje, "checked": True,
+            "marcado_por": current_user.get("name", current_user.get("email", "?"))}
+
+
+# ── Datas de Limpeza por canal (persistente, definida manualmente pelo analista) ──
+
+@router.get("/dashboard/limpeza")
+async def get_limpeza(current_user: dict = Depends(get_current_user)):
+    """Retorna a data de limpeza definida para cada canal: { canal: 'YYYY-MM-DD' }."""
+    docs = await db.dashboard_limpeza.find({}, {"_id": 0}).to_list(200)
+    return {"limpeza": {d["canal"]: {"data": d.get("data", ""),
+                                     "atualizado_por": d.get("atualizado_por", "")}
+                        for d in docs}}
+
+
+@router.post("/dashboard/limpeza")
+async def set_limpeza(payload: dict, current_user: dict = Depends(get_current_user)):
+    """Define (ou limpa) a data de limpeza de um canal. payload: {canal, data}."""
+    canal = (payload.get("canal") or "").strip()
+    data = (payload.get("data") or "").strip()  # 'YYYY-MM-DD' ou '' para limpar
+    if not canal:
+        return {"error": "canal obrigatório"}
+    if not data:
+        await db.dashboard_limpeza.delete_one({"canal": canal})
+        return {"canal": canal, "data": ""}
+    await db.dashboard_limpeza.update_one(
+        {"canal": canal},
+        {"$set": {
+            "canal": canal, "data": data,
+            "atualizado_por": current_user.get("name", current_user.get("email", "?")),
+            "atualizado_em": datetime.now(timezone.utc).isoformat(),
+        }},
+        upsert=True,
+    )
+    return {"canal": canal, "data": data}

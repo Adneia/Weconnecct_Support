@@ -13,8 +13,8 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, LabelList,
   LineChart, Line, PieChart, Pie, Cell
 } from 'recharts';
-import { 
-  Clock, CheckCircle, Package, Database, RefreshCw, FileText, AlertTriangle, 
+import {
+  Clock, CheckCircle, Package, Database, RefreshCw, FileText, AlertTriangle,
   Calendar, TrendingUp, LayoutGrid, Tag, Gauge, ListChecks, RotateCcw, Users,
   BarChart3
 } from 'lucide-react';
@@ -44,8 +44,105 @@ const Dashboard = () => {
   const [expandedMonths, setExpandedMonths] = useState({});
   const toggleMonth = (month) => setExpandedMonths(prev => ({ ...prev, [month]: !prev[month] }));
 
+  // Atividades (Retirada + Pagamento + Cancelamentos)
+  const [retiradaData, setRetiradaData] = useState(null);
+  const [pagamentoData, setPagamentoData] = useState(null);
+  const [cancelamentosData, setCancelamentosData] = useState(null);
+  const [loadingAtividades, setLoadingAtividades] = useState(false);
+
   const navigate = useNavigate();
   const { getAuthHeader, user } = useAuth();
+
+  const fetchAtividades = useCallback(async () => {
+    setLoadingAtividades(true);
+    try {
+      const [retRes, pagRes, cancRes] = await Promise.all([
+        axios.get(`${API_URL}/api/retirada`, { headers: getAuthHeader() }),
+        axios.get(`${API_URL}/api/pagamento`, { headers: getAuthHeader() }),
+        axios.get(`${API_URL}/api/cancelamentos?limit=2000`, { headers: getAuthHeader() }),
+      ]);
+      setRetiradaData(retRes.data || []);
+      setPagamentoData(pagRes.data?.pedidos || []);
+      setCancelamentosData(cancRes.data?.cancelamentos || []);
+    } catch {
+      toast.error('Erro ao carregar atividades');
+    } finally {
+      setLoadingAtividades(false);
+    }
+  }, [getAuthHeader]);
+
+  // Canal checks (OK por canal/dia)
+  const [canalChecks, setCanalChecks] = useState({});
+  const fetchCanalChecks = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API_URL}/api/dashboard/canal-checks`, { headers: getAuthHeader() });
+      setCanalChecks(res.data.checks || {});
+    } catch {}
+  }, [getAuthHeader]);
+  useEffect(() => { fetchCanalChecks(); }, [fetchCanalChecks]);
+  const toggleCanalCheck = async (canal) => {
+    try {
+      const res = await axios.post(`${API_URL}/api/dashboard/canal-checks`, { canal }, { headers: getAuthHeader() });
+      setCanalChecks(prev => {
+        const next = { ...prev };
+        if (res.data.checked) next[canal] = { marcado_por: res.data.marcado_por || '?' };
+        else delete next[canal];
+        return next;
+      });
+    } catch {}
+  };
+
+  // Datas de limpeza por canal (definidas manualmente). Estrutura: { canal: {data, atualizado_por} }
+  const [limpeza, setLimpeza] = useState({});
+  const fetchLimpeza = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API_URL}/api/dashboard/limpeza`, { headers: getAuthHeader() });
+      setLimpeza(res.data.limpeza || {});
+    } catch {}
+  }, [getAuthHeader]);
+  useEffect(() => { fetchLimpeza(); }, [fetchLimpeza]);
+  const salvarLimpeza = async (canal, data) => {
+    try {
+      await axios.post(`${API_URL}/api/dashboard/limpeza`, { canal, data }, { headers: getAuthHeader() });
+      setLimpeza(prev => {
+        const next = { ...prev };
+        if (data) next[canal] = { data };
+        else delete next[canal];
+        return next;
+      });
+    } catch {}
+  };
+  // Dias da semana de limpeza por canal (JS getDay: Dom=0..Sáb=6).
+  // Canais normais: terça (2) e quinta (4). CSU: quarta (3) e sexta (5).
+  const diasLimpezaCanal = (canal) => {
+    const c = (canal || '').toLowerCase();
+    if (c.includes('csu')) return [3, 5];
+    return [2, 4];
+  };
+  const limpezaDevida = (canal) => diasLimpezaCanal(canal).includes(new Date().getDay());
+  // Formata Date local -> 'YYYY-MM-DD' (sem deslocamento de fuso)
+  const fmtLocal = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const fmtBR = (s) => s ? `${s.slice(8, 10)}/${s.slice(5, 7)}` : '';
+  // Próxima data de limpeza estritamente após a data base (string 'YYYY-MM-DD' ou hoje)
+  const proximaDataLimpeza = (canal, baseStr) => {
+    const dias = diasLimpezaCanal(canal);
+    const hojeStr = fmtLocal(new Date());
+    // base = a maior entre a data informada e hoje (garante avançar pra frente)
+    const ini = (baseStr && baseStr >= hojeStr) ? new Date(baseStr + 'T12:00:00') : new Date();
+    const d = new Date(ini);
+    for (let i = 0; i < 14; i++) {
+      d.setDate(d.getDate() + 1);
+      if (dias.includes(d.getDay())) return fmtLocal(d);
+    }
+    return '';
+  };
+  // Clique na vassoura = "limpeza realizada" → avança para a próxima data
+  const registrarLimpeza = (canal) => {
+    const atual = limpeza[canal]?.data || '';
+    const prox = proximaDataLimpeza(canal, atual);
+    salvarLimpeza(canal, prox);
+    toast.success(`Limpeza registrada — próxima: ${fmtBR(prox)}`);
+  };
 
   const fetchFiltros = useCallback(async () => {
     try {
@@ -83,7 +180,14 @@ const Dashboard = () => {
   }, [periodoDias, canalFiltro, fornecedorFiltro, getAuthHeader]);
 
   useEffect(() => { fetchFiltros(); }, [fetchFiltros]);
-  useEffect(() => { fetchTabData(activeTab); }, [activeTab, periodoDias, canalFiltro, fornecedorFiltro, fetchTabData]);
+  useEffect(() => {
+    fetchTabData(activeTab);
+  }, [activeTab, periodoDias, canalFiltro, fornecedorFiltro, fetchTabData]);
+
+  useEffect(() => {
+    if (activeTab === 'visao-geral') fetchAtividades();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   const StatCard = ({ title, value, subtitle, icon: Icon, color = 'slate', onClick }) => (
     <Card className={`${onClick ? 'cursor-pointer hover:bg-accent/50 transition-colors' : ''}`} onClick={onClick}>
@@ -295,7 +399,7 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
-                <Table className="min-w-[800px]">
+                <Table style={{width: 'max-content', tableLayout: 'auto'}}>
                   <TableHeader>
                     {/* Linha 1: meses colapsados + dias recentes */}
                     <TableRow>
@@ -316,11 +420,11 @@ const Dashboard = () => {
                               </TableHead>
                             ))
                           : (
-                            <TableHead key={month} rowSpan={2} className="text-center border-r bg-slate-100 dark:bg-slate-800/40 align-middle w-8 min-w-0 p-0">
+                            <TableHead key={month} rowSpan={2} className="text-center border-r bg-slate-100 dark:bg-slate-800/40 align-middle p-0" style={{width:'28px', minWidth:'28px', maxWidth:'28px'}}>
                               <button onClick={() => toggleMonth(month)}
-                                className="flex flex-col items-center gap-0 w-full py-1 px-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors">
-                                <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 leading-tight">{monthNames[month]}</span>
-                                <span className="text-blue-500 font-bold text-xs leading-tight">+</span>
+                                className="flex flex-col items-center gap-0 w-full py-1 px-0.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors">
+                                <span className="text-[9px] font-semibold text-slate-500 dark:text-slate-400 leading-tight">{monthNames[month]}</span>
+                                <span className="text-blue-500 font-bold text-[10px] leading-tight">+</span>
                               </button>
                             </TableHead>
                           )
@@ -377,7 +481,7 @@ const Dashboard = () => {
                       {olderMonthsOrder.map(month =>
                         expandedMonths[month]
                           ? olderByMonth[month].map((dia, idx) => renderDayCells(dia, idx, (d, k) => visaoGeral?.totais_por_dia?.[d.data]?.[k] || 0))
-                          : <TableCell key={`tot-col-${month}`} className="border-r bg-slate-50/50 dark:bg-slate-800/20" />
+                          : <TableCell key={`tot-col-${month}`} className="border-r bg-slate-50/50 dark:bg-slate-800/20 p-0" style={{width:'28px', minWidth:'28px', maxWidth:'28px'}} />
                       )}
                       {recentDias.map((dia, idx) => renderDayCells(dia, idx, (d, k) => visaoGeral?.totais_por_dia?.[d.data]?.[k] || 0))}
                       <TableCell className="text-center px-1 bg-indigo-100/50 border-r">
@@ -385,20 +489,344 @@ const Dashboard = () => {
                       </TableCell>
                     </TableRow>
                     {/* Canais individuais */}
-                    {visaoGeral?.por_canal_dia?.map((item) => (
-                      <TableRow key={item.canal} className="hover:bg-muted/50">
-                        <TableCell className="font-medium border-r text-sm">{item.canal}</TableCell>
+                    {visaoGeral?.por_canal_dia?.map((item) => {
+                      const isOk = !!canalChecks[item.canal];
+                      return (
+                      <TableRow key={item.canal} className={isOk ? 'bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100/70' : 'hover:bg-muted/50'}>
+                        <TableCell className="font-medium border-r text-sm">
+                          <div className="flex items-center gap-2">
+                            <button
+                              title={isOk ? `OK marcado por ${canalChecks[item.canal]?.marcado_por} — clique para desmarcar` : 'Marcar como OK'}
+                              onClick={() => toggleCanalCheck(item.canal)}
+                              className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold transition-all ${
+                                isOk
+                                  ? 'bg-emerald-500 border-emerald-500 text-white hover:bg-emerald-600'
+                                  : 'border-slate-300 text-slate-300 hover:border-emerald-400 hover:text-emerald-400'
+                              }`}
+                            >✓</button>
+                            <span className={isOk ? 'text-emerald-700 dark:text-emerald-400 font-semibold' : ''}>{item.canal}</span>
+                            {(() => {
+                              // Canais que não passam por limpeza (canais de contato, não de venda)
+                              const SEM_LIMPEZA = ['Reclame aqui', 'ZAP/E-mail'];
+                              if (SEM_LIMPEZA.includes(item.canal)) return null;
+
+                              // Sem atendimento em aberto → "não aplicável".
+                              // Se entrar atendimento (backlog > 0), volta a vassoura com data.
+                              const semBacklog = !(item.total?.a > 0);
+                              if (semBacklog) {
+                                return (
+                                  <span className="ml-1 text-[11px] text-slate-400 italic" title="Sem atendimento em aberto — limpeza não aplicável">
+                                    não aplicável
+                                  </span>
+                                );
+                              }
+
+                              const devida = limpezaDevida(item.canal);
+                              const dataLimpeza = limpeza[item.canal]?.data || '';
+                              const cor = devida ? 'text-red-600 font-semibold' : 'text-slate-400';
+                              return (
+                                <span className="ml-1 inline-flex items-center gap-1 text-[11px]">
+                                  {/* Botão vassoura: registra limpeza e avança pra próxima data */}
+                                  <button
+                                    type="button"
+                                    onClick={() => registrarLimpeza(item.canal)}
+                                    title="Marcar limpeza realizada → avança para a próxima data"
+                                    className={`rounded px-0.5 text-sm hover:bg-emerald-100 transition-colors ${cor}`}
+                                  >🧹</button>
+                                  {/* Data da próxima limpeza — editável manualmente pelo calendário */}
+                                  <input
+                                    type="date"
+                                    value={dataLimpeza}
+                                    onChange={(e) => salvarLimpeza(item.canal, e.target.value)}
+                                    title="Próxima limpeza (ajuste manual)"
+                                    className={`bg-transparent border-0 p-0 text-[11px] cursor-pointer focus:outline-none ${cor}`}
+                                    style={{ width: dataLimpeza ? '92px' : '20px' }}
+                                  />
+                                </span>
+                              );
+                            })()}
+                          </div>
+                        </TableCell>
                         {olderMonthsOrder.map(month =>
                           expandedMonths[month]
                             ? olderByMonth[month].map((dia, idx) => renderDayCells(dia, idx, (d, k) => item.dias[d.data]?.[k] || 0))
-                            : <TableCell key={`${item.canal}-col-${month}`} className="border-r bg-slate-50/30 dark:bg-slate-800/10" />
+                            : <TableCell key={`${item.canal}-col-${month}`} className="border-r bg-slate-50/30 dark:bg-slate-800/10 p-0" style={{width:'28px', minWidth:'28px', maxWidth:'28px'}} />
                         )}
                         {recentDias.map((dia, idx) => renderDayCells(dia, idx, (d, k) => item.dias[d.data]?.[k] || 0))}
                         <TableCell className="text-center px-1 bg-indigo-100/30 border-r">
                           <span className={`text-sm ${item.total?.a > 0 ? 'font-semibold text-indigo-700' : 'text-muted-foreground'}`}>{item.total?.a || 0}</span>
                         </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
+                    {/* ── Demais atividades ── */}
+                    {(retiradaData !== null || pagamentoData !== null || cancelamentosData !== null) && (() => {
+                      const cancelamentos = cancelamentosData || [];
+                      const hojeStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD do dia local
+                      const filtraCanc = (tipo) => cancelamentos.filter(c => c.tipo === tipo);
+                      // "pendente" = status !== encerrado; "tratado" = encerrado HOJE
+                      const cancStats = (tipo) => {
+                        const arr = filtraCanc(tipo);
+                        return {
+                          pendente: arr.filter(c => c.status !== 'encerrado').length,
+                          tratado:  arr.filter(c => c.status === 'encerrado' && (c.data_encerramento === hojeStr || (c.updated_at || '').startsWith(hojeStr))).length,
+                        };
+                      };
+                      // Stats diárias por tipo: { aes: { 'DD/MM': {ar: 1, f: 8}, ... }, etr: {...}, erro_nota: {...} }
+                      // AR = entradas (data_criacao naquele dia) | F = saídas (data_encerramento naquele dia)
+                      // Chave em DD/MM porque é o formato usado em dia.data vindo do backend
+                      const toDDMM = (yyyymmdd) => {
+                        if (!yyyymmdd || yyyymmdd.length < 10) return '';
+                        return `${yyyymmdd.substring(8, 10)}/${yyyymmdd.substring(5, 7)}`;
+                      };
+                      const cancDailyStats = (() => {
+                        const m = { aes: {}, etr: {}, erro_nota: {} };
+                        for (const c of cancelamentos) {
+                          const tipo = c.tipo;
+                          if (!m[tipo]) continue;
+                          const dCri = toDDMM(c.data_criacao || '');
+                          if (dCri) {
+                            if (!m[tipo][dCri]) m[tipo][dCri] = { ar: 0, f: 0 };
+                            m[tipo][dCri].ar++;
+                          }
+                          if (c.status === 'encerrado' && c.data_encerramento) {
+                            const dEnc = toDDMM(c.data_encerramento);
+                            if (dEnc) {
+                              if (!m[tipo][dEnc]) m[tipo][dEnc] = { ar: 0, f: 0 };
+                              m[tipo][dEnc].f++;
+                            }
+                          }
+                        }
+                        return m;
+                      })();
+                      const cancDia = (tipo, data) => cancDailyStats[tipo]?.[data] || { ar: 0, f: 0 };
+
+                      // Saldo rolante por tipo (mesma regra dos canais):
+                      //   AR = criados no dia | F = encerrados no dia | A = saldo de abertura
+                      //   (criados ANTES do dia e ainda não encerrados). Result = A + AR - F.
+                      const cancListas = { aes: [], etr: [], erro_nota: [] };
+                      for (const c of cancelamentos) {
+                        if (!cancListas[c.tipo]) continue;
+                        const cri = (c.data || c.data_criacao || '').substring(0, 10);
+                        const enc = (c.status === 'encerrado' && c.data_encerramento)
+                          ? String(c.data_encerramento).substring(0, 10) : '';
+                        cancListas[c.tipo].push({ cri, enc });
+                      }
+                      const ddmmToYMD = (ddmm) => {
+                        if (!ddmm || ddmm.length < 5) return '';
+                        const [dd, mm] = ddmm.split('/');
+                        return `2026-${mm}-${dd}`;
+                      };
+                      const cancRolling = (tipo, ddmm) => {
+                        const D = ddmmToYMD(ddmm);
+                        const list = cancListas[tipo] || [];
+                        let ar = 0, f = 0, a = 0;
+                        for (const x of list) {
+                          if (x.cri === D) ar++;
+                          if (x.enc === D) f++;
+                          if (x.cri && x.cri < D && (x.enc === '' || x.enc >= D)) a++;
+                        }
+                        return { ar, a, f };
+                      };
+
+                      // Retirada/Pagamento também rolam: entrada = criado_em;
+                      // saída = data de resolução (finalizado_em / updated_at) quando há status_final.
+                      const buildRol = (arr, campoFim) => (arr || []).map(p => ({
+                        cri: String(p.criado_em || p.registrado_em || '').substring(0, 10),
+                        enc: p.status_final ? String(p[campoFim] || '').substring(0, 10) : '',
+                      }));
+                      const rolListas = {
+                        'atividade:retirada': buildRol(retiradaData, 'finalizado_em'),
+                        'atividade:pagamento': buildRol(pagamentoData, 'updated_at'),
+                      };
+                      const listaRolling = (lista, ddmm) => {
+                        const D = ddmmToYMD(ddmm);
+                        let ar = 0, f = 0, a = 0;
+                        for (const x of (lista || [])) {
+                          if (x.cri === D) ar++;
+                          if (x.enc === D) f++;
+                          if (x.cri && x.cri < D && (x.enc === '' || x.enc >= D)) a++;
+                        }
+                        return { ar, a, f };
+                      };
+                      // Saldo rolante para QUALQUER linha de atividade (cancelamento ou retirada/pagamento)
+                      const rowRolling = (atv, ddmm) =>
+                        atv.cancTipo ? cancRolling(atv.cancTipo, ddmm)
+                                     : listaRolling(rolListas[atv.key], ddmm);
+                      const sAes = cancStats('aes');
+                      const sEtr = cancStats('etr');
+                      const sErr = cancStats('erro_nota');
+
+                      // "Pendente" (coluna resumo) = backlog atual = soma de itens não-encerrados.
+                      const demPendente =
+                        (retiradaData || []).filter(p => !p.status_final).length
+                        + (pagamentoData || []).filter(p => !p.status_final).length
+                        + sAes.pendente + sEtr.pendente + sErr.pendente;
+                      const lastDia = recentDias[recentDias.length - 1];
+                      const zero = <span className="text-muted-foreground text-xs">0</span>;
+
+                      const atividadesRows = [
+                        {
+                          key: 'atividade:retirada',
+                          label: 'Disp. p/ Retirada',
+                          pendente: (retiradaData || []).filter(p => !p.status_final).length,
+                          tratado:  (retiradaData || []).filter(p => !!p.status_final).length,
+                          path: '/retirada',
+                        },
+                        {
+                          key: 'atividade:pagamento',
+                          label: 'Pag. Não Aprovado',
+                          pendente: (pagamentoData || []).filter(p => !p.status_final).length,
+                          tratado:  (pagamentoData || []).filter(p => !!p.status_final).length,
+                          path: '/pagamento',
+                        },
+                        {
+                          key: 'atividade:canc_aes',
+                          label: 'AES (Compras)',
+                          pendente: sAes.pendente,
+                          tratado:  sAes.tratado,
+                          path: '/cancelamentos',
+                          cancTipo: 'aes',
+                        },
+                        {
+                          key: 'atividade:canc_etr',
+                          label: 'ETR (Produção)',
+                          pendente: sEtr.pendente,
+                          tratado:  sEtr.tratado,
+                          path: '/cancelamentos',
+                          cancTipo: 'etr',
+                        },
+                        {
+                          key: 'atividade:canc_erro_nota',
+                          label: 'Erro na Nota',
+                          pendente: sErr.pendente,
+                          tratado:  sErr.tratado,
+                          path: '/cancelamentos',
+                          cancTipo: 'erro_nota',
+                        },
+                      ];
+
+
+                      return (
+                        <>
+                          {/* Linha cabeçalho "Demais atividades" */}
+                          <TableRow className="bg-rose-50/60 dark:bg-rose-950/20 font-semibold border-t-2 border-rose-200 dark:border-rose-800">
+                            <TableCell className="font-semibold border-r text-rose-700 dark:text-rose-400 text-sm pl-3">
+                              Demais atividades
+                            </TableCell>
+                            {olderMonthsOrder.map(month =>
+                              expandedMonths[month]
+                                ? olderByMonth[month].map((dia, idx) => (
+                                    <React.Fragment key={`dem-${dia.data}`}>
+                                      <TableCell className={`text-center px-1 ${idx % 2 === 0 ? 'bg-rose-50/20' : 'bg-rose-50/40'}`}>{zero}</TableCell>
+                                      <TableCell className={`text-center px-1 ${idx % 2 === 0 ? 'bg-rose-50/20' : 'bg-rose-50/40'}`}>{zero}</TableCell>
+                                      <TableCell className={`text-center px-1 border-r ${idx % 2 === 0 ? 'bg-rose-50/20' : 'bg-rose-50/40'}`}>{zero}</TableCell>
+                                    </React.Fragment>
+                                  ))
+                                : <TableCell key={`dem-col-${month}`} className="border-r bg-rose-50/20 p-0" style={{width:'28px', minWidth:'28px', maxWidth:'28px'}} />
+                            )}
+                            {recentDias.map((dia, idx) => {
+                              // Soma AR/A/F das sub-linhas para o MESMO dia.
+                              // Antes, F mostrava o total histórico tratado (incluindo dias passados),
+                              // o que desbatia da soma das sub-linhas. Agora bate com cada coluna.
+                              let sumAR = 0, sumA = 0, sumF = 0;
+                              for (const atv of atividadesRows) {
+                                const rb = rowRolling(atv, dia.data);
+                                sumAR += rb.ar;
+                                sumA  += rb.a;
+                                sumF  += rb.f;
+                              }
+                              return (
+                                <React.Fragment key={`dem-r-${dia.data}`}>
+                                  <TableCell className={`text-center px-1 ${idx % 2 === 0 ? 'bg-rose-50/20' : 'bg-rose-50/40'}`}>
+                                    {sumAR > 0 ? <span className="text-sm font-bold text-yellow-700">{sumAR}</span> : zero}
+                                  </TableCell>
+                                  <TableCell className={`text-center px-1 ${idx % 2 === 0 ? 'bg-rose-50/20' : 'bg-rose-50/40'}`}>
+                                    {sumA > 0 ? <span className="text-sm font-bold text-orange-700">{sumA}</span> : zero}
+                                  </TableCell>
+                                  <TableCell className={`text-center px-1 border-r ${idx % 2 === 0 ? 'bg-rose-50/20' : 'bg-rose-50/40'}`}>
+                                    {sumF > 0 ? <span className="text-sm font-bold text-emerald-700">{sumF}</span> : zero}
+                                  </TableCell>
+                                </React.Fragment>
+                              );
+                            })}
+                            <TableCell className="text-center px-1 bg-indigo-100/50 border-r">
+                              <span className="font-bold text-indigo-700">{demPendente || 0}</span>
+                            </TableCell>
+                          </TableRow>
+
+                          {/* Sub-linhas de atividades */}
+                          {atividadesRows.map(atv => {
+                            const isOk = !!canalChecks[atv.key];
+                            return (
+                              <TableRow key={atv.key}
+                                className={`${isOk ? 'bg-emerald-50 dark:bg-emerald-950/30 hover:bg-emerald-100/70' : 'bg-amber-50/40 hover:bg-amber-50/70'}`}>
+                                <TableCell className="border-r text-sm pl-3">
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      title={isOk ? `OK marcado por ${canalChecks[atv.key]?.marcado_por} — clique para desmarcar` : 'Marcar como OK'}
+                                      onClick={() => toggleCanalCheck(atv.key)}
+                                      className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center text-xs font-bold transition-all ${
+                                        isOk
+                                          ? 'bg-emerald-500 border-emerald-500 text-white hover:bg-emerald-600'
+                                          : 'border-slate-300 text-slate-300 hover:border-emerald-400 hover:text-emerald-400'
+                                      }`}
+                                    >✓</button>
+                                    <span
+                                      className={`text-sm cursor-pointer hover:underline ${isOk ? 'text-emerald-700 font-semibold' : 'text-slate-600'}`}
+                                      onClick={() => navigate(atv.path)}
+                                    >{atv.label}</span>
+                                  </div>
+                                </TableCell>
+                                {olderMonthsOrder.map(month =>
+                                  expandedMonths[month]
+                                    ? olderByMonth[month].map((dia, idx) => {
+                                        // Saldo rolante (AR=criados, A=saldo abertura, F=encerrados/resolvidos)
+                                        const rb = rowRolling(atv, dia.data);
+                                        return (
+                                          <React.Fragment key={`${atv.key}-${dia.data}`}>
+                                            <TableCell className={`text-center px-1 ${idx % 2 === 0 ? 'bg-amber-50/20' : 'bg-amber-50/40'}`}>
+                                              {rb.ar > 0 ? <span className="text-sm font-semibold text-yellow-700">{rb.ar}</span> : zero}
+                                            </TableCell>
+                                            <TableCell className={`text-center px-1 ${idx % 2 === 0 ? 'bg-amber-50/20' : 'bg-amber-50/40'}`}>
+                                              {rb.a > 0 ? <span className="text-sm font-semibold text-orange-700">{rb.a}</span> : zero}
+                                            </TableCell>
+                                            <TableCell className={`text-center px-1 border-r ${idx % 2 === 0 ? 'bg-amber-50/20' : 'bg-amber-50/40'}`}>
+                                              {rb.f > 0 ? <span className="text-sm font-semibold text-emerald-700">{rb.f}</span> : zero}
+                                            </TableCell>
+                                          </React.Fragment>
+                                        );
+                                      })
+                                    : <TableCell key={`${atv.key}-col-${month}`} className="border-r bg-amber-50/20 p-0" style={{width:'28px', minWidth:'28px', maxWidth:'28px'}} />
+                                )}
+                                {recentDias.map((dia, idx) => {
+                                  // Saldo rolante para todas as linhas de atividade:
+                                  //   AR = criados no dia | A = saldo de abertura | F = encerrados/resolvidos no dia
+                                  const rb = rowRolling(atv, dia.data);
+                                  return (
+                                    <React.Fragment key={`${atv.key}-r-${dia.data}`}>
+                                      <TableCell className={`text-center px-1 ${idx % 2 === 0 ? 'bg-amber-50/20' : 'bg-amber-50/40'}`}>
+                                        {rb.ar > 0 ? <span className="text-sm font-semibold text-yellow-700">{rb.ar}</span> : zero}
+                                      </TableCell>
+                                      <TableCell className={`text-center px-1 ${idx % 2 === 0 ? 'bg-amber-50/20' : 'bg-amber-50/40'}`}>
+                                        {rb.a > 0 ? <span className="text-sm font-semibold text-orange-700">{rb.a}</span> : zero}
+                                      </TableCell>
+                                      <TableCell className={`text-center px-1 border-r ${idx % 2 === 0 ? 'bg-amber-50/20' : 'bg-amber-50/40'}`}>
+                                        {rb.f > 0 ? <span className="text-sm font-semibold text-emerald-700">{rb.f}</span> : zero}
+                                      </TableCell>
+                                    </React.Fragment>
+                                  );
+                                })}
+                                <TableCell className="text-center px-1 bg-indigo-100/30 border-r">
+                                  <span className={`text-sm ${atv.pendente > 0 ? 'font-semibold text-indigo-700' : 'text-muted-foreground'}`}>{atv.pendente || 0}</span>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </>
+                      );
+                    })()}
                     {(!visaoGeral?.por_canal_dia || visaoGeral.por_canal_dia.length === 0) && (
                       <TableRow>
                         <TableCell colSpan={RECENT_DAYS * 3 + olderMonthsOrder.length + 2} className="text-center text-muted-foreground py-8">
@@ -413,6 +841,207 @@ const Dashboard = () => {
           </Card>
         );
       })()}
+
+      <div className="hidden">
+        <div className="hidden">
+
+          {/* ── Disponível para Retirada ── */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
+              <div className="flex items-center gap-2 text-blue-800 dark:text-blue-200">
+                <Package className="h-4 w-4" />
+                <span className="font-semibold text-sm">Disp. p/ Retirada</span>
+              </div>
+              <div className="flex gap-3 text-xs font-medium">
+                <span className="text-amber-600">{(retiradaData || []).filter(p => !p.status_final).length} pendentes</span>
+                <span className="text-emerald-600">{(retiradaData || []).filter(p => !!p.status_final).length} tratados</span>
+              </div>
+            </div>
+
+            {/* Pendentes retirada */}
+            {(retiradaData || []).filter(p => !p.status_final).length > 0 && (
+              <Card className="border-amber-100">
+                <CardHeader className="py-2 px-3">
+                  <CardTitle className="text-xs font-semibold text-amber-600 flex items-center gap-1">
+                    <AlertTriangle className="h-3.5 w-3.5" /> Necessário Tratar
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <table className="w-full text-xs">
+                    <thead className="bg-amber-50 dark:bg-amber-950/20 border-b">
+                      <tr>
+                        <th className="text-left px-3 py-1.5 font-semibold text-amber-700">Nota</th>
+                        <th className="text-left px-3 py-1.5 font-semibold text-amber-700">Cliente</th>
+                        <th className="text-left px-3 py-1.5 font-semibold text-amber-700">Acionamento</th>
+                        <th className="text-right px-3 py-1.5 font-semibold text-amber-700">Dias</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(retiradaData || []).filter(p => !p.status_final).map(p => {
+                        const dias = p.dias_disponivel;
+                        const urgente = typeof dias === 'number' && dias >= 7;
+                        return (
+                          <tr key={p.nota_fiscal} className="border-b last:border-0 hover:bg-muted/30 cursor-pointer" onClick={() => navigate('/retirada')}>
+                            <td className="px-3 py-1.5 font-mono font-semibold">{p.nota_fiscal}</td>
+                            <td className="px-3 py-1.5 max-w-[120px] truncate">{p.nome_cliente || '—'}</td>
+                            <td className="px-3 py-1.5">{p.acionamento || '—'}</td>
+                            <td className="px-3 py-1.5 text-right font-bold">
+                              <span className={urgente ? 'text-red-600' : 'text-amber-600'}>
+                                {dias != null ? `${dias}d` : '—'}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Tratados retirada */}
+            {(retiradaData || []).filter(p => !!p.status_final).length > 0 && (
+              <Card className="border-emerald-100">
+                <CardHeader className="py-2 px-3">
+                  <CardTitle className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
+                    <CheckCircle className="h-3.5 w-3.5" /> Tratados
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <table className="w-full text-xs">
+                    <thead className="bg-emerald-50 dark:bg-emerald-950/20 border-b">
+                      <tr>
+                        <th className="text-left px-3 py-1.5 font-semibold text-emerald-700">Nota</th>
+                        <th className="text-left px-3 py-1.5 font-semibold text-emerald-700">Cliente</th>
+                        <th className="text-left px-3 py-1.5 font-semibold text-emerald-700">Status Final</th>
+                        <th className="text-left px-3 py-1.5 font-semibold text-emerald-700">Por</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(retiradaData || []).filter(p => !!p.status_final).map(p => (
+                        <tr key={p.nota_fiscal} className="border-b last:border-0 bg-emerald-50/30 hover:bg-emerald-50 cursor-pointer" onClick={() => navigate('/retirada')}>
+                          <td className="px-3 py-1.5 font-mono font-semibold">{p.nota_fiscal}</td>
+                          <td className="px-3 py-1.5 max-w-[120px] truncate">{p.nome_cliente || '—'}</td>
+                          <td className="px-3 py-1.5">
+                            <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[10px] px-1.5">{p.status_final}</Badge>
+                          </td>
+                          <td className="px-3 py-1.5 text-slate-500">{p.finalizado_por || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </CardContent>
+              </Card>
+            )}
+
+            {!retiradaData && loadingAtividades && (
+              <div className="text-center py-4 text-xs text-muted-foreground">Carregando...</div>
+            )}
+            {retiradaData && retiradaData.length === 0 && (
+              <div className="text-center py-4 text-xs text-muted-foreground">Nenhum pedido disponível para retirada</div>
+            )}
+          </div>
+
+          {/* ── Pagamento Não Aprovado ── */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between px-3 py-2 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800">
+              <div className="flex items-center gap-2 text-red-800 dark:text-red-200">
+                <FileText className="h-4 w-4" />
+                <span className="font-semibold text-sm">Pag. Não Aprovado</span>
+              </div>
+              <div className="flex gap-3 text-xs font-medium">
+                <span className="text-amber-600">{(pagamentoData || []).filter(p => !p.status_final).length} pendentes</span>
+                {(pagamentoData || []).filter(p => !p.status_final && (p.dias_no_status ?? 0) >= 7).length > 0 && (
+                  <span className="text-red-600 font-bold">⚠ {(pagamentoData || []).filter(p => !p.status_final && (p.dias_no_status ?? 0) >= 7).length} urgentes</span>
+                )}
+                <span className="text-emerald-600">{(pagamentoData || []).filter(p => !!p.status_final).length} tratados</span>
+              </div>
+            </div>
+
+            {/* Pendentes pagamento */}
+            {(pagamentoData || []).filter(p => !p.status_final).length > 0 && (
+              <Card className="border-amber-100">
+                <CardHeader className="py-2 px-3">
+                  <CardTitle className="text-xs font-semibold text-amber-600 flex items-center gap-1">
+                    <AlertTriangle className="h-3.5 w-3.5" /> Necessário Tratar
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <table className="w-full text-xs">
+                    <thead className="bg-amber-50 dark:bg-amber-950/20 border-b">
+                      <tr>
+                        <th className="text-left px-3 py-1.5 font-semibold text-amber-700">Pedido</th>
+                        <th className="text-left px-3 py-1.5 font-semibold text-amber-700">Cliente</th>
+                        <th className="text-left px-3 py-1.5 font-semibold text-amber-700">CPF</th>
+                        <th className="text-right px-3 py-1.5 font-semibold text-amber-700">Dias</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(pagamentoData || []).filter(p => !p.status_final).map(p => {
+                        const urgente = (p.dias_no_status ?? 0) >= 7;
+                        return (
+                          <tr key={p.numero_pedido} className={`border-b last:border-0 cursor-pointer hover:bg-muted/30 ${urgente ? 'bg-red-50/40' : ''}`} onClick={() => navigate('/pagamento')}>
+                            <td className="px-3 py-1.5 font-mono font-semibold">{p.numero_pedido}</td>
+                            <td className="px-3 py-1.5 max-w-[120px] truncate">{p.nome_cliente || '—'}</td>
+                            <td className="px-3 py-1.5 font-mono">{p.cpf_cliente || '—'}</td>
+                            <td className="px-3 py-1.5 text-right font-bold">
+                              <span className={urgente ? 'text-red-600' : 'text-amber-600'}>
+                                {p.dias_no_status != null ? `${p.dias_no_status}d` : '—'}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Tratados pagamento */}
+            {(pagamentoData || []).filter(p => !!p.status_final).length > 0 && (
+              <Card className="border-emerald-100">
+                <CardHeader className="py-2 px-3">
+                  <CardTitle className="text-xs font-semibold text-emerald-600 flex items-center gap-1">
+                    <CheckCircle className="h-3.5 w-3.5" /> Cancelados
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <table className="w-full text-xs">
+                    <thead className="bg-emerald-50 dark:bg-emerald-950/20 border-b">
+                      <tr>
+                        <th className="text-left px-3 py-1.5 font-semibold text-emerald-700">Pedido</th>
+                        <th className="text-left px-3 py-1.5 font-semibold text-emerald-700">Cliente</th>
+                        <th className="text-left px-3 py-1.5 font-semibold text-emerald-700">Instância</th>
+                        <th className="text-left px-3 py-1.5 font-semibold text-emerald-700">Data</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(pagamentoData || []).filter(p => !!p.status_final).map(p => (
+                        <tr key={p.numero_pedido} className="border-b last:border-0 bg-emerald-50/30 hover:bg-emerald-50 cursor-pointer" onClick={() => navigate('/pagamento')}>
+                          <td className="px-3 py-1.5 font-mono font-semibold">{p.numero_pedido}</td>
+                          <td className="px-3 py-1.5 max-w-[120px] truncate">{p.nome_cliente || '—'}</td>
+                          <td className="px-3 py-1.5 font-mono font-semibold text-emerald-700">{p.instancia || '—'}</td>
+                          <td className="px-3 py-1.5 text-slate-500">{p.data_instancia || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </CardContent>
+              </Card>
+            )}
+
+            {!pagamentoData && loadingAtividades && (
+              <div className="text-center py-4 text-xs text-muted-foreground">Carregando...</div>
+            )}
+            {pagamentoData && pagamentoData.length === 0 && (
+              <div className="text-center py-4 text-xs text-muted-foreground">Nenhum pedido com pagamento não aprovado</div>
+            )}
+          </div>
+
+        </div>
+      </div>
+
     </div>
   );
 
@@ -919,6 +1548,262 @@ const Dashboard = () => {
     </div>
   );
 
+  // ABA: OUTRAS ATIVIDADES
+  const TabAtividades = () => {
+    const retirada = retiradaData || [];
+    const pagamento = pagamentoData || [];
+
+    const retPendentes = retirada.filter(p => !p.status_final);
+    const retTratados  = retirada.filter(p => !!p.status_final);
+    const pagPendentes = pagamento.filter(p => !p.status_final);
+    const pagTratados  = pagamento.filter(p => !!p.status_final);
+    const pagUrgentes  = pagPendentes.filter(p => (p.dias_no_status ?? 0) >= 7);
+
+    if (loadingAtividades) {
+      return (
+        <div className="flex items-center justify-center py-20 text-muted-foreground gap-2">
+          <RefreshCw className="h-5 w-5 animate-spin" /> Carregando atividades...
+        </div>
+      );
+    }
+
+    const SectionHeader = ({ icon: Icon, label, color, pendentes, tratados }) => (
+      <div className={`flex items-center justify-between px-4 py-3 rounded-lg border ${color}`}>
+        <div className="flex items-center gap-2">
+          <Icon className="h-5 w-5" />
+          <span className="font-semibold text-base">{label}</span>
+        </div>
+        <div className="flex gap-4 text-sm">
+          <span className="text-amber-600 font-medium">{pendentes} pendentes</span>
+          <span className="text-emerald-600 font-medium">{tratados} tratados</span>
+        </div>
+      </div>
+    );
+
+    return (
+      <div className="space-y-8">
+
+        {/* ── DISPONÍVEL PARA RETIRADA ── */}
+        <div className="space-y-3">
+          <SectionHeader
+            icon={Package}
+            label="Disponível para Retirada"
+            color="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800 text-blue-800 dark:text-blue-200"
+            pendentes={retPendentes.length}
+            tratados={retTratados.length}
+          />
+
+          {/* Pendentes Retirada */}
+          {retPendentes.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold text-amber-600 flex items-center gap-1.5">
+                  <AlertTriangle className="h-4 w-4" /> Necessário Tratar ({retPendentes.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-amber-50 dark:bg-amber-950/20 border-b border-amber-100">
+                      <tr>
+                        <th className="text-left px-4 py-2 text-xs font-semibold text-amber-700">Nota</th>
+                        <th className="text-left px-4 py-2 text-xs font-semibold text-amber-700">Canal</th>
+                        <th className="text-left px-4 py-2 text-xs font-semibold text-amber-700">Cliente</th>
+                        <th className="text-left px-4 py-2 text-xs font-semibold text-amber-700">Produto</th>
+                        <th className="text-left px-4 py-2 text-xs font-semibold text-amber-700">Acionamento</th>
+                        <th className="text-right px-4 py-2 text-xs font-semibold text-amber-700">Dias</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {retPendentes.map(p => {
+                        const dias = p.dias_disponivel ?? '—';
+                        const urgente = typeof dias === 'number' && dias >= 7;
+                        return (
+                          <tr key={p.nota_fiscal} className="border-b last:border-0 hover:bg-muted/30 cursor-pointer"
+                            onClick={() => navigate('/retirada')}>
+                            <td className="px-4 py-2 font-mono text-xs font-semibold">{p.nota_fiscal}</td>
+                            <td className="px-4 py-2 text-xs">{p.canal_vendas || '—'}</td>
+                            <td className="px-4 py-2 text-xs max-w-[140px] truncate">{p.nome_cliente || '—'}</td>
+                            <td className="px-4 py-2 text-xs max-w-[160px] truncate">{p.produto || '—'}</td>
+                            <td className="px-4 py-2 text-xs">{p.acionamento || '—'}</td>
+                            <td className="px-4 py-2 text-right">
+                              <span className={`text-xs font-bold ${urgente ? 'text-red-600' : 'text-amber-600'}`}>
+                                {dias}{typeof dias === 'number' ? 'd' : ''}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Tratados Retirada */}
+          {retTratados.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold text-emerald-600 flex items-center gap-1.5">
+                  <CheckCircle className="h-4 w-4" /> Tratados ({retTratados.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-emerald-50 dark:bg-emerald-950/20 border-b border-emerald-100">
+                      <tr>
+                        <th className="text-left px-4 py-2 text-xs font-semibold text-emerald-700">Nota</th>
+                        <th className="text-left px-4 py-2 text-xs font-semibold text-emerald-700">Canal</th>
+                        <th className="text-left px-4 py-2 text-xs font-semibold text-emerald-700">Cliente</th>
+                        <th className="text-left px-4 py-2 text-xs font-semibold text-emerald-700">Status Final</th>
+                        <th className="text-left px-4 py-2 text-xs font-semibold text-emerald-700">Finalizado por</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {retTratados.map(p => (
+                        <tr key={p.nota_fiscal} className="border-b last:border-0 bg-emerald-50/30 dark:bg-emerald-950/10 cursor-pointer hover:bg-emerald-50"
+                          onClick={() => navigate('/retirada')}>
+                          <td className="px-4 py-2 font-mono text-xs font-semibold">{p.nota_fiscal}</td>
+                          <td className="px-4 py-2 text-xs">{p.canal_vendas || '—'}</td>
+                          <td className="px-4 py-2 text-xs max-w-[140px] truncate">{p.nome_cliente || '—'}</td>
+                          <td className="px-4 py-2 text-xs">
+                            <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-xs">{p.status_final}</Badge>
+                          </td>
+                          <td className="px-4 py-2 text-xs text-slate-500">{p.finalizado_por || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {retirada.length === 0 && (
+            <div className="text-center py-6 text-muted-foreground text-sm">
+              Nenhum pedido disponível para retirada
+            </div>
+          )}
+        </div>
+
+        {/* ── PAGAMENTO NÃO APROVADO ── */}
+        <div className="space-y-3">
+          <SectionHeader
+            icon={FileText}
+            label="Pagamento Não Aprovado"
+            color="bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800 text-red-800 dark:text-red-200"
+            pendentes={pagPendentes.length}
+            tratados={pagTratados.length}
+          />
+
+          {/* Pendentes Pagamento */}
+          {pagPendentes.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold text-amber-600 flex items-center gap-1.5">
+                  <AlertTriangle className="h-4 w-4" />
+                  Necessário Tratar ({pagPendentes.length})
+                  {pagUrgentes.length > 0 && (
+                    <Badge className="ml-2 bg-red-100 text-red-700 border-red-200 text-xs">
+                      ⚠ {pagUrgentes.length} urgentes (+7 dias)
+                    </Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-amber-50 dark:bg-amber-950/20 border-b border-amber-100">
+                      <tr>
+                        <th className="text-left px-4 py-2 text-xs font-semibold text-amber-700">Pedido</th>
+                        <th className="text-left px-4 py-2 text-xs font-semibold text-amber-700">Canal</th>
+                        <th className="text-left px-4 py-2 text-xs font-semibold text-amber-700">Cliente</th>
+                        <th className="text-left px-4 py-2 text-xs font-semibold text-amber-700">CPF</th>
+                        <th className="text-left px-4 py-2 text-xs font-semibold text-amber-700">Produto</th>
+                        <th className="text-right px-4 py-2 text-xs font-semibold text-amber-700">Dias</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pagPendentes.map(p => {
+                        const urgente = (p.dias_no_status ?? 0) >= 7;
+                        return (
+                          <tr key={p.numero_pedido}
+                            className={`border-b last:border-0 cursor-pointer hover:bg-muted/30 ${urgente ? 'bg-red-50/40 dark:bg-red-950/10' : ''}`}
+                            onClick={() => navigate('/pagamento')}>
+                            <td className="px-4 py-2 font-mono text-xs font-semibold">{p.numero_pedido}</td>
+                            <td className="px-4 py-2 text-xs">{p.canal_vendas || '—'}</td>
+                            <td className="px-4 py-2 text-xs max-w-[140px] truncate">{p.nome_cliente || '—'}</td>
+                            <td className="px-4 py-2 font-mono text-xs">{p.cpf_cliente || '—'}</td>
+                            <td className="px-4 py-2 text-xs max-w-[160px] truncate">{p.produto || '—'}</td>
+                            <td className="px-4 py-2 text-right">
+                              <span className={`text-xs font-bold ${urgente ? 'text-red-600' : 'text-amber-600'}`}>
+                                {p.dias_no_status ?? '—'}{p.dias_no_status != null ? 'd' : ''}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Tratados Pagamento */}
+          {pagTratados.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold text-emerald-600 flex items-center gap-1.5">
+                  <CheckCircle className="h-4 w-4" /> Tratados — Cancelados ({pagTratados.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-emerald-50 dark:bg-emerald-950/20 border-b border-emerald-100">
+                      <tr>
+                        <th className="text-left px-4 py-2 text-xs font-semibold text-emerald-700">Pedido</th>
+                        <th className="text-left px-4 py-2 text-xs font-semibold text-emerald-700">Canal</th>
+                        <th className="text-left px-4 py-2 text-xs font-semibold text-emerald-700">Cliente</th>
+                        <th className="text-left px-4 py-2 text-xs font-semibold text-emerald-700">Instância</th>
+                        <th className="text-left px-4 py-2 text-xs font-semibold text-emerald-700">Data</th>
+                        <th className="text-left px-4 py-2 text-xs font-semibold text-emerald-700">Registrado por</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pagTratados.map(p => (
+                        <tr key={p.numero_pedido}
+                          className="border-b last:border-0 bg-emerald-50/30 dark:bg-emerald-950/10 cursor-pointer hover:bg-emerald-50"
+                          onClick={() => navigate('/pagamento')}>
+                          <td className="px-4 py-2 font-mono text-xs font-semibold">{p.numero_pedido}</td>
+                          <td className="px-4 py-2 text-xs">{p.canal_vendas || '—'}</td>
+                          <td className="px-4 py-2 text-xs max-w-[140px] truncate">{p.nome_cliente || '—'}</td>
+                          <td className="px-4 py-2 font-mono text-xs font-semibold text-emerald-700">{p.instancia || '—'}</td>
+                          <td className="px-4 py-2 text-xs text-slate-500">{p.data_instancia || '—'}</td>
+                          <td className="px-4 py-2 text-xs text-slate-500">{p.registrado_por || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {pagamento.length === 0 && (
+            <div className="text-center py-6 text-muted-foreground text-sm">
+              Nenhum pedido com pagamento não aprovado
+            </div>
+          )}
+        </div>
+
+      </div>
+    );
+  };
+
   if (loading && !visaoGeral) {
     return (
       <div className="space-y-6">
@@ -1010,7 +1895,7 @@ const Dashboard = () => {
             <Users className="h-4 w-4 hidden sm:block" /> Reincidência
           </TabsTrigger>
         </TabsList>
-        
+
         <TabsContent value="visao-geral" className="mt-6"><TabVisaoGeral /></TabsContent>
         <TabsContent value="volume-canal" className="mt-6"><TabVolumeCanal /></TabsContent>
         <TabsContent value="classificacao" className="mt-6"><TabClassificacao /></TabsContent>

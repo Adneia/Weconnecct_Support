@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, BackgroundTasks
 from utils.database import db
 from utils.auth import get_current_user
+from utils.helpers import BRT_TZ
 import logging
 import asyncio
 
@@ -288,23 +289,23 @@ async def run_rebuild():
 
             pedido = pedidos_dict.get(chamado.get('numero_pedido', ''), {})
 
-            # Formatar data
+            # Formatar data (em horário de Brasília)
             data_raw = chamado.get('data_abertura', '')
             data_fmt = data_raw
             if data_raw and 'T' in str(data_raw):
                 try:
                     from datetime import datetime
                     dt = datetime.fromisoformat(str(data_raw).replace('Z', '+00:00'))
-                    data_fmt = dt.strftime('%d/%m/%Y')
+                    data_fmt = dt.astimezone(BRT_TZ).strftime('%d/%m/%Y')
                 except:
                     data_fmt = str(data_raw)[:10]
 
-            # Formatar data de encerramento
+            # Formatar data de encerramento (BRT)
             dt_enc = ''
             if not chamado.get('pendente', True) and chamado.get('data_fechamento'):
                 try:
                     dt_obj = datetime.fromisoformat(str(chamado['data_fechamento']).replace('Z', '+00:00'))
-                    dt_enc = dt_obj.strftime('%d/%m/%Y')
+                    dt_enc = dt_obj.astimezone(BRT_TZ).strftime('%d/%m/%Y')
                 except:
                     dt_enc = str(chamado['data_fechamento'])[:10]
 

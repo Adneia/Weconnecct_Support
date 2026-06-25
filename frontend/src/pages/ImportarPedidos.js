@@ -15,7 +15,7 @@ import {
   TableRow,
 } from '../components/ui/table';
 import { toast } from 'sonner';
-import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, AlertTriangle, Loader2, X, Download, Copy, Trash2 } from 'lucide-react';
+import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, AlertTriangle, Loader2, X, Download, Copy, Trash2, Database, RefreshCw, Truck, Package } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -25,8 +25,143 @@ const ImportarPedidos = () => {
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState(null);
   const [dragActive, setDragActive] = useState(false);
+  // 'tabelao' | 'base_total' | 'base_jt'
+  const [tipoArquivo, setTipoArquivo] = useState(null);
 
   const { getAuthHeader } = useAuth();
+
+  // Detecta tipo do arquivo:
+  // - CSV com ';' + 'AWB' no cabecalho -> base_total
+  // - XLSX com 'JMS' no cabecalho      -> base_jt
+  // - resto                            -> tabelao
+  const detectarTipoArquivo = (f) => {
+    const ext = (f.name.split('.').pop() || '').toLowerCase();
+    return new Promise(resolve => {
+      const reader = new FileReader();
+      if (ext === 'csv') {
+        reader.onload = e => {
+          const primeiraLinha = (e.target.result || '').split('\n')[0] || '';
+          const linhaUpper = primeiraLinha.toUpperCase();
+          // Base Total: header com colunas características (AWB + NOTAFISCAL ou AWB + DESCRICAO_STATUS)
+          // Aceita tanto ';' quanto ',' como separador
+          const temSeparador = primeiraLinha.includes(';') || primeiraLinha.includes(',');
+          const temColunaTotal = linhaUpper.includes('AWB') &&
+            (linhaUpper.includes('NOTAFISCAL') || linhaUpper.includes('DESCRICAO_STATUS') || linhaUpper.includes('PRAZO_ENTREGA'));
+          const ehBaseTotal = temSeparador && temColunaTotal;
+          resolve(ehBaseTotal ? 'base_total' : 'tabelao');
+        };
+        reader.onerror = () => resolve('tabelao');
+        reader.readAsText(f.slice(0, 2048));
+      } else if (ext === 'xlsx' || ext === 'xls') {
+        reader.onload = async e => {
+          try {
+            const XLSX = await import('xlsx');
+            const wb = XLSX.read(e.target.result, { type: 'array' });
+            // AET: tem aba 'Analise' + coluna 'Retorno' no cabeçalho
+            if (wb.SheetNames.includes('Analise')) {
+              const wsAnalise = wb.Sheets['Analise'];
+              const hAnalise = XLSX.utils.sheet_to_json(wsAnalise, { header: 1, range: 0 })[0] || [];
+              const hAnaliseStr = hAnalise.join('|').toUpperCase();
+              if (hAnaliseStr.includes('RETORNO') && hAnaliseStr.includes('DECIS')) {
+                resolve('base_aet');
+                return;
+              }
+            }
+            // J&T: primeira aba com coluna 'JMS'
+            const ws = wb.Sheets[wb.SheetNames[0]];
+            const header = XLSX.utils.sheet_to_json(ws, { header: 1, range: 0 })[0] || [];
+            const headerStr = header.join('|').toUpperCase();
+            if (headerStr.includes('JMS')) {
+              resolve('base_jt');
+            } else {
+              resolve('tabelao');
+            }
+          } catch { resolve('tabelao'); }
+        };
+        reader.onerror = () => resolve('tabelao');
+        reader.readAsArrayBuffer(f);
+      } else {
+        resolve('tabelao');
+      }
+    });
+  };
+
+  // --- Sync com Postgres ---
+  const [syncStatus, setSyncStatus] = useState({});
+  const [syncHealth, setSyncHealth] = useState(null);
+  const [basesManuais, setBasesManuais] = useState(null);
+
+  useEffect(() => {
+    let stop = false;
+    const fetchSyncStatus = async () => {
+      try {
+        const { data } = await axios.get(`${API_URL}/api/admin/sync-all-from-postgres/status`, { headers: getAuthHeader() });
+        if (!stop) setSyncStatus(data || {});
+      } catch (e) { /* ignore */ }
+    };
+    fetchSyncStatus();
+    const interval = setInterval(fetchSyncStatus, 5000);
+    return () => { stop = true; clearInterval(interval); };
+  }, []);
+
+  // Status das bases manuais (Total + J&T) — refresh a cada 30s
+  useEffect(() => {
+    let stop = false;
+    const fetchBasesManuais = async () => {
+      try {
+        const { data } = await axios.get(`${API_URL}/api/bases-manuais/status`, { headers: getAuthHeader() });
+        if (!stop) setBasesManuais(data || null);
+      } catch (e) { /* ignore */ }
+    };
+    fetchBasesManuais();
+    const interval = setInterval(fetchBasesManuais, 30000);
+    return () => { stop = true; clearInterval(interval); };
+  }, []);
+
+  // Health-check do sistema de sync (polling mais lento, 30s)
+  useEffect(() => {
+    let stop = false;
+    const fetchSyncHealth = async () => {
+      try {
+        const { data } = await axios.get(`${API_URL}/api/admin/sync-health`, { headers: getAuthHeader() });
+        if (!stop) setSyncHealth(data || null);
+      } catch (e) { /* ignore */ }
+    };
+    fetchSyncHealth();
+    const interval = setInterval(fetchSyncHealth, 30000);
+    return () => { stop = true; clearInterval(interval); };
+  }, []);
+
+  const disparaSync = async (tipo) => {
+    const endpoints = {
+      tabelao: 'sync-from-postgres',
+      tabelao_inc: 'sync-tabelao-incremental',
+      fornecedores: 'sync-fornecedores-from-postgres',
+      sigeq425: 'sync-sigeq425-from-postgres',
+      sigeq230: 'sync-sigeq230-from-postgres',
+      all: 'sync-all-from-postgres',
+    };
+    try {
+      const { data } = await axios.post(`${API_URL}/api/admin/${endpoints[tipo]}`, {}, { headers: getAuthHeader() });
+      if (data.status === 'started') toast.success(`Sincronização (${tipo}) iniciada`);
+      else if (data.status === 'already_running') toast.info(`Sincronização (${tipo}) já está em andamento`);
+    } catch (e) {
+      toast.error(`Erro ao iniciar sync: ${e?.response?.data?.detail || e.message}`);
+    }
+  };
+
+  const fmtSyncBadge = (st) => {
+    if (!st) return null;
+    const lastDt = st.last_finished_at ? new Date(st.last_finished_at).toLocaleString('pt-BR') : null;
+    const lastTotal = st.last_total ? `(${st.last_total.toLocaleString('pt-BR')} reg)` : '';
+    if (st.running) {
+      const proc = (st.total||0).toLocaleString('pt-BR');
+      return lastDt ? `${proc} processados | última 100%: ${lastDt}` : `${proc} processados`;
+    }
+    if (lastDt) return `última: ${lastDt} ${lastTotal}`;
+    if (st.finished_at) return `última: ${new Date(st.finished_at).toLocaleString('pt-BR')} (${(st.total||0).toLocaleString('pt-BR')} reg)`;
+    return 'nunca rodou';
+  };
 
   // --- Duplicatas ---
   const [duplicatasPreview, setDuplicatasPreview] = useState(null);
@@ -102,10 +237,10 @@ const ImportarPedidos = () => {
 
   const handleFile = async (selectedFile) => {
     if (!selectedFile) return;
-    
+
     const validExtensions = ['.csv', '.xlsx', '.xls'];
     const ext = '.' + selectedFile.name.split('.').pop().toLowerCase();
-    
+
     if (!validExtensions.includes(ext)) {
       toast.error('Formato inválido. Use CSV ou Excel (.xlsx, .xls)');
       return;
@@ -113,14 +248,33 @@ const ImportarPedidos = () => {
 
     setFile(selectedFile);
     setResult(null);
-    
-    try {
-      const rows = await parseFile(selectedFile);
-      setPreview(rows);
-    } catch (error) {
-      toast.error('Erro ao ler arquivo');
+
+    // Detecta o tipo do arquivo (tabelao / base_total / base_jt)
+    const tipo = await detectarTipoArquivo(selectedFile);
+    setTipoArquivo(tipo);
+
+    // Preview so faz sentido pro tabelao (Total e J&T tem muitas colunas e formatos especificos)
+    if (tipo === 'tabelao') {
+      try {
+        const rows = await parseFile(selectedFile);
+        setPreview(rows);
+      } catch (error) {
+        toast.error('Erro ao ler arquivo');
+        setPreview(null);
+      }
+    } else {
       setPreview(null);
     }
+  };
+
+  // Alterna manualmente o tipo (caso a deteccao automatica nao acerte)
+  const alternarTipo = () => {
+    setTipoArquivo(t => {
+      if (t === 'tabelao') return 'base_total';
+      if (t === 'base_total') return 'base_jt';
+      if (t === 'base_jt') return 'base_aet';
+      return 'tabelao';
+    });
   };
 
   const handleDrag = useCallback((e) => {
@@ -167,6 +321,76 @@ const ImportarPedidos = () => {
 
       toast.info(`Enviando arquivo (${fileSizeMB.toFixed(1)}MB)... Aguarde.`);
 
+      // Base Total Express → endpoint dedicado, resposta sincrona
+      if (tipoArquivo === 'base_total') {
+        const { data } = await axios.post(
+          `${API_URL}/api/base-total/importar`,
+          formData,
+          {
+            headers: { ...getAuthHeader(), 'Content-Type': 'multipart/form-data' },
+            timeout: 180000,
+          }
+        );
+        setFile(null);
+        setPreview(null);
+        setTipoArquivo(null);
+        setResult({
+          success: true,
+          message: data.message,
+          details: data.erros > 0 ? `${data.erros} linha(s) ignoradas (sem nota fiscal ou AWB)` : null,
+        });
+        toast.success(data.message);
+        setUploading(false);
+        return;
+      }
+
+      // Base J&T → endpoint dedicado
+      if (tipoArquivo === 'base_jt') {
+        const { data } = await axios.post(
+          `${API_URL}/api/base-jt/importar`,
+          formData,
+          {
+            headers: { ...getAuthHeader(), 'Content-Type': 'multipart/form-data' },
+            timeout: 180000,
+          }
+        );
+        setFile(null);
+        setPreview(null);
+        setTipoArquivo(null);
+        setResult({
+          success: true,
+          message: data.message,
+          details: data.erros > 0 ? `${data.erros} linha(s) ignoradas (sem pedido ou JMS)` : null,
+        });
+        toast.success(data.message);
+        setUploading(false);
+        return;
+      }
+
+      // Base AET → endpoint dedicado
+      if (tipoArquivo === 'base_aet') {
+        const { data } = await axios.post(
+          `${API_URL}/api/base-aet/importar`,
+          formData,
+          {
+            headers: { ...getAuthHeader(), 'Content-Type': 'multipart/form-data' },
+            timeout: 180000,
+          }
+        );
+        setFile(null);
+        setPreview(null);
+        setTipoArquivo(null);
+        setResult({
+          success: true,
+          message: data.message,
+          details: data.erros > 0 ? `${data.erros} linha(s) com erro` : null,
+        });
+        toast.success(data.message);
+        setUploading(false);
+        return;
+      }
+
+      // Tabelão ERP (default) — comportamento atual
       const response = await axios.post(
         `${API_URL}/api/pedidos-erp/import`,
         formData,
@@ -175,7 +399,7 @@ const ImportarPedidos = () => {
             ...getAuthHeader(),
             'Content-Type': 'multipart/form-data'
           },
-          timeout: 120000, // 2 minutos (proxy tem ~60s)
+          timeout: 300000, // 5 minutos
           maxContentLength: Infinity,
           maxBodyLength: Infinity,
           onUploadProgress: (progressEvent) => {
@@ -212,7 +436,7 @@ const ImportarPedidos = () => {
       let errorMessage = 'Erro ao importar arquivo';
       
       if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
-        errorMessage = 'Timeout: O arquivo é muito grande. Exporte apenas os pedidos dos últimos 7-15 dias.';
+        errorMessage = 'Timeout no upload. O arquivo pode ser muito grande ou o servidor está ocupado. Tente novamente em alguns minutos.';
       } else if (error.response?.status === 503) {
         errorMessage = 'Servidor ocupado ou timeout. Exporte apenas os pedidos recentes (últimos 7-15 dias).';
       } else if (error.response?.data?.detail) {
@@ -266,14 +490,16 @@ const ImportarPedidos = () => {
           // Ainda processando
           const processed = data.processed || 0;
           const totalRows = data.total_rows || data.total || 0;
-          const progress = totalRows > 0 ? Math.round((processed / totalRows) * 100) : (data.progress || 0);
-          setResult({ 
-            success: true, 
-            message: `Processando... ${processed} de ${totalRows} linhas`,
+          // Usar data.progress do servidor (calculado a cada 50 linhas) como fonte primária
+          const progress = data.progress || (totalRows > 0 ? Math.round((processed / totalRows) * 100) : 0);
+          const done = (data.inserted || 0) + (data.updated || 0) + (data.skipped || 0);
+          setResult({
+            success: true,
+            message: `Processando... ${done > 0 ? done : processed} de ${totalRows} linhas`,
             details: `${data.inserted || 0} novos, ${data.updated || 0} atualizados`,
             progress: progress,
             totalRows: totalRows,
-            processed: processed,
+            processed: done > 0 ? done : processed,
             isBackground: true
           });
           return false;
@@ -305,6 +531,7 @@ const ImportarPedidos = () => {
     setFile(null);
     setPreview(null);
     setResult(null);
+    setTipoArquivo(null);
   };
 
   const downloadTemplate = () => {
@@ -511,6 +738,129 @@ const ImportarPedidos = () => {
         </Button>
       </div>
 
+      {/* Sincronização Automática com Postgres */}
+      <Card className="border-purple-200 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-950/20">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Database className="h-5 w-5 text-purple-600" />
+            Sincronização com Postgres (BigData)
+          </CardTitle>
+          <CardDescription>
+            Substitui a importação manual de Excel. Roda automaticamente 10x por dia (a cada 2h durante o dia, 1x na madrugada).
+            Clique abaixo para forçar uma sincronização agora.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {syncHealth && (
+            <div className={`mb-3 p-3 rounded-md border text-sm ${
+              syncHealth.status === 'healthy' ? 'border-green-200 bg-green-50 text-green-900 dark:bg-green-950/20 dark:border-green-800 dark:text-green-200' :
+              syncHealth.status === 'degraded' ? 'border-yellow-200 bg-yellow-50 text-yellow-900 dark:bg-yellow-950/20 dark:border-yellow-800 dark:text-yellow-200' :
+              'border-red-200 bg-red-50 text-red-900 dark:bg-red-950/20 dark:border-red-800 dark:text-red-200'
+            }`}>
+              <div className="flex items-center gap-2 font-medium mb-1">
+                {syncHealth.status === 'healthy' ? <CheckCircle className="h-4 w-4" /> :
+                 syncHealth.status === 'degraded' ? <AlertTriangle className="h-4 w-4" /> :
+                 <AlertCircle className="h-4 w-4" />}
+                <span>Saúde do sync: {(syncHealth.status || 'unknown').toUpperCase()}</span>
+              </div>
+              <div className="text-xs space-y-0.5">
+                <div>Mongo: {syncHealth.mongo_total?.toLocaleString('pt-BR') || '-'} pedidos | Postgres: {syncHealth.postgres_total?.toLocaleString('pt-BR') || '-'} pedidos (divergência {syncHealth.divergence_pct}%)</div>
+                <div>{syncHealth.last_sync_age_minutes != null ? `Última sync há ${syncHealth.last_sync_age_minutes} min` : 'Nunca sincronizou'} {syncHealth.cron_alive ? '• cron OK' : '• cron parece parado'}</div>
+                {syncHealth.errors_last_24h > 0 && <div>{syncHealth.errors_last_24h} erros nas últimas 24h</div>}
+                {syncHealth.issues?.length > 0 && <div className="font-medium">Issues: {syncHealth.issues.join(' | ')}</div>}
+              </div>
+            </div>
+          )}
+          <Button
+            className="w-full mb-3 bg-purple-600 hover:bg-purple-700 text-white"
+            onClick={() => disparaSync('all')}
+            disabled={syncStatus && (syncStatus.tabelao?.running || syncStatus.fornecedores?.running || syncStatus.sigeq425?.running || syncStatus.sigeq230?.running)}
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Sincronizar TUDO Agora
+          </Button>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div className="border border-purple-300 rounded-md px-3 py-2 flex items-center gap-2">
+              {(syncStatus.tabelao?.running || syncStatus.tabelao_inc?.running)
+                ? <Loader2 className="h-4 w-4 text-purple-600 animate-spin flex-shrink-0" />
+                : <RefreshCw className="h-4 w-4 text-purple-600 flex-shrink-0" />}
+              <div className="flex flex-col items-start text-left flex-1 min-w-0">
+                <span className="text-sm font-medium">Tabelão (pedidos)</span>
+                <span className="text-xs text-muted-foreground">
+                  {syncStatus.tabelao_inc?.running
+                    ? '⚡ Sync rápido em andamento...'
+                    : syncStatus.tabelao?.running
+                      ? '🔄 Sync completo em andamento...'
+                      : fmtSyncBadge(syncStatus.tabelao)}
+                </span>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-purple-400 text-purple-700 hover:bg-purple-50 shrink-0 h-7 text-xs px-2 gap-1"
+                onClick={() => disparaSync('tabelao_inc')}
+                disabled={syncStatus.tabelao?.running || syncStatus.tabelao_inc?.running}
+                title="Mesmo sync incremental que roda automaticamente a cada ~15 min"
+              >
+                {syncStatus.tabelao_inc?.running
+                  ? <Loader2 className="h-3 w-3 animate-spin" />
+                  : <RefreshCw className="h-3 w-3" />}
+                ⚡ Sync Rápido
+              </Button>
+            </div>
+            <Button variant="outline" className="border-purple-300 justify-start" onClick={() => disparaSync('fornecedores')} disabled={syncStatus.fornecedores?.running}>
+              {syncStatus.fornecedores?.running ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+              <div className="flex flex-col items-start text-left">
+                <span>Fornecedores</span>
+                <span className="text-xs text-muted-foreground">{fmtSyncBadge(syncStatus.fornecedores)}</span>
+              </div>
+            </Button>
+            <Button variant="outline" className="border-purple-300 justify-start" onClick={() => disparaSync('sigeq425')} disabled={syncStatus.sigeq425?.running}>
+              {syncStatus.sigeq425?.running ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+              <div className="flex flex-col items-start text-left">
+                <span>SIGEQ425 (estoque)</span>
+                <span className="text-xs text-muted-foreground">{fmtSyncBadge(syncStatus.sigeq425)}</span>
+              </div>
+            </Button>
+            <Button variant="outline" className="border-purple-300 justify-start" onClick={() => disparaSync('sigeq230')} disabled={syncStatus.sigeq230?.running}>
+              {syncStatus.sigeq230?.running ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+              <div className="flex flex-col items-start text-left">
+                <span>SIGEQ230 (catálogo)</span>
+                <span className="text-xs text-muted-foreground">{fmtSyncBadge(syncStatus.sigeq230)}</span>
+              </div>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Bases Manuais (Total + J&T) — layout compacto, em vermelho pra indicar que é manual */}
+      {basesManuais && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 px-1">
+          <div className="border border-red-300 dark:border-red-800 rounded-md px-3 py-2 flex items-center gap-2 bg-red-50/30 dark:bg-red-950/10">
+            <Upload className="h-4 w-4 text-red-600 flex-shrink-0" />
+            <div className="flex flex-col items-start text-left flex-1 min-w-0">
+              <span className="text-sm font-medium">🚛 Base Total Express <span className="text-xs text-red-600 font-normal">(manual)</span></span>
+              <span className="text-xs text-muted-foreground">
+                {basesManuais?.base_total?.ultima_atualizacao
+                  ? `última: ${new Date(basesManuais.base_total.ultima_atualizacao).toLocaleString('pt-BR')} (${(basesManuais?.base_total?.total || 0).toLocaleString('pt-BR')} reg)`
+                  : 'nunca subiu'}
+              </span>
+            </div>
+          </div>
+          <div className="border border-red-300 dark:border-red-800 rounded-md px-3 py-2 flex items-center gap-2 bg-red-50/30 dark:bg-red-950/10">
+            <Upload className="h-4 w-4 text-red-600 flex-shrink-0" />
+            <div className="flex flex-col items-start text-left flex-1 min-w-0">
+              <span className="text-sm font-medium">📦 Base J&T <span className="text-xs text-red-600 font-normal">(manual)</span></span>
+              <span className="text-xs text-muted-foreground">
+                {basesManuais?.base_jt?.ultima_atualizacao
+                  ? `última: ${new Date(basesManuais.base_jt.ultima_atualizacao).toLocaleString('pt-BR')} (${(basesManuais?.base_jt?.total || 0).toLocaleString('pt-BR')} reg)`
+                  : 'nunca subiu'}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Instructions */}
       <Card>
         <CardHeader>
@@ -595,9 +945,25 @@ const ImportarPedidos = () => {
           ) : (
             <div className="space-y-4">
               {/* File Info */}
-              <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
+              <div className={`flex items-center justify-between p-4 rounded-lg border ${
+                tipoArquivo === 'base_total'
+                  ? 'bg-orange-50 dark:bg-orange-950/20 border-orange-200 dark:border-orange-800'
+                  : tipoArquivo === 'base_jt'
+                  ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800'
+                  : tipoArquivo === 'base_aet'
+                  ? 'bg-purple-50 dark:bg-purple-950/20 border-purple-200 dark:border-purple-800'
+                  : 'bg-muted/50 border-transparent'
+              }`}>
                 <div className="flex items-center gap-3">
-                  <FileSpreadsheet className="h-8 w-8 text-green-600" />
+                  {tipoArquivo === 'base_total' ? (
+                    <Truck className="h-8 w-8 text-orange-600" />
+                  ) : tipoArquivo === 'base_jt' ? (
+                    <Package className="h-8 w-8 text-red-600" />
+                  ) : tipoArquivo === 'base_aet' ? (
+                    <FileSpreadsheet className="h-8 w-8 text-purple-600" />
+                  ) : (
+                    <FileSpreadsheet className="h-8 w-8 text-green-600" />
+                  )}
                   <div>
                     <p className="font-medium">{file.name}</p>
                     <p className="text-xs text-muted-foreground">
@@ -605,9 +971,33 @@ const ImportarPedidos = () => {
                     </p>
                   </div>
                 </div>
-                <Button variant="ghost" size="icon" onClick={clearFile} data-testid="btn-clear-file">
-                  <X className="h-4 w-4" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={alternarTipo}
+                    className={`text-xs px-3 py-1.5 rounded-full border font-semibold transition-colors ${
+                      tipoArquivo === 'base_total'
+                        ? 'bg-orange-100 text-orange-700 border-orange-300 hover:bg-orange-200'
+                        : tipoArquivo === 'base_jt'
+                        ? 'bg-red-100 text-red-700 border-red-300 hover:bg-red-200'
+                        : tipoArquivo === 'base_aet'
+                        ? 'bg-purple-100 text-purple-700 border-purple-300 hover:bg-purple-200'
+                        : 'bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-200'
+                    }`}
+                    title="Clique para alternar tipo do arquivo"
+                  >
+                    {tipoArquivo === 'base_total'
+                      ? '🚛 Base Total Express'
+                      : tipoArquivo === 'base_jt'
+                      ? '📦 Base J&T'
+                      : tipoArquivo === 'base_aet'
+                      ? '🛍️ Base AET (Compras)'
+                      : '📋 Tabelão ERP'}
+                  </button>
+                  <Button variant="ghost" size="icon" onClick={clearFile} data-testid="btn-clear-file">
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
 
               {/* Preview */}
@@ -643,11 +1033,39 @@ const ImportarPedidos = () => {
 
               {/* Upload Button */}
               <div className="flex justify-end">
-                <Button onClick={handleUpload} disabled={uploading} data-testid="btn-importar">
+                <Button
+                  onClick={handleUpload}
+                  disabled={uploading}
+                  data-testid="btn-importar"
+                  className={
+                    tipoArquivo === 'base_total'
+                      ? 'bg-orange-600 hover:bg-orange-700 text-white'
+                      : tipoArquivo === 'base_jt'
+                      ? 'bg-red-600 hover:bg-red-700 text-white'
+                      : tipoArquivo === 'base_aet'
+                      ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                      : ''
+                  }
+                >
                   {uploading ? (
                     <>
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                       Importando...
+                    </>
+                  ) : tipoArquivo === 'base_total' ? (
+                    <>
+                      <Truck className="h-4 w-4 mr-2" />
+                      Importar Base Total
+                    </>
+                  ) : tipoArquivo === 'base_jt' ? (
+                    <>
+                      <Package className="h-4 w-4 mr-2" />
+                      Importar Base J&T
+                    </>
+                  ) : tipoArquivo === 'base_aet' ? (
+                    <>
+                      <FileSpreadsheet className="h-4 w-4 mr-2" />
+                      Importar Base AET
                     </>
                   ) : (
                     <>

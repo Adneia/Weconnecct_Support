@@ -1,0 +1,63 @@
+services:
+  elo-mongo-test:
+    image: mongo:7
+    container_name: elo-mongo-test
+    restart: unless-stopped
+    volumes:
+      - elo_mongo_test_data:/data/db
+    ports:
+      - "127.0.0.1:27019:27017"
+    environment:
+      - MONGO_INITDB_DATABASE=elo_weconnect
+
+  elo-backend-test:
+    build: ./backend
+    container_name: elo-backend-test
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5022:8000"
+    depends_on:
+      - elo-mongo-test
+    env_file:
+      - .env
+    environment:
+      - MONGO_URL=mongodb://elo-mongo-test:27017
+      - DB_NAME=elo_weconnect
+      - PG_HOST=weconnect-postgres
+      - PG_PORT=5432
+      - PG_DB=bigdata
+      - PG_USER=weconnect
+      - PG_PASSWORD=WeConn3ct2026Prod
+      - ENV=test
+      - SMTP_HOST=email-smtp.us-east-1.amazonaws.com
+      - SMTP_PORT=587
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_FROM_NAME=ELO - Sistema de Atendimentos
+      - SMTP_FROM=atendimento@wct360.com.br
+      - SMTP_REPLY_TO=atendimento@weconnect360.com.br
+      - BSELLER_TOKEN=${BSELLER_TOKEN}
+    volumes:
+      - ./backend/credentials.json:/app/credentials.json:ro
+    networks:
+      - default
+      - deploy_default
+
+  elo-frontend-test:
+    build:
+      context: ./frontend
+      args:
+        REACT_APP_BACKEND_URL: ""
+    container_name: elo-frontend-test
+    restart: unless-stopped
+    ports:
+      - "0.0.0.0:5020:80"
+    depends_on:
+      - elo-backend-test
+
+volumes:
+  elo_mongo_test_data:
+
+networks:
+  deploy_default:
+    external: true

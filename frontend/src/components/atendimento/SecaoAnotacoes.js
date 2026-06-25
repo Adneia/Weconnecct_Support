@@ -66,11 +66,13 @@ const MotivoPendenciaTextos = ({ motivoPendencia, selectedMotivoPendencia, onLoa
             <Button type="button" variant={selectedMotivoPendencia === 'Ag. Parceiro - Solicitar Evidências' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Parceiro - Solicitar Evidências')}>Solicitar Evidências</Button>
             <Button type="button" variant={selectedMotivoPendencia === 'Ag. Parceiro - Cancelamento' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Parceiro - Cancelamento')}>Cancelamento</Button>
             <Button type="button" variant={selectedMotivoPendencia === 'Ag. Parceiro - Em Devolução' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Parceiro - Em Devolução')}>Em Devolução</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Parceiro - Devolvido' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Parceiro - Devolvido')}>Devolvido</Button>
             <Button type="button" variant={selectedMotivoPendencia === 'Ag. Parceiro - Estorno Descarte' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Parceiro - Estorno Descarte')}>Estorno + Descarte</Button>
             <Button type="button" variant={selectedMotivoPendencia === 'Ag. Parceiro - Exceção Estorno' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Parceiro - Exceção Estorno')}>Exceção - Estorno</Button>
             <Button type="button" variant={selectedMotivoPendencia === 'Ag. Parceiro - Confirmação Encerramento' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Parceiro - Confirmação Encerramento')}>Confirmar Encerramento</Button>
             <Button type="button" variant={selectedMotivoPendencia === 'Ag. Parceiro - Código Expirado' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Parceiro - Código Expirado')}>Código Expirado</Button>
             <Button type="button" variant={selectedMotivoPendencia === 'Ag. Parceiro - Cancelamento Avaria' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Parceiro - Cancelamento Avaria')}>Cancelamento Avaria</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Parceiro - Arrependimento Expirado' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Parceiro - Arrependimento Expirado')}>Arrependimento Expirado</Button>
           </div>
         </div>
         <div className="space-y-2">
@@ -104,6 +106,7 @@ const MotivoPendenciaTextos = ({ motivoPendencia, selectedMotivoPendencia, onLoa
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant={selectedMotivoPendencia === 'Ag. Cliente - Solicitar Evidências' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Cliente - Solicitar Evidências')}>Solicitar Evidências</Button>
             <Button type="button" variant={selectedMotivoPendencia === 'Ag. Cliente - Em Devolução' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Cliente - Em Devolução')}>Em Devolução</Button>
+            <Button type="button" variant={selectedMotivoPendencia === 'Ag. Cliente - Devolvido' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Cliente - Devolvido')}>Devolvido</Button>
             <Button type="button" variant={selectedMotivoPendencia === 'Ag. Cliente - Estorno Descarte' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Cliente - Estorno Descarte')}>Estorno + Descarte</Button>
             <Button type="button" variant={selectedMotivoPendencia === 'Ag. Cliente - Exceção Estorno' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Cliente - Exceção Estorno')}>Exceção - Estorno</Button>
             <Button type="button" variant={selectedMotivoPendencia === 'Ag. Cliente - Confirmação Encerramento' ? 'default' : 'outline'} size="sm" onClick={() => onLoadTextoMotivoPendencia('Ag. Cliente - Confirmação Encerramento')}>Confirmar Encerramento</Button>

@@ -25,33 +25,24 @@ SCOPES = [
     'https://www.googleapis.com/auth/drive'
 ]
 
-# Column mapping for Atendimentos sheet (matching planilha Atendimentos 2026_E)
-# Removidas colunas ID e Atendente conforme solicitado
-# A=Data, B=Parceiro, C=Entrega, D=Solicitação, E=Nome, F=CPF,
-# G=Categoria, H=Motivo, I=Pendente, J=Motivo_Pendencia, K=Verificar, L=Retornar,
-# M=DT_Encerramento, N=Reversa, O=Anotações, P=Status_Pedido, Q=Nota, R=Chave_Acesso, S=Filial
+# Column mapping for Atendimentos sheet
+# A=Solicitação, B=Pedido, C=Parceiro, D=Nome, E=Motivo_Pendencia,
+# F=Status_Pedido, G=Data_Ultimo_Ponto, H=Status, I=Transportadora,
+# J=Categoria, K=Motivo, L=Reversa, M=Anotações
 ATENDIMENTO_COLUMNS = [
-    'Data',             # A - Data de abertura (DD/MM/AAAA)
-    'ID_Atendimento',   # B - ID do atendimento (ATD-2026-XXXX)
-    'Parceiro',         # C - Canal (CSU, Livelo, LL Loyalty, etc)
-    'Entrega',          # D - Código da entrega (numero_pedido)
-    'Solicitação',      # E - Número da solicitação
-    'Nome',             # F - Nome do cliente
-    'CPF',              # G - CPF do cliente
-    'Categoria',        # H - Área (Falha Transporte, etc)
-    'Motivo',           # I - Motivo específico
-    'Pendente',         # J - SIM/NÃO
-    'Motivo_Pendencia', # K - Motivo da pendência
-    'Verificar',        # L - Verificar Adnéia (SIM/NÃO)
-    'Retornar',         # M - Retornar (SIM/NÃO)
-    'DT_Encerramento',  # N - Data de fechamento
-    'Reversa',          # O - Código de reversa
-    'Anotações',        # P - Histórico completo
-    'Status_Pedido',    # Q - Status da entrega
-    'Nota',             # R - Número da NF
-    'Chave_Acesso',     # S - Chave da NF-e
-    'Filial',           # T - UF
-    'Tempo'             # U - Tempo médio (dias)
+    'Solicitação',      # A - Número da solicitação
+    'Pedido',           # B - Código do pedido (numero_pedido)
+    'Parceiro',         # C - Canal (CSU, Livelo, etc)
+    'Nome',             # D - Nome do cliente
+    'Motivo_Pendencia', # E - Motivo da pendência
+    'Status_Pedido',    # F - Status da entrega (Bseller)
+    'Data_Ultimo_Ponto',# G - Data do último status (Bseller)
+    'Status',           # H - Pendente / Encerrado
+    'Transportadora',   # I - Transportadora (Bseller)
+    'Categoria',        # J - Categoria do chamado
+    'Motivo',           # K - Motivo específico
+    'Reversa',          # L - Código de reversa
+    'Anotações',        # M - Histórico de anotações
 ]
 
 # Column mapping for Devoluções sheet
@@ -211,40 +202,35 @@ class GoogleSheetsClient:
             else:
                 data_formatted = data_abertura.strftime('%d/%m/%Y') if data_abertura else ''
             
-            # Prepare row data matching column structure (A=Data, B=ID_Atendimento, C=Parceiro...)
-            row = [
-                data_formatted,                                   # A - Data
-                atendimento.get('id_atendimento', ''),           # B - ID_Atendimento
-                atendimento.get('parceiro', '') or atendimento.get('canal_vendas', ''),  # C - Parceiro
-                atendimento.get('numero_pedido', ''),            # D - Entrega
-                atendimento.get('solicitacao', ''),              # E - Solicitação
-                atendimento.get('nome_cliente', ''),             # F - Nome
-                atendimento.get('cpf_cliente', ''),              # G - CPF
-                atendimento.get('categoria', ''),                # H - Categoria
-                atendimento.get('motivo', ''),                   # I - Motivo
-                'SIM' if atendimento.get('pendente', True) else 'NÃO',  # J - Pendente
-                atendimento.get('motivo_pendencia', ''),         # K - Motivo_Pendencia
-                'SIM' if atendimento.get('verificar_adneia', False) else 'NÃO',  # L - Verificar
-                'SIM' if atendimento.get('retornar_chamado', False) else 'NÃO',  # M - Retornar
-                '',                                               # N - DT_Encerramento (empty on creation)
-                atendimento.get('reversa_codigo', ''),           # O - Reversa
-                str(atendimento.get('anotacoes', '') or ''),     # P - Anotações (ensure string)
-                '',                                               # Q - Status_Pedido
-                '',                                               # R - Nota
-                '',                                               # S - Chave_Acesso
-                ''                                                # T - Filial
-            ]
-            
-            # Add pedido info if available
+            # Prepare row data — nova ordem de colunas
+            # A=Solicitação, B=Pedido, C=Parceiro, D=Nome, E=Motivo_Pendencia,
+            # F=Status_Pedido, G=Data_Ultimo_Ponto, H=Status, I=Transportadora,
+            # J=Categoria, K=Motivo, L=Reversa, M=Anotações
+            status_pedido_val = ''
+            data_ultimo_ponto_val = ''
+            transportadora_val = ''
             if pedido_info:
-                row[16] = pedido_info.get('status_pedido', '')   # Q - Status_Pedido
-                # Remover .0 da nota fiscal
-                nota = str(pedido_info.get('nota_fiscal', ''))
-                if nota.endswith('.0'):
-                    nota = nota[:-2]
-                row[17] = nota                                    # R - Nota
-                row[18] = pedido_info.get('chave_nota', '')      # S - Chave_Acesso
-                row[19] = pedido_info.get('filial', '') or pedido_info.get('uf', '')  # T - Filial
+                status_pedido_val = pedido_info.get('status_pedido', '')
+                data_ultimo_ponto_val = str(pedido_info.get('data_status', '') or '')
+                if ' ' in data_ultimo_ponto_val:
+                    data_ultimo_ponto_val = data_ultimo_ponto_val.split(' ')[0]
+                transportadora_val = pedido_info.get('transportadora', '')
+            
+            row = [
+                atendimento.get('solicitacao', ''),                                     # A - Solicitação
+                atendimento.get('numero_pedido', ''),                                   # B - Pedido
+                atendimento.get('parceiro', '') or atendimento.get('canal_vendas', ''), # C - Parceiro
+                atendimento.get('nome_cliente', ''),                                    # D - Nome
+                atendimento.get('motivo_pendencia', ''),                                # E - Motivo_Pendencia
+                status_pedido_val,                                                      # F - Status_Pedido
+                data_ultimo_ponto_val,                                                  # G - Data_Ultimo_Ponto
+                'Pendente' if atendimento.get('pendente', True) else 'Encerrado',      # H - Status
+                transportadora_val,                                                     # I - Transportadora
+                atendimento.get('categoria', ''),                                       # J - Categoria
+                atendimento.get('motivo', ''),                                          # K - Motivo
+                atendimento.get('reversa_codigo', ''),                                  # L - Reversa
+                str(atendimento.get('anotacoes', '') or ''),                            # M - Anotações
+            ]
             
             # Append row to sheet (planilha antiga)
             worksheet.append_row(row, value_input_option='USER_ENTERED')
@@ -360,7 +346,7 @@ class GoogleSheetsClient:
             try:
                 all_values = worksheet.get_all_values()
                 for i, row in enumerate(all_values):
-                    if len(row) > 3 and row[3] == numero_pedido:  # Coluna D = Entrega
+                    if len(row) > 1 and row[1] == numero_pedido:  # Coluna B = Pedido
                         cell = type('obj', (object,), {'row': i + 1})()
                         break
             except:
@@ -373,29 +359,23 @@ class GoogleSheetsClient:
             row_num = cell.row
             
             # Map update fields to column indices (1-indexed for gspread)
-            # Estrutura: A=Data, B=ID_Atendimento, C=Parceiro, D=Entrega, E=Solicitação, F=Nome, G=CPF,
-            # H=Categoria, I=Motivo, J=Pendente, K=Motivo_Pendencia, L=Verificar, M=Retornar,
-            # N=DT_Encerramento, O=Reversa, P=Anotações, Q=Status_Pedido, R=Nota, S=Chave_Acesso, T=Filial, U=Tempo
+            # A=Solicitação, B=Pedido, C=Parceiro, D=Nome, E=Motivo_Pendencia,
+            # F=Status_Pedido, G=Data_Ultimo_Ponto, H=Status, I=Transportadora,
+            # J=Categoria, K=Motivo, L=Reversa, M=Anotações
             field_to_col = {
-                'id_atendimento': 2,      # B
+                'solicitacao': 1,         # A
+                'numero_pedido': 2,       # B - Pedido
                 'parceiro': 3,            # C
-                'numero_pedido': 4,       # D - Entrega
-                'solicitacao': 5,         # E
-                'categoria': 8,           # H
-                'motivo': 9,              # I
-                'pendente': 10,           # J
-                'motivo_pendencia': 11,   # K
-                'verificar_adneia': 12,   # L
-                'retornar_chamado': 13,   # M
-                'data_fechamento': 14,    # N - DT Encerramento
-                'data_encerramento': 14,  # N - DT Encerramento (alias)
-                'reversa_codigo': 15,     # O
-                'anotacoes': 16,          # P
-                'status_pedido': 17,      # Q
-                'nota_fiscal': 18,        # R
-                'chave_acesso': 19,       # S
-                'filial': 20,             # T
-                'tempo_dias': 21,         # U
+                'nome_cliente': 4,        # D - Nome
+                'motivo_pendencia': 5,    # E
+                'status_pedido': 6,       # F
+                'data_ultimo_ponto': 7,   # G
+                'pendente': 8,            # H - Status
+                'transportadora': 9,      # I
+                'categoria': 10,          # J
+                'motivo': 11,             # K
+                'reversa_codigo': 12,     # L
+                'anotacoes': 13,          # M
             }
             
             # Build batch update
@@ -406,9 +386,7 @@ class GoogleSheetsClient:
                     
                     # Handle special cases
                     if field == 'pendente':
-                        value = 'SIM' if value else 'NÃO'
-                    elif field in ['verificar_adneia', 'retornar_chamado']:
-                        value = 'SIM' if value else 'NÃO'
+                        value = 'Pendente' if value else 'Encerrado'
                     elif field == 'data_fechamento' and value:
                         try:
                             dt = datetime.fromisoformat(str(value).replace('Z', '+00:00'))
@@ -437,7 +415,7 @@ class GoogleSheetsClient:
                     all_new = ws_new.get_all_values()
                     new_row = None
                     for i, r in enumerate(all_new):
-                        if len(r) > 3 and r[3] == numero_pedido:
+                        if len(r) > 1 and r[1] == numero_pedido:
                             new_row = i + 1
                             break
                     if new_row:

@@ -44,6 +44,8 @@ class ChamadoBase(BaseModel):
     retornar_chamado: bool = False  # Sinaliza que precisa retorno/atuação
     verificar_adneia: bool = False  # Sinaliza que Adnéia precisa verificar
     status_devolucao: Optional[str] = None  # Aguardando, Estornado, Reenviado
+    data_reclame_aqui: Optional[str] = None  # Data em que o Reclame Aqui foi vinculado ao chamado
+    nova_entrega: Optional[str] = None  # Reenvio: nova entrega informada manualmente
 
 class ChamadoCreate(ChamadoBase):
     pass
@@ -67,6 +69,7 @@ class ChamadoUpdate(BaseModel):
     retornar_chamado: Optional[bool] = None
     verificar_adneia: Optional[bool] = None
     status_devolucao: Optional[str] = None
+    nova_entrega: Optional[str] = None  # Reenvio: nova entrega que substitui a atual no sync
 
 class Chamado(ChamadoBase):
     model_config = ConfigDict(extra="ignore")

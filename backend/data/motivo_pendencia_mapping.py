@@ -2,13 +2,16 @@
 # Conforme Prompt_Completo_ELO_Marco2026.md
 
 STATUS_PEDIDO_TO_MOTIVO = {
-    # Ag. Compras
+    # Ag. Compras (somente quando o pedido foi aprovado / aguardando estoque)
     "Aguardando estoque": "Ag. Compras",
     "Pedido aprovado": "Ag. Compras",
     "Aguardando aprovação de pagamento": "Ag. Compras",
-    "Aguardando liberacao do SAC": "Ag. Compras",
     # Ag. Logística
+    "Aguardando liberacao do SAC": "Ag. Logística",
+    "A Separar": "Ag. Logística",
+    "Separado": "Ag. Logística",
     "NF emitida": "Ag. Logística",
+    "NFe Aprovada": "Ag. Logística",
     "Entregue a Transportadora": "Ag. Logística",
     "COLETA REALIZADA": "Ag. Logística",
     "CARGA REDESPACHADA": "Ag. Logística",
@@ -40,9 +43,9 @@ STATUS_PEDIDO_TO_MOTIVO = {
     "EXTRAVIO": "Ag. Cliente",
     "ROUBO": "Ag. Cliente",
     "AVARIA": "Ag. Cliente",
-    # Em Devolução
-    "EM DEVOLUÇÃO": "Em Devolução",
-    "DEVOLUCAO": "Em Devolução",
+    # Em devolução (forma canônica em minúsculo — consistente com chamados.py / admin.py)
+    "EM DEVOLUÇÃO": "Em devolução",
+    "DEVOLUCAO": "Em devolução",
     # Entregue
     "Entregue ao Cliente": "Entregue",
     "ENTREGUE": "Entregue",

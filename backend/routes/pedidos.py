@@ -1,7 +1,11 @@
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, BackgroundTasks
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
+import os
+import re
 import uuid
+
+import httpx
 
 from utils.database import db
 from utils.auth import get_current_user
@@ -14,6 +18,175 @@ import logging
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api")
+
+# ====== BSeller SAC API (rastreio em tempo real) ======
+BSELLER_SAC_URL = "https://api.bseller.com.br/sac/atendimento/entregas"
+BSELLER_TOKEN = os.getenv("BSELLER_TOKEN", "")
+
+# Prefixos de usuario classificados como automacao no rastreio SAC
+# (resto = humano). Ver bseller-api-map/exports/sac_usuario_padroes.csv
+_USR_AUTOMACAO = ("INTELIPOST", "FAT_AUTO", "WEBSERVICE", "TUDOAZUL", "SUPERTROCO", "ROOT")
+
+
+def _classify_usuario(usuario: str | None) -> str:
+    if not usuario:
+        return "unknown"
+    u = usuario.upper()
+    if any(k in u for k in _USR_AUTOMACAO):
+        return "automacao"
+    if u.startswith("FUNS_"):
+        return "humano"
+    return "unknown"
+
+
+def _format_endereco(end: dict) -> str:
+    """Concatena endereco em string amigavel pro UI do ELO."""
+    if not end:
+        return ""
+    parts = []
+    logradouro = (end.get("logradouro") or "").strip()
+    numero = end.get("numero")
+    complemento = (end.get("complemento") or "").strip()
+    bairro = (end.get("bairro") or "").strip()
+    cidade = (end.get("cidade") or "").strip()
+    estado = (end.get("estado") or "").strip()
+    cep = (end.get("cep") or "").strip()
+
+    if logradouro:
+        if numero is not None:
+            parts.append(f"{logradouro}, {numero}")
+        else:
+            parts.append(logradouro)
+    if complemento:
+        parts.append(complemento)
+    if bairro:
+        parts.append(bairro)
+    cidade_uf = ", ".join(p for p in (cidade, estado) if p)
+    if cidade_uf:
+        parts.append(cidade_uf)
+    if cep:
+        parts.append(f"CEP {cep}")
+    return " — ".join(parts)
+
+
+async def _enrich_pedido_endereco_via_sac(pedido: dict) -> dict:
+    """Enriquece endereco do pedido com dados da API SAC do BSeller quando incompleto.
+
+    QRY0010 nao traz logradouro/numero/complemento/bairro do destino, so CEP+cidade+UF.
+    O upload do Tabelao Excel preenche rua/numero/bairro pra maioria dos pedidos (99%),
+    mas em ~37% deles cep e cidade ficam vazios (caso onde cliente cadastrado em cidade
+    diferente da entrega).
+
+    Este helper chama GET /sac/atendimento/entregas/{pedidoCliente} sob demanda,
+    preenche os campos faltantes e persiste no Mongo pra proxima leitura ser local.
+
+    Fail-safe: se BSELLER_TOKEN nao configurado, ID nao numerico, ou API SAC falhar,
+    retorna o pedido original sem erro.
+    """
+    if not BSELLER_TOKEN:
+        return pedido
+
+    # Detecta se endereco ja esta completo (campos minimos)
+    has_rua = bool((pedido.get('endereco_rua') or '').strip())
+    has_cep = bool((pedido.get('cep') or '').strip())
+    has_cidade = bool((pedido.get('cidade') or '').strip())
+    if has_rua and has_cep and has_cidade:
+        return pedido
+
+    # API SAC do BSeller exige o pedido_bseller (LONG numerico ~700-900k).
+    # No ELO Mongo TEST o mapeamento eh:
+    #   pedido_cliente = pedido_bseller real (6 digitos, ~719k)  <- API SAC aceita
+    #   numero_pedido  = id_entrega         (9 digitos, ~122M)   <- API SAC retorna 400
+    #   codigo_pedido  = quase sempre vazio
+    # Tentamos cada candidato em ordem ate achar um HTTP 200.
+    candidates_raw = [
+        pedido.get('pedido_cliente'),   # mais provavel: pedido_bseller real
+        pedido.get('codigo_pedido'),    # fallback
+        pedido.get('numero_pedido'),    # fallback (pode acertar em uploads diferentes)
+        pedido.get('pedido_externo'),
+    ]
+    candidates = []
+    seen = set()
+    for c in candidates_raw:
+        if not c:
+            continue
+        s = str(c).strip()
+        if re.match(r'^[0-9]+$', s) and s not in seen:
+            candidates.append(s)
+            seen.add(s)
+    if not candidates:
+        return pedido
+
+    headers = {"x-auth-token": BSELLER_TOKEN, "content-type": "application/json"}
+    data = None
+    pedido_bseller_used = None
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            for cand in candidates:
+                resp = await client.get(f"{BSELLER_SAC_URL}/{cand}", headers=headers)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    pedido_bseller_used = cand
+                    break
+                # 400/404 = pedido nao corresponde a este ID — tenta o proximo
+    except Exception as exc:
+        logger.warning(f"SAC enrich falhou pra {pedido.get('numero_pedido')}: {exc}")
+        return pedido
+
+    if not data:
+        return pedido
+
+    entregas = data.get('entregas') or []
+    if not entregas:
+        return pedido
+
+    # Pega a entrega que tem logradouro (caso multi-entrega). Fallback: primeira.
+    ent_with_addr = next(
+        (e for e in entregas if ((e.get('clienteEntrega') or {}).get('endereco') or {}).get('logradouro')),
+        entregas[0],
+    )
+    end = (ent_with_addr.get('clienteEntrega') or {}).get('endereco') or {}
+
+    # So preenche campos faltantes (nao sobrescreve o que veio do Tabelao)
+    update_fields = {}
+    if not has_rua and end.get('logradouro'):
+        update_fields['endereco_rua'] = end.get('logradouro')
+    if (not (pedido.get('endereco_numero') or '').strip()) and end.get('numero') is not None:
+        update_fields['endereco_numero'] = str(end.get('numero'))
+    if (not (pedido.get('endereco_complemento') or '').strip()) and end.get('complemento'):
+        update_fields['endereco_complemento'] = end.get('complemento')
+    if (not (pedido.get('endereco_bairro') or '').strip()) and end.get('bairro'):
+        update_fields['endereco_bairro'] = end.get('bairro')
+    if not has_cep and end.get('cep'):
+        update_fields['cep'] = end.get('cep')
+    if not has_cidade and end.get('cidade'):
+        update_fields['cidade'] = end.get('cidade')
+    if (not (pedido.get('uf') or '').strip()) and end.get('estado'):
+        update_fields['uf'] = end.get('estado')
+
+    if not update_fields:
+        return pedido
+
+    update_fields['endereco_sac_synced_at'] = datetime.now(timezone.utc).isoformat()
+    update_fields['endereco_sac_source'] = 'bseller_sac_atendimento_entregas'
+    update_fields['endereco_sac_pedido_bseller'] = pedido_bseller_used
+
+    # Persiste no Mongo pra proxima leitura ser local (zero hit em API SAC)
+    try:
+        await db.pedidos_erp.update_one(
+            {"numero_pedido": pedido.get('numero_pedido')},
+            {"$set": update_fields},
+        )
+    except Exception as exc:
+        logger.warning(f"SAC enrich: falha persistindo {pedido.get('numero_pedido')}: {exc}")
+
+    # Aplica no objeto retornado tambem
+    pedido.update(update_fields)
+    logger.info(
+        f"SAC enrich aplicado em {pedido.get('numero_pedido')}: "
+        f"{list(update_fields.keys())}"
+    )
+    return pedido
 
 
 # ============== BUSCAR PEDIDOS ==============
@@ -158,7 +331,293 @@ async def get_pedido_by_entrega(numero_pedido: str, current_user: dict = Depends
         if sigeq and sigeq.get('codigo_fornecedor'):
             pedido['codigo_fornecedor'] = sigeq['codigo_fornecedor']
 
+    # Enriquece endereco via API SAC quando incompleto (fail-safe)
+    pedido = await _enrich_pedido_endereco_via_sac(pedido)
+
     return pedido
+
+
+@router.get("/pedidos-erp/{numero_pedido}/rastreio-realtime")
+async def get_rastreio_realtime(
+    numero_pedido: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Consulta GET /sac/atendimento/entregas do BSeller pra retornar:
+    - status corrente (idPonto + descricao + dataPonto)
+    - usuario que moveu (com tipo: humano/automacao)
+    - endereco completo do cliente (logradouro, numero, complemento, bairro, cidade, UF, CEP)
+    - itens e classificacao SAC quando disponivel
+
+    Resolve a P0 do endereço (100% cobertura via API SAC) e da status real-time (vs BD com lag).
+
+    Mapeamento completo: bseller-api-map/docs/rest/instancias_sac.md
+    """
+    if not BSELLER_TOKEN:
+        raise HTTPException(
+            status_code=503,
+            detail="BSELLER_TOKEN nao configurado no backend ELO",
+        )
+
+    # A API SAC exige pedido_bseller (LONG ~700-900k). No ELO Mongo TEST o frontend
+    # tipicamente passa numero_pedido (= id_entrega, ~120M) que NAO eh aceito.
+    # Estrategia: tenta o input direto e, se nao bater, busca no Mongo outros candidatos
+    # (pedido_cliente, codigo_pedido, pedido_externo) e tenta cada um.
+    candidates = []
+    seen = set()
+    if re.match(r"^[0-9]+$", str(numero_pedido).strip()):
+        candidates.append(str(numero_pedido).strip())
+        seen.add(str(numero_pedido).strip())
+
+    # Busca o pedido no Mongo pra coletar candidatos alternativos
+    try:
+        pedido_mongo = await db.pedidos_erp.find_one(
+            {"$or": [
+                {"numero_pedido": numero_pedido},
+                {"codigo_pedido": numero_pedido},
+                {"pedido_cliente": numero_pedido},
+                {"pedido_externo": numero_pedido},
+            ]},
+            {"_id": 0, "numero_pedido": 1, "codigo_pedido": 1, "pedido_cliente": 1, "pedido_externo": 1},
+        )
+    except Exception:
+        pedido_mongo = None
+
+    if pedido_mongo:
+        for key in ("pedido_cliente", "codigo_pedido", "numero_pedido", "pedido_externo"):
+            v = pedido_mongo.get(key)
+            if not v:
+                continue
+            s = str(v).strip()
+            if re.match(r"^[0-9]+$", s) and s not in seen:
+                candidates.append(s)
+                seen.add(s)
+
+    if not candidates:
+        return {
+            "status": "id_invalido",
+            "pedido_bseller": numero_pedido,
+            "mensagem": "API SAC do BSeller exige ID numerico (sem sufixo). Este pedido nao pode ser consultado.",
+            "entregas": [],
+        }
+
+    headers = {"x-auth-token": BSELLER_TOKEN, "content-type": "application/json"}
+    resp = None
+    pedido_bseller_used = None
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            for cand in candidates:
+                resp = await client.get(f"{BSELLER_SAC_URL}/{cand}", headers=headers)
+                if resp.status_code == 200:
+                    pedido_bseller_used = cand
+                    break
+                # 400/404 = ID candidato nao corresponde — tenta o proximo
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="Timeout consultando BSeller")
+    except httpx.RequestError as exc:
+        logger.warning(f"Erro consultando SAC: {exc}")
+        raise HTTPException(status_code=502, detail=f"Erro consultando BSeller: {exc}")
+
+    if not pedido_bseller_used or resp is None or resp.status_code != 200:
+        last_code = resp.status_code if resp is not None else "?"
+        return {
+            "status": "nao_encontrado",
+            "pedido_bseller": numero_pedido,
+            "candidatos_tentados": candidates,
+            "mensagem": f"Nenhum candidato achou o pedido no BSeller (ultimo HTTP {last_code}).",
+            "entregas": [],
+        }
+
+    try:
+        data = resp.json()
+    except Exception:
+        raise HTTPException(status_code=502, detail="BSeller retornou JSON invalido")
+
+    entregas_raw = data.get("entregas") or []
+    entregas = []
+    for ent in entregas_raw:
+        rast = ent.get("rastreio") or {}
+        cliente = ent.get("clienteEntrega") or {}
+        end = cliente.get("endereco") or {}
+
+        usuario = (rast.get("usuario") or "").strip() or None
+
+        entregas.append({
+            "id_entrega": str(ent.get("idEntrega") or ""),
+            "id_filial": ent.get("idFilial"),
+            "filial_uf": {2: "ES", 3: "SP", 4: "SC"}.get(ent.get("idFilial")),
+
+            "id_ponto": rast.get("idPonto"),
+            "ponto_descricao": rast.get("descricao"),
+            "data_ponto": rast.get("dataPonto"),
+            "usuario": usuario,
+            "usuario_tipo": _classify_usuario(usuario),
+
+            "cliente": {
+                "id": str(cliente.get("id") or "") or None,
+                "nome": cliente.get("nome"),
+            },
+            "endereco": {
+                "logradouro": end.get("logradouro"),
+                "numero": end.get("numero"),
+                "complemento": end.get("complemento"),
+                "bairro": end.get("bairro"),
+                "cidade": end.get("cidade"),
+                "estado": end.get("estado"),
+                "cep": end.get("cep"),
+                "pais": end.get("pais"),
+                "ponto_referencia": end.get("pontoReferencia"),
+                "completo": _format_endereco(end),
+            },
+
+            "itens": ent.get("itens") or [],
+            "matriz_classificacao": [
+                m for m in (ent.get("matrizClassificacao") or [])
+                if any(v is not None for v in m.values())
+            ],
+
+            "id_meio_pagamento_principal": ent.get("idMeioPagamentoPrincipal"),
+        })
+
+    return {
+        "status": "ok",
+        "pedido_bseller": pedido_bseller_used,
+        "numero_pedido_consultado": numero_pedido,
+        "quantidade_entregas": data.get("quantidadeEntregas") or len(entregas),
+        "consultado_em": datetime.now(timezone.utc).isoformat(),
+        "entregas": entregas,
+    }
+
+
+@router.get("/pedidos-erp/{numero_pedido}/historico-rastreio")
+async def get_historico_rastreio(
+    numero_pedido: str,
+    current_user: dict = Depends(get_current_user),
+):
+    """Retorna a linha do tempo completa de eventos de rastreio do pedido.
+
+    Lê tracking_eventos no Postgres BIG-DATA (alimentado pelo relatório
+    ZBIQ0035 do BSeller, refresh 6/6h). Quando o pedido tem multiplas
+    entregas (irmãs no mesmo pedido_bseller), retorna a timeline de cada
+    uma — exatamente o caso de pedidos multi-entrega que confundem o
+    QRY0010.
+
+    Estrutura:
+        {
+          "status": "ok",
+          "pedido_bseller_real": "790117",
+          "numero_pedido_consultado": "122703670",
+          "quantidade_entregas": 2,
+          "entregas": [
+            {
+              "id_entrega": "122703670",
+              "total_eventos": 8,
+              "eventos": [
+                {"ponto_id": "PEI", "descricao": "...", "data_ocorrencia": "...",
+                 "usuario": "FUNS_ADNEIA", "usuario_tipo": "humano", "source_api": "ZBIQ0035"},
+                ...ordenados por data_ocorrencia ASC
+              ]
+            },
+            ...
+          ]
+        }
+    """
+    import os
+    import psycopg2
+    from psycopg2.extras import RealDictCursor
+
+    pg_host = os.getenv("PG_HOST")
+    if not pg_host:
+        raise HTTPException(
+            status_code=503,
+            detail="PG_HOST nao configurado no backend (sem conexao BIG-DATA)",
+        )
+
+    try:
+        conn = psycopg2.connect(
+            host=pg_host,
+            port=os.getenv("PG_PORT", "5432"),
+            dbname=os.getenv("PG_DB", "bigdata"),
+            user=os.getenv("PG_USER"),
+            password=os.getenv("PG_PASSWORD"),
+            connect_timeout=5,
+        )
+    except Exception as exc:
+        logger.warning(f"PG connect falhou: {exc}")
+        raise HTTPException(status_code=502, detail=f"Sem conexao com BIG-DATA: {exc}")
+
+    try:
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            # 1) Resolve o pedido_bseller real a partir do id_entrega informado
+            cur.execute(
+                "SELECT pedido_bseller FROM pedidos WHERE id_entrega = %s LIMIT 1",
+                (numero_pedido,),
+            )
+            row = cur.fetchone()
+            if not row:
+                # Talvez o usuário tenha passado o pedido_bseller diretamente
+                cur.execute(
+                    "SELECT DISTINCT pedido_bseller FROM pedidos WHERE pedido_bseller = %s LIMIT 1",
+                    (numero_pedido,),
+                )
+                row = cur.fetchone()
+                if not row:
+                    return {
+                        "status": "nao_encontrado",
+                        "numero_pedido_consultado": numero_pedido,
+                        "mensagem": "Pedido nao encontrado no BIG-DATA",
+                        "entregas": [],
+                    }
+
+            pedido_bseller = row["pedido_bseller"]
+
+            # 2) Lista todas as id_entrega desse pedido_bseller (multi-entrega)
+            cur.execute(
+                "SELECT DISTINCT id_entrega FROM pedidos WHERE pedido_bseller = %s "
+                "AND id_entrega IS NOT NULL AND id_entrega <> '' ORDER BY id_entrega",
+                (pedido_bseller,),
+            )
+            ids = [r["id_entrega"] for r in cur.fetchall()]
+
+            # 3) Pra cada id_entrega, busca eventos no tracking_eventos
+            # OBS: tracking_eventos.pedido_bseller na realidade armazena o id_entrega
+            #      (nome legado da coluna). Ver feedback_pedidos_unique_reentrega.md
+            entregas = []
+            for id_ent in ids:
+                cur.execute(
+                    "SELECT ponto_id, descricao, data_ocorrencia, usuario, source_api "
+                    "FROM tracking_eventos "
+                    "WHERE pedido_bseller = %s "
+                    "ORDER BY data_ocorrencia ASC, id ASC",
+                    (id_ent,),
+                )
+                eventos_raw = cur.fetchall()
+                eventos = [
+                    {
+                        "ponto_id": e["ponto_id"],
+                        "descricao": e["descricao"],
+                        "data_ocorrencia": e["data_ocorrencia"].isoformat() if e["data_ocorrencia"] else None,
+                        "usuario": e["usuario"],
+                        "usuario_tipo": _classify_usuario(e["usuario"]),
+                        "source_api": e["source_api"],
+                    }
+                    for e in eventos_raw
+                ]
+                entregas.append({
+                    "id_entrega": id_ent,
+                    "total_eventos": len(eventos),
+                    "ultimo_evento": eventos[-1] if eventos else None,
+                    "eventos": eventos,
+                })
+
+        return {
+            "status": "ok",
+            "pedido_bseller_real": pedido_bseller,
+            "numero_pedido_consultado": numero_pedido,
+            "quantidade_entregas": len(entregas),
+            "entregas": entregas,
+        }
+    finally:
+        conn.close()
 
 
 @router.get("/pedidos-erp/buscar")
@@ -357,6 +816,26 @@ async def process_import_background(content: bytes, filename: str, user_name: st
                     {"$set": {"status": "completed", "progress": 100, "inserted": est_inserted, "updated": est_updated, "skipped": 0, "errors": 0, "total": est_inserted + est_updated, "completed_at": datetime.now(timezone.utc).isoformat()}}
                 )
                 logger.info(f"Import 'outras' concluído: {forn_count} fornecedores, {est_inserted} estoque novos, {est_updated} atualizados")
+                # Notificar usuário que iniciou a importação
+                try:
+                    user = await db.users.find_one({"email": user_email}, {"_id": 0})
+                    if not user:
+                        user = await db.users.find_one({"email": "adneia@weconnect360.com.br"}, {"_id": 0})
+                    if user:
+                        notif = {
+                            "id": str(uuid.uuid4()),
+                            "tipo": "import_concluida",
+                            "titulo": "Importação de Estoque Concluída",
+                            "mensagem": f"A importação iniciada por {user_name} foi concluída. {forn_count} fornecedores, {est_inserted} itens novos, {est_updated} atualizados.",
+                            "destinatario_email": user['email'],
+                            "dados_extras": {"import_id": import_id, "inserted": est_inserted, "updated": est_updated, "forn_count": forn_count},
+                            "data_criacao": datetime.now(timezone.utc).isoformat(),
+                            "lida": False,
+                            "criado_por_nome": "Sistema"
+                        }
+                        await db.notifications.insert_one(notif)
+                except Exception as e:
+                    logger.error(f"Erro ao criar notificação: {e}")
                 return
 
             # Arquivo normal — ler aba Tabelão ou primeira aba
@@ -454,16 +933,21 @@ async def process_import_background(content: bytes, filename: str, user_name: st
             }}
         )
 
-        # Notificar admin
+        # Notificar admin e equipe de atendimento
         try:
-            admin = await db.users.find_one({"email": "adneia@weconnect360.com.br"}, {"_id": 0})
-            if admin:
+            emails_notificar = [
+                "adneia@weconnect360.com.br",
+                "caio@weconnect360.com.br",
+                "leticia@weconnect360.com.br",
+            ]
+            usuarios = await db.users.find({"email": {"$in": emails_notificar}}, {"_id": 0}).to_list(10)
+            for usuario in usuarios:
                 notif = {
                     "id": str(uuid.uuid4()),
                     "tipo": "import_concluida",
-                    "titulo": "Importação de Pedidos Concluída",
-                    "mensagem": f"A importação iniciada por {user_name} foi concluída. {inserted} novos, {updated} atualizados, {skipped} ignorados, {errors} erros.",
-                    "destinatario_email": admin['email'],
+                    "titulo": "Tabelão Atualizado",
+                    "mensagem": f"A base de pedidos foi atualizada por {user_name}. {inserted} novos, {updated} atualizados, {skipped} ignorados, {errors} erros.",
+                    "destinatario_email": usuario['email'],
                     "dados_extras": {"import_id": import_id, "inserted": inserted, "updated": updated, "skipped": skipped, "errors": errors},
                     "data_criacao": datetime.now(timezone.utc).isoformat(),
                     "lida": False,

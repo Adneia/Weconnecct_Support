@@ -39,12 +39,49 @@ import {
   AlertDialogTrigger,
 } from '../components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { 
+import {
   Loader2, ArrowLeft, Save, CheckCircle, Trash2, Plus,
-  Package, FileText, Truck, Clock, User, MessageSquare, AlertCircle
+  Package, FileText, Truck, Clock, User, MessageSquare, AlertCircle,
+  RefreshCw, ChevronDown, ChevronRight, MapPin, Copy
 } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
+
+// Categoria visual por idPonto (alinhado com bseller-api-map)
+const CATEGORIA_RASTREIO = {
+  ENT: { label: 'Entregue', color: 'bg-green-100 text-green-800 border-green-300' },
+  I04: { label: 'Entregue', color: 'bg-green-100 text-green-800 border-green-300' },
+  I79: { label: 'Entregue', color: 'bg-green-100 text-green-800 border-green-300' },
+  ETR: { label: 'Na transportadora', color: 'bg-blue-100 text-blue-800 border-blue-300' },
+  NFS: { label: 'NF emitida', color: 'bg-blue-100 text-blue-800 border-blue-300' },
+  NFA: { label: 'NFe aprovada', color: 'bg-blue-100 text-blue-800 border-blue-300' },
+  I06: { label: 'Saiu pra entrega', color: 'bg-blue-100 text-blue-800 border-blue-300' },
+  I59: { label: 'Em rota', color: 'bg-blue-100 text-blue-800 border-blue-300' },
+  I03: { label: 'Em trânsito', color: 'bg-blue-100 text-blue-800 border-blue-300' },
+  I11: { label: 'Entrada filial', color: 'bg-slate-100 text-slate-800 border-slate-300' },
+  I12: { label: 'Processando filial', color: 'bg-slate-100 text-slate-800 border-slate-300' },
+  I14: { label: 'Saída filial', color: 'bg-slate-100 text-slate-800 border-slate-300' },
+  I15: { label: 'Em transferência', color: 'bg-slate-100 text-slate-800 border-slate-300' },
+  CAN: { label: 'Cancelado', color: 'bg-red-100 text-red-800 border-red-300' },
+  I78: { label: 'Cancelado', color: 'bg-red-100 text-red-800 border-red-300' },
+  AES: { label: 'Aguardando estoque', color: 'bg-amber-100 text-amber-800 border-amber-300' },
+  PAP: { label: 'Pedido aprovado', color: 'bg-amber-100 text-amber-800 border-amber-300' },
+  AAP: { label: 'Aguardando aprovação', color: 'bg-amber-100 text-amber-800 border-amber-300' },
+  ALS: { label: 'Bloqueio SAC', color: 'bg-orange-100 text-orange-800 border-orange-300' },
+  PEI: { label: 'Pedido incluído', color: 'bg-slate-100 text-slate-800 border-slate-300' },
+  POK: { label: 'Pagamento OK', color: 'bg-slate-100 text-slate-800 border-slate-300' },
+  ASE: { label: 'A separar', color: 'bg-slate-100 text-slate-800 border-slate-300' },
+  SEP: { label: 'Separado', color: 'bg-slate-100 text-slate-800 border-slate-300' },
+  RIE: { label: 'Insucesso entrega', color: 'bg-purple-100 text-purple-800 border-purple-300' },
+  I19: { label: 'Em devolução', color: 'bg-purple-100 text-purple-800 border-purple-300' },
+  I63: { label: 'Devolução', color: 'bg-purple-100 text-purple-800 border-purple-300' },
+  I64: { label: 'EXTRAVIO', color: 'bg-red-200 text-red-900 border-red-400 font-bold' },
+};
+
+const _categoriaRastreio = (idPonto, descricao) => CATEGORIA_RASTREIO[idPonto] || {
+  label: descricao || idPonto || '—',
+  color: 'bg-gray-100 text-gray-800 border-gray-300',
+};
 
 const CANAIS = ['Email', 'WhatsApp', 'Conecta-lá', 'Bravium', 'Zendesk'];
 const CATEGORIAS = ['Acompanhamento', 'Falha de Compras', 'Falha de Produção', 'Falha de Transporte', 'Reversa', 'Outro'];
@@ -71,6 +108,49 @@ const DetalhesChamado = () => {
   const [showNovaAcaoDialog, setShowNovaAcaoDialog] = useState(false);
   const [showReversaDialog, setShowReversaDialog] = useState(false);
   const [novaReversa, setNovaReversa] = useState({ codigo_rastreio: '', observacoes: '' });
+
+  // Rastreio BSeller (status atual + historico granular)
+  const [rastreioBseller, setRastreioBseller] = useState(null);
+  const [rastreioHistorico, setRastreioHistorico] = useState(null);
+  const [loadingRastreio, setLoadingRastreio] = useState(false);
+  const [rastreioError, setRastreioError] = useState(null);
+  const [expandedEntregas, setExpandedEntregas] = useState({});
+
+  const fetchRastreioBseller = async () => {
+    const numero = chamado?.pedido_erp?.numero_pedido || chamado?.numero_pedido;
+    if (!numero) {
+      toast.error('Sem numero_pedido pra consultar rastreio');
+      return;
+    }
+    setLoadingRastreio(true);
+    setRastreioError(null);
+    try {
+      const [realtimeRes, histRes] = await Promise.all([
+        axios.get(`${API_URL}/api/pedidos-erp/${numero}/rastreio-realtime`, { headers: getAuthHeader() }),
+        axios.get(`${API_URL}/api/pedidos-erp/${numero}/historico-rastreio`, { headers: getAuthHeader() }),
+      ]);
+      setRastreioBseller(realtimeRes.data);
+      setRastreioHistorico(histRes.data);
+      if (realtimeRes.data?.status === 'id_invalido') {
+        toast.warning(realtimeRes.data.mensagem || 'ID inválido pra API SAC');
+      }
+    } catch (err) {
+      const msg = err?.response?.data?.detail || err.message || 'Erro consultando rastreio';
+      setRastreioError(msg);
+      toast.error(`Falha consultando BSeller: ${msg}`);
+    } finally {
+      setLoadingRastreio(false);
+    }
+  };
+
+  const toggleEntregaExpanded = (idEntrega) => {
+    setExpandedEntregas(prev => ({ ...prev, [idEntrega]: !prev[idEntrega] }));
+  };
+
+  const copyText = (text) => {
+    navigator.clipboard.writeText(text);
+    toast.success('Copiado!');
+  };
 
   useEffect(() => {
     fetchData();
@@ -422,10 +502,23 @@ const DetalhesChamado = () => {
                   <div>
                     <span className="text-muted-foreground">Cliente:</span>
                     <p className="font-medium">{chamado.pedido_erp.nome_cliente || '-'}</p>
+                    {chamado.pedido_erp.synced_at && (
+                      <p className="text-xs text-gray-400 italic mt-1">
+                        Sincronizado em {new Date(chamado.pedido_erp.synced_at).toLocaleString('pt-BR')}
+                      </p>
+                    )}
                   </div>
                   <div>
-                    <span className="text-muted-foreground">Cidade/UF:</span>
-                    <p className="font-medium">{chamado.pedido_erp.cidade || ''} {chamado.pedido_erp.uf ? `- ${chamado.pedido_erp.uf}` : ''}</p>
+                    <span className="text-muted-foreground">Endereço:</span>
+                    {chamado.pedido_erp.endereco_rua ? (
+                      <p className="font-medium">
+                        {chamado.pedido_erp.endereco_rua}
+                        {chamado.pedido_erp.endereco_numero ? `, ${chamado.pedido_erp.endereco_numero}` : <span className="text-gray-400 font-normal">, sem nº</span>}
+                        {chamado.pedido_erp.endereco_complemento && ` - ${chamado.pedido_erp.endereco_complemento}`}
+                        {chamado.pedido_erp.endereco_bairro && ` - ${chamado.pedido_erp.endereco_bairro}`}
+                      </p>
+                    ) : null}
+                    <p className="font-medium">{chamado.pedido_erp.cidade || ''} {chamado.pedido_erp.uf ? `- ${chamado.pedido_erp.uf}` : ''}{chamado.pedido_erp.cep ? ` - CEP ${chamado.pedido_erp.cep}` : ''}</p>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Transportadora:</span>
@@ -454,6 +547,193 @@ const DetalhesChamado = () => {
                     </div>
                   )}
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Rastreio BSeller (status atual SAC + timeline granular) */}
+          {chamado.pedido_erp && (chamado.pedido_erp.numero_pedido || chamado.numero_pedido) && (
+            <Card data-testid="card-rastreio-bseller" className="border-blue-200">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <Truck className="h-5 w-5 text-blue-600" />
+                    Rastreio BSeller (fonte oficial)
+                  </CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={fetchRastreioBseller}
+                    disabled={loadingRastreio}
+                  >
+                    <RefreshCw className={`h-3 w-3 mr-1 ${loadingRastreio ? 'animate-spin' : ''}`} />
+                    {rastreioBseller ? 'Atualizar' : 'Consultar BSeller'}
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {!rastreioBseller && !loadingRastreio && (
+                  <p className="text-sm text-muted-foreground">
+                    Clique em "Consultar BSeller" para ver o status em tempo real e a linha do tempo
+                    granular da(s) entrega(s) deste pedido (fonte: API SAC + tracking ZBIQ0035).
+                  </p>
+                )}
+
+                {rastreioError && (
+                  <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded p-3">
+                    {rastreioError}
+                  </div>
+                )}
+
+                {rastreioBseller && rastreioBseller.status === 'id_invalido' && (
+                  <div className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded p-3">
+                    {rastreioBseller.mensagem}
+                  </div>
+                )}
+
+                {rastreioBseller && rastreioBseller.status === 'nao_encontrado' && (
+                  <div className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded p-3">
+                    {rastreioBseller.mensagem}
+                  </div>
+                )}
+
+                {rastreioBseller && rastreioBseller.status === 'ok' && (
+                  <>
+                    {/* Aviso multi-entrega */}
+                    {rastreioBseller.quantidade_entregas > 1 && (
+                      <div className="mb-3 px-3 py-2 bg-amber-50 border border-amber-300 rounded text-sm text-amber-900 flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4" />
+                        <span>
+                          <strong>Pedido com {rastreioBseller.quantidade_entregas} entregas vinculadas.</strong>{' '}
+                          O status do ELO pode estar errado se alguma das outras já foi entregue.
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Card por entrega */}
+                    <div className="space-y-3">
+                      {rastreioBseller.entregas?.map((ent, idx) => {
+                        const cat = _categoriaRastreio(ent.id_ponto, ent.ponto_descricao);
+                        const histEntrega = rastreioHistorico?.entregas?.find(
+                          (h) => h.id_entrega === ent.id_entrega
+                        );
+                        const isExpanded = !!expandedEntregas[ent.id_entrega];
+                        return (
+                          <div key={ent.id_entrega || idx} className="border border-blue-200 rounded p-3 bg-white">
+                            {/* Header da entrega */}
+                            <div className="flex flex-wrap items-center gap-2 mb-2">
+                              <Badge variant="outline" className={cat.color}>
+                                {ent.id_ponto} · {cat.label}
+                              </Badge>
+                              <Badge variant="outline" className="text-xs">
+                                Entrega {ent.id_entrega}
+                              </Badge>
+                              {ent.filial_uf && (
+                                <Badge variant="outline" className="text-xs">
+                                  Filial {ent.filial_uf}
+                                </Badge>
+                              )}
+                              <span className="text-xs text-muted-foreground ml-auto flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {ent.data_ponto || '—'}
+                              </span>
+                            </div>
+
+                            {/* Status descrição + usuário */}
+                            <div className="text-sm text-muted-foreground mb-1">
+                              {ent.ponto_descricao || '—'}
+                            </div>
+                            {ent.usuario && (
+                              <div className="text-xs mb-2">
+                                <span className="text-muted-foreground">Último movimento por: </span>
+                                <span className="font-medium">{ent.usuario}</span>
+                                <Badge variant="outline" className="ml-2 text-[10px]">
+                                  {ent.usuario_tipo}
+                                </Badge>
+                              </div>
+                            )}
+
+                            {/* Endereço completo */}
+                            {ent.endereco?.completo && (
+                              <div className="flex items-start gap-1 text-xs mb-2">
+                                <MapPin className="h-3 w-3 mt-0.5 flex-shrink-0 text-muted-foreground" />
+                                <span className="flex-1">{ent.endereco.completo}</span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-5 w-5 p-0"
+                                  onClick={() => copyText(ent.endereco.completo)}
+                                >
+                                  <Copy className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            )}
+
+                            {/* Toggle de timeline */}
+                            {histEntrega && histEntrega.total_eventos > 0 && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 text-xs px-2"
+                                  onClick={() => toggleEntregaExpanded(ent.id_entrega)}
+                                >
+                                  {isExpanded ? (
+                                    <ChevronDown className="h-3 w-3 mr-1" />
+                                  ) : (
+                                    <ChevronRight className="h-3 w-3 mr-1" />
+                                  )}
+                                  Ver histórico ({histEntrega.total_eventos} eventos)
+                                </Button>
+
+                                {isExpanded && (
+                                  <div className="mt-2 pl-2 border-l-2 border-blue-200 space-y-1.5">
+                                    {histEntrega.eventos.map((ev, evIdx) => {
+                                      const evCat = _categoriaRastreio(ev.ponto_id, ev.descricao);
+                                      return (
+                                        <div key={evIdx} className="text-xs flex items-start gap-2">
+                                          <Badge variant="outline" className={`${evCat.color} text-[10px]`}>
+                                            {ev.ponto_id}
+                                          </Badge>
+                                          <div className="flex-1 min-w-0">
+                                            <div>
+                                              <span className="font-medium">{ev.descricao}</span>
+                                              {ev.data_ocorrencia && (
+                                                <span className="text-muted-foreground ml-2">
+                                                  {new Date(ev.data_ocorrencia).toLocaleString('pt-BR')}
+                                                </span>
+                                              )}
+                                            </div>
+                                            {ev.usuario && (
+                                              <div className="text-muted-foreground">
+                                                {ev.usuario}{' '}
+                                                <Badge variant="outline" className="ml-1 text-[9px]">
+                                                  {ev.usuario_tipo}
+                                                </Badge>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="text-[10px] text-muted-foreground text-right mt-2">
+                      Status SAC consultado em{' '}
+                      {rastreioBseller.consultado_em
+                        ? new Date(rastreioBseller.consultado_em).toLocaleString('pt-BR')
+                        : '—'}
+                      {' · '}Histórico via ZBIQ0035 (refresh 6/6h)
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           )}

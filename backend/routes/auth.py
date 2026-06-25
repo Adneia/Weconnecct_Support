@@ -36,7 +36,9 @@ def create_token(user_id: str, email: str, role: str = "atendente") -> str:
 
 
 @router.post("/auth/register", response_model=TokenResponse)
-async def register(user_data: UserCreate):
+async def register(user_data: UserCreate, current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Apenas admins podem criar usuarios")
     existing = await db.users.find_one({"email": user_data.email})
     if existing:
         raise HTTPException(status_code=400, detail="Email já cadastrado")
@@ -115,12 +117,12 @@ async def change_password(request: ChangePasswordRequest, current_user: dict = D
     user = await db.users.find_one({"id": current_user['id']})
     if not user:
         raise HTTPException(status_code=404, detail="Usuário não encontrado")
-    if not bcrypt.checkpw(request.current_password.encode('utf-8'), user['password'].encode('utf-8')):
+    if not bcrypt.checkpw(request.current_password.encode('utf-8'), user['password_hash'].encode('utf-8')):
         raise HTTPException(status_code=400, detail="Senha atual incorreta")
     new_password_hash = bcrypt.hashpw(request.new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
     await db.users.update_one(
         {"id": current_user['id']},
-        {"$set": {"password": new_password_hash}}
+        {"$set": {"password_hash": new_password_hash}}
     )
     return {"message": "Senha alterada com sucesso"}
 

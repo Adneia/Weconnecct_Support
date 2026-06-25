@@ -9,9 +9,18 @@ router = APIRouter(prefix="/api")
 
 @router.get("/relatorios/ag-compras")
 async def get_relatorio_ag_compras(current_user: dict = Depends(get_current_user)):
-    chamados = await db.chamados.find(
-        {"motivo_pendencia": "Ag. Compras", "pendente": True}, {"_id": 0}
+    # Pedidos que já estão na lista de cancelamento AES devem ser excluídos do relatório
+    # (qualquer status: pendentes ainda em andamento ou encerrados já tratados)
+    aes_pedidos = await db.cancelamentos.find(
+        {"tipo": "aes"}, {"_id": 0, "numero_pedido": 1}
     ).to_list(5000)
+    aes_numeros_pedido = {c["numero_pedido"] for c in aes_pedidos if c.get("numero_pedido")}
+
+    chamados_query = {"motivo_pendencia": "Ag. Compras", "pendente": True}
+    if aes_numeros_pedido:
+        chamados_query["numero_pedido"] = {"$nin": list(aes_numeros_pedido)}
+
+    chamados = await db.chamados.find(chamados_query, {"_id": 0}).to_list(5000)
     fornecedores_dict = {}
     fornecedores = await db.fornecedores.find({}, {"_id": 0}).to_list(100)
     for f in fornecedores:
@@ -67,6 +76,7 @@ async def get_relatorio_ag_compras(current_user: dict = Depends(get_current_user
 
         codigo_item = pedido.get('codigo_item_bseller', '')
         estoque_disponivel = None
+        estoque = None
         if codigo_item:
             ci_str = str(codigo_item)
             if ci_str.endswith('.0'):
@@ -81,7 +91,7 @@ async def get_relatorio_ag_compras(current_user: dict = Depends(get_current_user
             "id_produto": pedido.get('codigo_item_bseller', ''),
             "sku": pedido.get('codigo_item_vtex', ''),
             "quantidade": pedido.get('quantidade', ''),
-            "codigo_fornecedor": pedido.get('codigo_fornecedor', ''),
+            "codigo_fornecedor": estoque.get('codigo_fornecedor', '') if estoque else pedido.get('codigo_fornecedor', ''),
             "entrega": chamado.get('numero_pedido', ''),
             "parceiro_canal": pedido.get('canal_vendas', ''),
             "cidade": pedido.get('cidade', ''),

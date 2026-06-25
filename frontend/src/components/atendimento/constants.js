@@ -13,6 +13,7 @@ export const CATEGORIAS = [
   "Falha Parceiro",
   "Falha Produção",
   "Falha Transporte",
+  "Impossibilidade de Entrega",
 ];
 
 export const ATENDENTES = ["Letícia Martelo", "Adnéia Campos"];
@@ -23,6 +24,7 @@ export const MOTIVOS_PENDENCIA = [
   "Ag. Cliente",
   "Ag. Compras",
   "Ag. Confirmação de Entrega",
+  "Ag. Correios",
   "Ag. Fornecedor",
   "Ag. Logística",
   "Ag. Parceiro",
@@ -30,7 +32,8 @@ export const MOTIVOS_PENDENCIA = [
   "Ag. Transportadora - J&T",
   "Ag. Transportadora - Total",
   "Aguardando",
-  "Em devolução",
+  "Em devolução - Correios",
+  "Em devolução - Transp.",
   "Enviado",
   // --- Motivos que finalizam o atendimento ---
   "Atendido",
@@ -40,7 +43,7 @@ export const MOTIVOS_PENDENCIA = [
   "Estornado",
 ];
 
-export const MOTIVOS_FINALIZADORES = ["Entregue", "Estornado", "Atendido", "Em devolução", "Devolvido", "Encerrado"];
+export const MOTIVOS_FINALIZADORES = ["Entregue", "Estornado", "Atendido", "Em devolução - Correios", "Em devolução - Transp.", "Devolvido", "Encerrado"];
 
 // Textos de Motivo da Pendência
 export const TEXTOS_MOTIVO_PENDENCIA = {
@@ -215,13 +218,17 @@ O pedido encontra-se em processo de devolução. Assim que recebido em nosso gal
 Atenciosamente,
 [ASSINATURA]`,
 
+  "Ag. Parceiro - Devolvido": `Olá,
+
+O pedido foi recebido em nosso galpão. Favor seguir com o cancelamento e estorno ao cliente.
+
+Estamos à disposição para qualquer dúvida.
+Atenciosamente,
+[ASSINATURA]`,
+
   "Ag. Parceiro - Estorno Descarte": `Olá,
 
-Por favor seguir com o estorno ao cliente e encerramento do chamado.
-
-Por favor orientar o cliente descartar o item avariado.
-
-Sentimos muito pelo ocorrido.
+Lamentamos pelo ocorrido, em caráter de exceção não será necessário a devolução. Favor seguir com estorno ao cliente.
 
 Atenciosamente,
 [ASSINATURA]`,
@@ -255,6 +262,18 @@ Infelizmente, durante a preparação do item [PRODUTO], identificamos uma avaria
 
 Poderia, por gentileza, seguir com o cancelamento e o estorno ao cliente?
 
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Parceiro - Arrependimento Expirado": `Olá,
+
+Verificamos que o seu pedido foi entregue em [DATA_ENTREGA] e que a solicitação de arrependimento foi realizada em [DATA_EMISSAO].
+
+De acordo com o Código de Defesa do Consumidor (art. 49), o prazo para solicitação de arrependimento é de até 7 dias corridos após o recebimento do produto. Como esse prazo já foi ultrapassado, não é possível atender à solicitação por esse motivo.
+
+Caso o produto apresente algum defeito ou problema de funcionamento, pedimos, por gentileza, que nos informe para que possamos orientá-la quanto às alternativas disponíveis.
+
+Seguimos à disposição.
 Atenciosamente,
 [ASSINATURA]`,
 
@@ -366,13 +385,17 @@ O pedido encontra-se em processo de devolução. Assim que recebido em nosso gal
 Atenciosamente,
 [ASSINATURA]`,
 
+  "Ag. Cliente - Devolvido": `Olá,
+
+O pedido foi recebido em nosso galpão. Favor seguir com o cancelamento e estorno ao cliente.
+
+Estamos à disposição para qualquer dúvida.
+Atenciosamente,
+[ASSINATURA]`,
+
   "Ag. Cliente - Estorno Descarte": `Olá,
 
-Por favor seguir com o estorno ao cliente e encerramento do chamado.
-
-Por favor orientar o cliente descartar o item avariado.
-
-Sentimos muito pelo ocorrido.
+Lamentamos pelo ocorrido, em caráter de exceção não será necessário a devolução. Favor seguir com estorno ao cliente.
 
 Atenciosamente,
 [ASSINATURA]`,
@@ -793,11 +816,7 @@ Equipe de Atendimento Weconnect`,
   // ─── Ag. Parceiro (legados - mantidos para compatibilidade) ──────────────────
   "Ag. Parceiro - Estorno": `Olá,
 
-Por favor seguir com o estorno ao cliente e encerramento do chamado.
-
-Por favor orientar o cliente descartar o item avariado.
-
-Sentimos muito pelo ocorrido.
+Lamentamos pelo ocorrido, em caráter de exceção não será necessário a devolução. Favor seguir com estorno ao cliente.
 
 Atenciosamente,
 [ASSINATURA]`,

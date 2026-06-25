@@ -4,7 +4,7 @@
 export const replaceAllPlaceholders = (texto, context = {}) => {
   if (!texto) return '';
 
-  const { user, formData, pedidoErp, codigoReversa, dataVencimentoReversa } = context;
+  const { user, formData, pedidoErp, codigoReversa, dataVencimentoReversa, awbTotal, jmsJt } = context;
 
   let result = texto;
 
@@ -32,7 +32,23 @@ export const replaceAllPlaceholders = (texto, context = {}) => {
     result = result.replace(/\[PRODUTO\]/g, pedidoErp.produto);
   }
 
-  // [ENTREGA]
+  // [ITENS_ENTREGA] — TODOS os itens da entrega (ex.: "Produto A, Produto B e Produto C")
+  // Usado em entrega parcial. Fallback para o produto único quando a lista não veio.
+  {
+    const lista = Array.isArray(pedidoErp?.itens_entrega) && pedidoErp.itens_entrega.length
+      ? pedidoErp.itens_entrega
+      : (pedidoErp?.produto ? [pedidoErp.produto] : []);
+    let itensTexto = '[ITENS DA ENTREGA]';
+    if (lista.length === 1) {
+      itensTexto = lista[0];
+    } else if (lista.length > 1) {
+      itensTexto = lista.slice(0, -1).join(', ') + ' e ' + lista[lista.length - 1];
+    }
+    result = result.replace(/\[ITENS_ENTREGA\]/g, itensTexto);
+  }
+
+  // [ENTREGA] — sempre o número da entrega (numero_pedido), em todos os canais.
+  // (O pedido externo LLL-xxxxx da LL Loyalty NÃO deve ser usado aqui.)
   const entrega = pedidoErp?.numero_pedido || formData?.numero_pedido;
   if (entrega) {
     result = result.replace(/\[ENTREGA\]/g, entrega);
@@ -49,10 +65,9 @@ export const replaceAllPlaceholders = (texto, context = {}) => {
     result = result.replace(/\[CHAVE_ACESSO\]/g, pedidoErp.chave_nota);
   }
 
-  // [CÓDIGO_RASTREIO]
-  if (pedidoErp?.codigo_rastreio) {
-    result = result.replace(/\[CÓDIGO_RASTREIO\]/g, pedidoErp.codigo_rastreio);
-  }
+  // [CÓDIGO_RASTREIO] — usa AWB da Base Total ou JMS da J&T como fallback quando não há rastreio no tabelão
+  const codigoRastreio = pedidoErp?.codigo_rastreio || awbTotal?.awb || jmsJt?.jms || '';
+  result = result.replace(/\[CÓDIGO_RASTREIO\]/g, codigoRastreio);
 
   // [DATA_ENTREGA] and [DATA_ULTIMO_PONTO]
   if (pedidoErp?.data_status) {
@@ -83,6 +98,16 @@ export const replaceAllPlaceholders = (texto, context = {}) => {
   // [NUMERO_OCORRENCIA]
   if (formData?.solicitacao) {
     result = result.replace(/\[NUMERO_OCORRENCIA\]/g, formData.solicitacao);
+  }
+
+  // [TRANSPORTADORA]
+  if (pedidoErp?.transportadora) {
+    result = result.replace(/\[TRANSPORTADORA\]/g, pedidoErp.transportadora);
+  }
+
+  // [STATUS_BSELLER]
+  if (pedidoErp?.status_pedido) {
+    result = result.replace(/\[STATUS_BSELLER\]/g, pedidoErp.status_pedido);
   }
 
   return result;

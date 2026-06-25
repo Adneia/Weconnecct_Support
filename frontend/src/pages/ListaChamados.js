@@ -55,6 +55,7 @@ const MOTIVOS_PENDENCIA = [
   "Ag. Cliente",
   "Ag. Compras",
   "Ag. Confirmação de Entrega",
+  "Ag. Correios",
   "Ag. Fornecedor",
   "Ag. Logística",
   "Ag. Parceiro",
@@ -62,7 +63,8 @@ const MOTIVOS_PENDENCIA = [
   "Ag. Transportadora - J&T",
   "Ag. Transportadora - Total",
   "Aguardando",
-  "Em devolução",
+  "Em devolução - Correios",
+  "Em devolução - Transp.",
   "Enviado",
   "Atendido",
   "Devolvido",
@@ -98,7 +100,8 @@ const ListaAtendimentos = () => {
   const [motivosDisponiveis, setMotivosDisponiveis] = useState([]);
   
   const [totalNaBase, setTotalNaBase] = useState(null);
-  
+  const [acionarData, setAcionarData] = useState(null); // modal "Acionar Parceiro"
+
   // Estados para mesclar atendimentos
   const [showMergeDialog, setShowMergeDialog] = useState(false);
   const [mergeData, setMergeData] = useState(null); // { principal, secundario }
@@ -273,22 +276,18 @@ const ListaAtendimentos = () => {
     try {
       // Preparar dados para exportação
       const dataToExport = atendimentos.map(atd => ({
-        'Entrega': atd.numero_pedido || '',
-        'Cliente': atd.nome_cliente || '',
-        'CPF': atd.cpf_cliente || '',
+        'Solicitação': atd.solicitacao || '',
+        'Pedido': atd.numero_pedido || '',
         'Parceiro': atd.parceiro || atd.canal_vendas || '',
-        'Categoria': atd.categoria || '',
+        'Nome': atd.nome_cliente || '',
         'Motivo Pendência': atd.motivo_pendencia || '',
         'Status Pedido': atd.status_pedido || '',
         'Data Último Ponto': atd.data_ultimo_status || '',
+        'Status': atd.pendente ? 'Pendente' : 'Resolvido',
+        'Add. Transportadora': atd.transportadora || '',
+        'Categoria': atd.categoria || '',
         'Motivo': atd.motivo || '',
         'Reversa': atd.codigo_reversa || '',
-        'Atendente': atd.atendente || '',
-        'Status': atd.pendente ? 'Pendente' : 'Resolvido',
-        'Retornar': atd.retornar_chamado ? 'Sim' : '',
-        'Verificar': atd.verificar_adneia ? 'Sim' : '',
-        'Data': atd.data_abertura ? new Date(atd.data_abertura).toLocaleDateString('pt-BR') : '',
-        'Solicitação': atd.solicitacao || '',
         'Anotações': atd.anotacoes || ''
       }));
 
@@ -299,22 +298,18 @@ const ListaAtendimentos = () => {
 
       // Ajustar largura das colunas
       ws['!cols'] = [
-        { wch: 12 }, // Entrega
-        { wch: 25 }, // Cliente
-        { wch: 15 }, // CPF
+        { wch: 15 }, // Solicitação
+        { wch: 12 }, // Pedido
         { wch: 15 }, // Parceiro
+        { wch: 25 }, // Nome
+        { wch: 20 }, // Motivo Pendência
+        { wch: 25 }, // Status Pedido
+        { wch: 18 }, // Data Último Ponto
+        { wch: 12 }, // Status
+        { wch: 20 }, // Add. Transportadora
         { wch: 18 }, // Categoria
-        { wch: 15 }, // Motivo Pendência
-        { wch: 20 }, // Status Pedido
-        { wch: 15 }, // Data Último Ponto
         { wch: 30 }, // Motivo
         { wch: 15 }, // Reversa
-        { wch: 18 }, // Atendente
-        { wch: 10 }, // Status
-        { wch: 10 }, // Retornar
-        { wch: 10 }, // Verificar
-        { wch: 12 }, // Data
-        { wch: 15 }, // Solicitação
         { wch: 50 }, // Anotações
       ];
 
@@ -532,10 +527,7 @@ const ListaAtendimentos = () => {
     } else {
       const el = document.createElement('textarea');
       el.value = text;
-      el.style.position = 'fixed';
-      el.style.top = '-9999px';
-      el.style.left = '-9999px';
-      el.setAttribute('readonly', '');
+      el.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;z-index:9999';
       document.body.appendChild(el);
       el.focus();
       el.select();
@@ -570,6 +562,48 @@ const ListaAtendimentos = () => {
 
     const textoReversas = reversas.join('\n');
     copyToClipboardHTTP(textoReversas, () => toast.success(`${reversas.length} reversa(s) copiada(s)!`), () => toast.error('Erro ao copiar reversas'));
+  };
+
+  // ── Acionar Parceiro: compila pendências filtradas para enviar ao canal ──
+  const extrairAnotacao = (anotacoes) => {
+    const linha = (anotacoes || '').split('\n')[0] || '';
+    const mC = linha.match(/^\[(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)\]\s*(.*)$/);
+    const mS = linha.match(/^(\d{1,2}\/\d{1,2}(?:\/\d{2,4})?)\s*[-–]\s*(.*)$/);
+    if (mC) return { data: mC[1], texto: mC[2] || '' };
+    if (mS) return { data: mS[1], texto: mS[2] || '' };
+    return { data: '', texto: linha };
+  };
+  const abrirAcionarParceiro = () => {
+    const linhas = atendimentos.map(atd => {
+      const a = extrairAnotacao(atd.anotacoes);
+      return {
+        parceiro: atd.parceiro || atd.canal_vendas || '-',
+        entrega: atd.numero_pedido || '-',
+        pedido: atd.pedido_externo || '-',
+        solicitacao: atd.solicitacao || '-',
+        cpf: atd.cpf_cliente || '-',
+        data_anotacao: a.data || '-',
+        anotacao: a.texto || '-',
+      };
+    });
+    if (!linhas.length) { toast.info('Nenhum atendimento filtrado para acionar'); return; }
+    setAcionarData(linhas);
+  };
+  const copiarAcionar = () => {
+    const head = ['Parceiro', 'Entrega', 'Pedido', 'Solicitação', 'CPF', 'Data', 'Última Anotação'].join('\t');
+    const body = acionarData.map(r => [r.parceiro, r.entrega, r.pedido, r.solicitacao, r.cpf, r.data_anotacao, r.anotacao].join('\t')).join('\n');
+    copyToClipboardHTTP(head + '\n' + body, () => toast.success(`${acionarData.length} pendência(s) copiada(s)!`), () => toast.error('Erro ao copiar'));
+  };
+  const exportarAcionar = () => {
+    const data = acionarData.map(r => ({
+      'Parceiro': r.parceiro, 'Entrega': r.entrega, 'Pedido': r.pedido,
+      'Solicitação': r.solicitacao, 'CPF': r.cpf, 'Data Anotação': r.data_anotacao, 'Última Anotação': r.anotacao,
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    ws['!cols'] = [{ wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 16 }, { wch: 12 }, { wch: 50 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Acionar Parceiro');
+    XLSX.writeFile(wb, `Acionar Parceiro ${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
   const getCategoryBadgeColor = (categoria) => {
@@ -717,6 +751,120 @@ const ListaAtendimentos = () => {
     return 0;
   };
 
+  // Dias úteis entre um timestamp e hoje (ignora sáb/dom)
+  const diasUteisDesdeTs = (t) => {
+    if (!t) return null;
+    const ini = new Date(t); ini.setHours(0, 0, 0, 0);
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    let dias = 0;
+    const d = new Date(ini);
+    while (d < hoje) {
+      d.setDate(d.getDate() + 1);
+      const dow = d.getDay();
+      if (dow !== 0 && dow !== 6) dias++;
+    }
+    return dias;
+  };
+  const diasUteisDesde = (dataStr) => diasUteisDesdeTs(parseStatusDate(dataStr));
+  // Data da última anotação REAL (ignora a nota automática "Entrou como crítico")
+  const parseAnotacaoDataRelevante = (anotacoes) => {
+    const linhas = (anotacoes || '').split('\n');
+    for (const linha of linhas) {
+      if (linha.includes('Entrou como crítico')) continue;
+      const m = linha.match(/^\[(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\]/) ||
+                linha.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\s*[-–]/);
+      if (m) {
+        const dia = parseInt(m[1]), mes = parseInt(m[2]);
+        const ano = m[3] ? (parseInt(m[3]) < 100 ? 2000 + parseInt(m[3]) : parseInt(m[3])) : 2026;
+        return new Date(ano, mes - 1, dia).getTime();
+      }
+    }
+    return 0;
+  };
+  // Limite de dias úteis por motivo (null = não monitora)
+  const limiteTravado = (atd) => {
+    const m = atd.motivo_pendencia || '';
+    if (m === 'Enviado') return 3;
+    if (m === 'Ag. Logística') return 8;
+    if (m === 'Ag. Fornecedor') return 3;
+    if (m === 'Ag. Cliente') return 3;
+    if (m === 'Ag. Bseller') return 3;
+    if (m === 'Ag. Barrar') return 6;
+    return null;
+  };
+  // Dias travado conforme a fonte de cada motivo:
+  //  - Enviado / Ag. Logística → movimentação do pedido (data_ultimo_status)
+  //  - Ag. Fornecedor → última anotação (tempo no motivo aguardando o fornecedor)
+  // Flags de criticidade definidas pelo backend (sync) por motivo
+  // Flag de criticidade do MOTIVO ATUAL (evita flag preso de motivo anterior — ex.: chamado
+  // que estava em Ag. Logística >8d.ú., movimentou e virou Enviado: o flag de logística não
+  // deve mais marcá-lo como travado).
+  const FLAG_POR_MOTIVO = {
+    'Enviado': 'verificar_travado_auto',
+    'Ag. Logística': 'verificar_logistica_auto',
+    'Ag. Fornecedor': 'verificar_fornecedor_auto',
+    'Ag. Compras': 'verificar_compras_auto',
+    'Ag. Cliente': 'verificar_cliente_auto',
+    'Ag. Bseller': 'verificar_bseller_auto',
+    'Ag. Barrar': 'verificar_barrar_auto',
+  };
+  const flaggadoCritico = (atd) => {
+    const m = atd.motivo_pendencia || '';
+    if (m.startsWith('Ag. Transportadora')) return !!atd.verificar_transp_auto;
+    const f = FLAG_POR_MOTIVO[m];
+    return f ? !!atd[f] : false;
+  };
+  // Motivos cujo "tempo" é medido pela última anotação (não pela movimentação do pedido)
+  const ANOTACAO_BASED = ['Ag. Fornecedor', 'Ag. Cliente', 'Ag. Bseller', 'Ag. Barrar', 'Ag. Transportadora - J&T', 'Ag. Transportadora - Total', 'Ag. Transportadora - Asap'];
+  const diasTravado = (atd) => {
+    const m = atd.motivo_pendencia || '';
+    if (ANOTACAO_BASED.includes(m)) return diasUteisDesdeTs(parseAnotacaoDataRelevante(atd.anotacoes));
+    const porMov = diasUteisDesde(atd.data_ultimo_status);
+    if (porMov !== null) return porMov;
+    // Fallback: extrai "X dias úteis" da nota automática (ex.: Ag. Compras)
+    const m2 = (atd.anotacoes || '').match(/(\d+)\s*dias úteis/);
+    return m2 ? parseInt(m2[1]) : null;
+  };
+  // Atendimento travado:
+  //  - Motivos COM limite no front (Enviado, Ag. Logística, Fornecedor, Cliente, Bseller, Barrar):
+  //    recalcula SEMPRE pela movimentação/anotação atual. Ignora flag preso do backend — o flag
+  //    não é limpo quando o pedido movimenta, então sozinho daria falso "Travado" (ex.: parou >8d.ú.
+  //    em Logística, movimentou ontem → não está mais travado).
+  //  - Motivos SEM limite no front (Ag. Compras por prazo do fornecedor, Ag. Transportadora):
+  //    confia no flag do backend (do motivo atual).
+  const travadoEnviado = (atd) => {
+    const lim = limiteTravado(atd);
+    if (lim === null) return flaggadoCritico(atd);
+    const du = diasTravado(atd);
+    return du !== null && du > lim;
+  };
+  // Marca/desmarca "Verificar" inline (sem abrir o atendimento)
+  const toggleVerificar = async (atd, e) => {
+    if (e) e.stopPropagation();
+    const novo = !atd.verificar_adneia;
+    try {
+      await axios.put(`${API_URL}/api/chamados/${atd.id}`, { verificar_adneia: novo }, { headers: getAuthHeader() });
+      setAtendimentos(prev => prev.map(a => a.id === atd.id ? { ...a, verificar_adneia: novo } : a));
+      toast.success(novo ? 'Marcado como Verificar' : 'Verificar removido');
+    } catch {
+      toast.error('Erro ao atualizar');
+    }
+  };
+
+  // Checkpoint "Aguardando": cliente postou → move para Em devolução + planilha de devolução
+  const marcarPostado = async (atd, e) => {
+    if (e) e.stopPropagation();
+    if (!window.confirm('Confirmar que o cliente postou o item?\nIsso move para "Em devolução" e registra na planilha de gestão de devolução.')) return;
+    try {
+      const r = await axios.post(`${API_URL}/api/chamados/${atd.id}/marcar-postado`, {}, { headers: getAuthHeader() });
+      const novo = r.data?.motivo_pendencia || 'Em devolução - Correios';
+      setAtendimentos(prev => prev.map(a => a.id === atd.id ? { ...a, reversa_postada: true, motivo_pendencia: novo } : a));
+      toast.success(`Postado → ${novo} · planilha de devolução atualizada`);
+    } catch {
+      toast.error('Erro ao marcar como postado');
+    }
+  };
+
   const sortedAtendimentos = sortBy ? [...atendimentos].sort((a, b) => {
     let valA = 0, valB = 0;
     if (sortBy === 'dias') { valA = a.dias_aberto ?? 0; valB = b.dias_aberto ?? 0; }
@@ -770,6 +918,16 @@ const ListaAtendimentos = () => {
           >
             <Copy className="h-4 w-4 mr-2" />
             Copiar Reversas
+          </Button>
+          {/* Acionar Parceiro: compila pendências filtradas (Ag. Parceiro) para enviar ao canal */}
+          <Button
+            variant="outline"
+            onClick={abrirAcionarParceiro}
+            className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200"
+            data-testid="btn-acionar-parceiro"
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            Acionar Parceiro
           </Button>
           {/* Relatórios Especiais */}
           <Button variant="outline" onClick={exportRelatorioCompras} className="bg-orange-50 hover:bg-orange-100 text-orange-700 border-orange-200" data-testid="btn-relatorio-compras">
@@ -889,7 +1047,7 @@ const ListaAtendimentos = () => {
                   Canais com atividade ({canaisComAtividade.length}):
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  {canaisComAtividade.join(', ')}
+                  {canaisComAtividade.map(c => typeof c === 'string' ? c : c.canal).join(', ')}
                 </p>
               </div>
             )}
@@ -1403,6 +1561,16 @@ const ListaAtendimentos = () => {
                             // Normal - só mostra a data
                             return <span className="text-[11px] text-gray-400">{dataFormatada}</span>;
                           })()}
+                          {/* Checkpoint Aguardando: cliente postou → Em devolução + planilha */}
+                          {atd.motivo_pendencia === 'Aguardando' && atd.codigo_reversa && !atd.reversa_postada && (
+                            <button
+                              onClick={(e) => marcarPostado(atd, e)}
+                              title="Cliente postou o item → move para Em devolução e registra na planilha"
+                              className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 border border-emerald-300 hover:bg-emerald-200 text-[10px] font-semibold w-fit"
+                            >
+                              📦 Marcar postado
+                            </button>
+                          )}
                         </div>
                       </TableCell>
                       {/* Coluna Status Pedido - copiável + AJUSTE 5: data abaixo */}
@@ -1427,6 +1595,12 @@ const ListaAtendimentos = () => {
                                 } catch {}
                                 return d.split(' ')[0];
                               })()}
+                            </span>
+                          )}
+                          {travadoEnviado(atd) && (
+                            <span className="mt-0.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-100 text-red-700 border border-red-300 text-[10px] font-semibold w-fit"
+                              title={`${diasTravado(atd)} dias úteis sem retorno/movimentação — verificar`}>
+                              ⚠️ Travado {diasTravado(atd)}d
                             </span>
                           )}
                         </div>
@@ -1463,6 +1637,22 @@ const ListaAtendimentos = () => {
                             Resolvido
                           </Badge>
                         )}
+                        {/* Checkbox inline: marca como Verificar sem abrir o atendimento */}
+                        {atd.pendente && (
+                          <label
+                            className="mt-1 flex items-center gap-1 text-[11px] text-purple-700 cursor-pointer w-fit"
+                            onClick={(e) => e.stopPropagation()}
+                            title="Marcar/desmarcar Verificar"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={!!atd.verificar_adneia}
+                              onChange={(e) => toggleVerificar(atd, e)}
+                              className="cursor-pointer"
+                            />
+                            Verificar
+                          </label>
+                        )}
                       </TableCell>
                       {/* Coluna Dias */}
                       <TableCell
@@ -1487,6 +1677,65 @@ const ListaAtendimentos = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Modal: Acionar Parceiro */}
+      {acionarData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setAcionarData(null)}>
+          <div className="bg-white dark:bg-slate-900 rounded-xl shadow-2xl w-full max-w-5xl mx-4 max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b">
+              <div>
+                <h2 className="font-bold text-base flex items-center gap-2">📨 Acionar Parceiro</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Pendências dos atendimentos filtrados ({acionarData.length}) — para solicitar encerramento ao canal.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="outline" onClick={copiarAcionar}>
+                  <Copy className="h-4 w-4 mr-1" /> Copiar
+                </Button>
+                <Button size="sm" variant="outline" onClick={exportarAcionar}>
+                  <Download className="h-4 w-4 mr-1" /> Excel
+                </Button>
+                <button onClick={() => setAcionarData(null)} className="text-slate-400 hover:text-slate-700"><X className="h-5 w-5" /></button>
+              </div>
+            </div>
+            <div className="overflow-auto flex-1">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800 border-b">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium text-slate-600">Parceiro</th>
+                    <th className="px-3 py-2 text-left font-medium text-slate-600">Entrega</th>
+                    <th className="px-3 py-2 text-left font-medium text-slate-600">Pedido</th>
+                    <th className="px-3 py-2 text-left font-medium text-slate-600">Solicitação</th>
+                    <th className="px-3 py-2 text-left font-medium text-slate-600">CPF</th>
+                    <th className="px-3 py-2 text-left font-medium text-slate-600">Data</th>
+                    <th className="px-3 py-2 text-left font-medium text-slate-600">Última Anotação</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {acionarData.map((r, idx) => (
+                    <tr key={idx} className="border-b hover:bg-slate-50 dark:hover:bg-slate-800/30">
+                      <td className="px-3 py-1.5">{r.parceiro}</td>
+                      <td className="px-3 py-1.5 font-mono text-xs">{r.entrega}</td>
+                      <td className="px-3 py-1.5 font-mono text-xs">{r.pedido}</td>
+                      <td className="px-3 py-1.5 font-mono text-xs">{r.solicitacao}</td>
+                      <td className="px-3 py-1.5 font-mono text-xs">{r.cpf}</td>
+                      <td className="px-3 py-1.5 whitespace-nowrap">{r.data_anotacao}</td>
+                      <td className="px-3 py-1.5 max-w-[280px] truncate" title={r.anotacao}>{r.anotacao}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="bg-slate-50 dark:bg-slate-800 font-semibold">
+                    <td colSpan={6} className="px-3 py-2 text-right">Total:</td>
+                    <td className="px-3 py-2">{acionarData.length}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

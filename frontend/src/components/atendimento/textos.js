@@ -64,6 +64,49 @@ Seguimos a disposição, caso haja qualquer necessidade dentro dos prazo de atua
 Atenciosamente!
 [ASSINATURA]`,
 
+  "Ag. Parceiro - Estorno Descarte": `Olá,
+
+Lamentamos pelo ocorrido, em caráter de exceção não será necessário a devolução. Favor seguir com estorno ao cliente.
+
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Parceiro - Devolvido": `Olá,
+
+O pedido foi recebido em nosso galpão. Favor seguir com o cancelamento e estorno ao cliente.
+
+Estamos à disposição para qualquer dúvida.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Parceiro - Arrependimento Expirado": `Olá,
+
+Verificamos que o seu pedido foi entregue em [DATA_ENTREGA] e que a solicitação de arrependimento foi realizada em [DATA_EMISSAO].
+
+De acordo com o Código de Defesa do Consumidor (art. 49), o prazo para solicitação de arrependimento é de até 7 dias corridos após o recebimento do produto. Como esse prazo já foi ultrapassado, não é possível atender à solicitação por esse motivo.
+
+Caso o produto apresente algum defeito ou problema de funcionamento, pedimos, por gentileza, que nos informe para que possamos orientá-la quanto às alternativas disponíveis.
+
+Seguimos à disposição.
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Cliente - Estorno Descarte": `Olá,
+
+Lamentamos pelo ocorrido, em caráter de exceção não será necessário a devolução. Favor seguir com estorno ao cliente.
+
+Atenciosamente,
+[ASSINATURA]`,
+
+  "Ag. Cliente - Devolvido": `Olá,
+
+O pedido foi recebido em nosso galpão. Favor seguir com o cancelamento e estorno ao cliente.
+
+Estamos à disposição para qualquer dúvida.
+Atenciosamente,
+[ASSINATURA]`,
+
+
   "Em devolução - Ag. Devolução": `Olá, 
 
 O pedido segue em processo de devolução, conforme link de rastreamento abaixo:
@@ -232,13 +275,19 @@ export const getCategoriaPorStatus = (statusPedido) => {
     return { categoria: '', motivo: 'Entregue' };
   }
   
-  // Aguardando estoque
-  if (status.includes('aguardando estoque') || status.includes('ag. estoque')) {
+  // Ag. Compras — somente "Aguardando estoque" e "Pedido aprovado"
+  if (status.includes('aguardando estoque') || status.includes('ag. estoque') ||
+      status.includes('pedido aprovado')) {
     return { categoria: 'Falha Compras', motivo: 'Ag. Compras' };
   }
-  
+
+  // Aguardando liberação do SAC → Ag. Logística (não é Ag. Compras)
+  if (status.includes('libera') && status.includes('sac')) {
+    return { categoria: 'Falha Produção', motivo: 'Ag. Logística' };
+  }
+
   // NF emitida, NF Aprovada, Entregue à transportadora
-  if (status.includes('nf emitida') || status.includes('nf aprovada') || 
+  if (status.includes('nf emitida') || status.includes('nf aprovada') ||
       status.includes('entregue à transportadora') || status.includes('entregue a transportadora')) {
     return { categoria: 'Falha Produção', motivo: 'Ag. Logística' };
   }

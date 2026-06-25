@@ -653,7 +653,8 @@ async def corrigir_motivos_inconsistentes(current_user: dict = Depends(get_curre
 
     chamados = await db.chamados.find(
         {"pendente": True},
-        {"_id": 1, "numero_pedido": 1, "motivo_pendencia": 1, "id_atendimento": 1}
+        {"_id": 1, "numero_pedido": 1, "motivo_pendencia": 1, "id_atendimento": 1,
+         "codigo_reversa": 1, "reversa_codigo": 1, "reversa_postada": 1}
     ).to_list(10000)
     stats["verificados"] = len(chamados)
 
@@ -661,11 +662,13 @@ async def corrigir_motivos_inconsistentes(current_user: dict = Depends(get_curre
     numeros = [c["numero_pedido"] for c in chamados if c.get("numero_pedido")]
     pedidos_cursor = db.pedidos_erp.find(
         {"numero_pedido": {"$in": numeros}},
-        {"_id": 0, "numero_pedido": 1, "status_pedido": 1}
+        {"_id": 0, "numero_pedido": 1, "status_pedido": 1, "transportadora": 1}
     )
     pedidos_map = {}
+    transp_map = {}
     async for p in pedidos_cursor:
         pedidos_map[p["numero_pedido"]] = p.get("status_pedido", "")
+        transp_map[p["numero_pedido"]] = p.get("transportadora", "") or ""
 
     for chamado in chamados:
         numero = chamado.get("numero_pedido", "")
@@ -685,6 +688,15 @@ async def corrigir_motivos_inconsistentes(current_user: dict = Depends(get_curre
         if not motivo_correto:
             stats["ignorados_sem_mapeamento"] += 1
             continue
+
+        # Classifica "Em devolução": tem reversa = Correios (postado → Em devolução; senão Aguardando);
+        # sem reversa = Transportadora.
+        if motivo_correto == "Em devolução":
+            _tem_rev = chamado.get("codigo_reversa") or chamado.get("reversa_codigo")
+            if _tem_rev:
+                motivo_correto = "Em devolução - Correios" if chamado.get("reversa_postada") else "Aguardando"
+            else:
+                motivo_correto = "Em devolução - Transp."
 
         if motivo_atual == motivo_correto:
             stats["ja_corretos"] += 1
@@ -718,13 +730,18 @@ async def corrigir_motivos_inconsistentes(current_user: dict = Depends(get_curre
     return {"success": True, "message": f"{stats['corrigidos']} motivos corrigidos", "stats": stats}
 
 
-async def atualizar_motivos_pendencia_automatico():
+async def atualizar_motivos_pendencia_automatico(numeros_pedido: list = None):
     """
     AJUSTE 1 — Fluxo automático de Motivo de Pendência.
     Usa a tabela de mapeamento Status do Pedido → Motivo de Pendência.
     Só atualiza se o motivo atual for Ag. Compras, Ag. Logística ou Enviado.
     Não altera registros com Status = Entrega cancelada ou CANCELADO.
     Também aplica AJUSTE 2: limpa verificar_adneia quando motivo muda.
+
+    Args:
+        numeros_pedido: lista opcional de números de pedido para filtrar.
+                        Quando passada, processa apenas chamados desses pedidos
+                        (otimização para o sync incremental).
     """
 
     logger.info("Iniciando atualização automática de motivos de pendência (novo mapeamento)...")
@@ -737,7 +754,11 @@ async def atualizar_motivos_pendencia_automatico():
         "verificar_limpo": 0,
     }
 
-    chamados = await db.chamados.find({"pendente": True}, {"_id": 0}).to_list(5000)
+    # Filtra por numeros_pedido quando informado (otimização do sync incremental)
+    query = {"pendente": True}
+    if numeros_pedido:
+        query["numero_pedido"] = {"$in": [str(n) for n in numeros_pedido]}
+    chamados = await db.chamados.find(query, {"_id": 0}).to_list(5000)
     stats["pendentes_verificados"] = len(chamados)
 
     for chamado in chamados:
@@ -757,17 +778,101 @@ async def atualizar_motivos_pendencia_automatico():
             stats["aguardando_acao_manual"] += 1
             continue
 
-        # Só atualizar automaticamente se motivo atual for auto-atualizável
-        if motivo_atual not in MOTIVOS_AUTO_ATUALIZAVEIS:
+        # Regra: o auto-update roda quando o status MUDOU. Porém, mesmo sem mudança,
+        # reconcilia motivos AUTOMÁTICOS (Ag. Compras/Logística/Enviado/Entregue) que
+        # ficaram defasados — ex.: preso em 'Ag. Logística' apesar de já entregue.
+        # Motivos manuais (Ag. Parceiro, Ag. Cliente, etc.) seguem preservados abaixo.
+        status_anterior = chamado.get('status_pedido', '') or ''
+        if status_pedido == status_anterior and motivo_atual not in MOTIVOS_AUTO_ATUALIZAVEIS:
             stats["ignorados_outros_motivos"] += 1
+            continue
+
+        # Status mudou — preserva motivos finalizadores (Em devolução / Encerrado / etc.)
+        # pra não sobrescrever ações já concluídas pelo atendente
+        MOTIVOS_FINALIZADORES = ["Em devolução", "Devolvido", "Estornado", "Encerrado", "Atendido"]
+        if motivo_atual in MOTIVOS_FINALIZADORES:
+            stats["aguardando_acao_manual"] += 1
+            # Mesmo preservando o motivo, atualiza o status_pedido pra refletir o BSeller atual
+            await db.chamados.update_one(
+                {"id_atendimento": chamado.get('id_atendimento')},
+                {"$set": {"status_pedido": status_pedido}}
+            )
+            continue
+
+        # Preservar motivos definidos manualmente pelo atendente (Ag. Parceiro, Ag. Cliente, etc.)
+        # Só auto-atualiza se o motivo atual for um dos motivos automáticos do fluxo logístico
+        if motivo_atual and motivo_atual not in MOTIVOS_AUTO_ATUALIZAVEIS:
+            stats["aguardando_acao_manual"] += 1
+            # Sincroniza apenas o status_pedido sem alterar o motivo manual
+            await db.chamados.update_one(
+                {"id_atendimento": chamado.get('id_atendimento')},
+                {"$set": {"status_pedido": status_pedido}}
+            )
             continue
 
         stats["elegiveis"] += 1
 
         # Buscar novo motivo pelo mapeamento
         novo_motivo = get_motivo_from_status(status_pedido)
+
+        # Regra especial: se chamado tem código de reversa e status virou Entregue,
+        # mantém "Em devolução" — reversa emitida, aguardando devolução do cliente
+        tem_reversa = chamado.get('codigo_reversa') or chamado.get('reversa_codigo')
+        if tem_reversa and novo_motivo == 'Entregue':
+            novo_motivo = 'Em devolução'
+
+        # REENVIO: chamado em Ag. Logística cujo pedido foi entregue/finalizado, mas o
+        # atendente informou uma NOVA entrega (reenvio). Antes de mandar pra Ag. Parceiro,
+        # substitui a entrega: o chamado passa a seguir a nova entrega (e seu status atual).
+        nova_ent = (chamado.get('nova_entrega') or '').strip().split('.')[0]
+        if (motivo_atual == 'Ag. Logística' and novo_motivo in ('Entregue', 'Ag. Parceiro')
+                and nova_ent and nova_ent != numero_pedido):
+            ped_novo = await db.pedidos_erp.find_one({"numero_pedido": nova_ent}, {"_id": 0})
+            if ped_novo:
+                status_novo = ped_novo.get('status_pedido', '')
+                motivo_novo_ent = get_motivo_from_status(status_novo) or 'Ag. Logística'
+                if motivo_novo_ent == 'Entregue':
+                    motivo_novo_ent = 'Ag. Parceiro'
+                from datetime import timedelta as _td_re
+                data_br_re = (datetime.now(timezone.utc) - _td_re(hours=3)).strftime('%d/%m')
+                nota_re = f"[{data_br_re}] Reenvio: entrega {numero_pedido} substituída por {nova_ent} (status {status_novo})"
+                obs_re = chamado.get('anotacoes') or ''
+                await db.chamados.update_one(
+                    {"id_atendimento": chamado.get('id_atendimento')},
+                    {"$set": {
+                        "numero_pedido": nova_ent,
+                        "entrega_anterior": numero_pedido,
+                        "nova_entrega": "",
+                        "status_pedido": status_novo,
+                        "motivo_pendencia": motivo_novo_ent,
+                        "anotacoes": (nota_re + ("\n" + obs_re if obs_re else "")).strip(),
+                    }}
+                )
+                stats["reenvio_substituido"] = stats.get("reenvio_substituido", 0) + 1
+                logger.info(f"[reenvio] {chamado.get('id_atendimento')}: entrega {numero_pedido} -> {nova_ent} ({motivo_novo_ent})")
+                continue  # não aplica Ag. Parceiro nesta rodada
+
+        # Regra: pedido entregue mas atendimento ainda pendente → Ag. Parceiro
+        # (ainda há algo a resolver com o parceiro/canal). Vale para qualquer motivo
+        # auto-atualizável que vire 'Entregue'. A reversa (acima) tem prioridade.
+        if novo_motivo == 'Entregue':
+            novo_motivo = 'Ag. Parceiro'
+
+        # Classifica "Em devolução": tem reversa = Correios (emitimos a reversa).
+        #   - postado pelo cliente → Em devolução - Correios
+        #   - ainda NÃO postado     → Aguardando (esperando o cliente postar)
+        # Sem reversa = devolução pela transportadora → Em devolução - Transp.
+        if novo_motivo == 'Em devolução':
+            if tem_reversa:
+                novo_motivo = 'Em devolução - Correios' if chamado.get('reversa_postada') else 'Aguardando'
+            else:
+                novo_motivo = 'Em devolução - Transp.'
+
         if novo_motivo and novo_motivo != motivo_atual:
-            update_fields = {"motivo_pendencia": novo_motivo}
+            update_fields = {
+                "motivo_pendencia": novo_motivo,
+                "status_pedido": status_pedido,  # sincroniza o status guardado no chamado
+            }
             # AJUSTE 2: limpar verificar quando motivo muda
             if chamado.get('verificar_adneia'):
                 update_fields["verificar_adneia"] = False
@@ -778,7 +883,13 @@ async def atualizar_motivos_pendencia_automatico():
                 {"$set": update_fields}
             )
             stats["atualizados"] += 1
-            logger.info(f"Chamado {chamado.get('id_atendimento')}: {motivo_atual} -> {novo_motivo}")
+            logger.info(f"Chamado {chamado.get('id_atendimento')}: motivo {motivo_atual} -> {novo_motivo} (status {status_anterior} -> {status_pedido})")
+        else:
+            # Status mudou mas mapeamento não retornou motivo novo — só sincroniza o status
+            await db.chamados.update_one(
+                {"id_atendimento": chamado.get('id_atendimento')},
+                {"$set": {"status_pedido": status_pedido}}
+            )
 
     logger.info(f"Atualização automática concluída: {stats}")
     return stats
