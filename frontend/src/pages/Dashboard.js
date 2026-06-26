@@ -144,6 +144,58 @@ const Dashboard = () => {
     toast.success(`Limpeza registrada — próxima: ${fmtBR(prox)}`);
   };
 
+  // ── Verificação de status: limpeza por MOTIVO de pendência ──
+  // Cronograma fixo: 2x/semana — terça(2) e quinta(4), para todos os motivos.
+  const [verifRows, setVerifRows] = useState([]);
+  const [verifHoje, setVerifHoje] = useState('');
+  const fetchVerificacao = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API_URL}/api/dashboard/verificacao-status`, { headers: getAuthHeader() });
+      setVerifRows(res.data.rows || []);
+      setVerifHoje(res.data.hoje || '');
+    } catch {}
+  }, [getAuthHeader]);
+  useEffect(() => { fetchVerificacao(); }, [fetchVerificacao]);
+  const DIAS_VERIF = [2, 4]; // terça e quinta, todos os motivos
+  const verifDevida = () => DIAS_VERIF.includes(new Date().getDay());
+  const proximaDataVerif = (baseStr) => {
+    const hojeStr = fmtLocal(new Date());
+    const ini = (baseStr && baseStr >= hojeStr) ? new Date(baseStr + 'T12:00:00') : new Date();
+    const d = new Date(ini);
+    for (let i = 0; i < 14; i++) {
+      d.setDate(d.getDate() + 1);
+      if (DIAS_VERIF.includes(d.getDay())) return fmtLocal(d);
+    }
+    return '';
+  };
+  const [verifExpand, setVerifExpand] = useState({});
+  // Atualiza linha principal (parceiro vazio) ou sub-linha (parceiro preenchido)
+  const updateVerifLocal = (motivo, parceiro, patch) => {
+    setVerifRows(prev => prev.map(r => {
+      if (r.motivo !== motivo) return r;
+      if (!parceiro) return { ...r, ...patch };
+      return { ...r, sub: (r.sub || []).map(s => s.parceiro === parceiro ? { ...s, ...patch } : s) };
+    }));
+  };
+  const postVerif = async (motivo, parceiro, fields) => {
+    try {
+      await axios.post(`${API_URL}/api/dashboard/verificacao-status`, { motivo, parceiro, ...fields }, { headers: getAuthHeader() });
+    } catch {}
+  };
+  const salvarVerifCampo = (motivo, parceiro, fields) => {
+    updateVerifLocal(motivo, parceiro, fields);
+    postVerif(motivo, parceiro, fields);
+  };
+  // Check ✓ "feito hoje": carimba ultima=hoje e avança próxima (toggle reversível no backend)
+  const toggleVerifCheck = async (motivo, parceiro) => {
+    const prox = proximaDataVerif(fmtLocal(new Date()));
+    try {
+      const res = await axios.post(`${API_URL}/api/dashboard/verificacao-check`, { motivo, parceiro, proxima: prox }, { headers: getAuthHeader() });
+      updateVerifLocal(motivo, parceiro, { ultima: res.data.ultima || '', proxima: res.data.proxima || '' });
+      if (res.data.checked) toast.success(`Verificado hoje — próxima: ${fmtBR(res.data.proxima)}`);
+    } catch {}
+  };
+
   const fetchFiltros = useCallback(async () => {
     try {
       const res = await axios.get(`${API_URL}/api/dashboard/v2/filtros`, { headers: getAuthHeader() });
@@ -505,46 +557,6 @@ const Dashboard = () => {
                               }`}
                             >✓</button>
                             <span className={isOk ? 'text-emerald-700 dark:text-emerald-400 font-semibold' : ''}>{item.canal}</span>
-                            {(() => {
-                              // Canais que não passam por limpeza (canais de contato, não de venda)
-                              const SEM_LIMPEZA = ['Reclame aqui', 'ZAP/E-mail'];
-                              if (SEM_LIMPEZA.includes(item.canal)) return null;
-
-                              // Sem atendimento em aberto → "não aplicável".
-                              // Se entrar atendimento (backlog > 0), volta a vassoura com data.
-                              const semBacklog = !(item.total?.a > 0);
-                              if (semBacklog) {
-                                return (
-                                  <span className="ml-1 text-[11px] text-slate-400 italic" title="Sem atendimento em aberto — limpeza não aplicável">
-                                    não aplicável
-                                  </span>
-                                );
-                              }
-
-                              const devida = limpezaDevida(item.canal);
-                              const dataLimpeza = limpeza[item.canal]?.data || '';
-                              const cor = devida ? 'text-red-600 font-semibold' : 'text-slate-400';
-                              return (
-                                <span className="ml-1 inline-flex items-center gap-1 text-[11px]">
-                                  {/* Botão vassoura: registra limpeza e avança pra próxima data */}
-                                  <button
-                                    type="button"
-                                    onClick={() => registrarLimpeza(item.canal)}
-                                    title="Marcar limpeza realizada → avança para a próxima data"
-                                    className={`rounded px-0.5 text-sm hover:bg-emerald-100 transition-colors ${cor}`}
-                                  >🧹</button>
-                                  {/* Data da próxima limpeza — editável manualmente pelo calendário */}
-                                  <input
-                                    type="date"
-                                    value={dataLimpeza}
-                                    onChange={(e) => salvarLimpeza(item.canal, e.target.value)}
-                                    title="Próxima limpeza (ajuste manual)"
-                                    className={`bg-transparent border-0 p-0 text-[11px] cursor-pointer focus:outline-none ${cor}`}
-                                    style={{ width: dataLimpeza ? '92px' : '20px' }}
-                                  />
-                                </span>
-                              );
-                            })()}
                           </div>
                         </TableCell>
                         {olderMonthsOrder.map(month =>
@@ -839,6 +851,125 @@ const Dashboard = () => {
               </div>
             </CardContent>
           </Card>
+        );
+      })()}
+
+      {/* ── Verificação de status (limpeza por motivo de pendência) ── */}
+      {verifRows.length > 0 && (() => {
+        const DIAS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+        const hoje = verifHoje || fmtLocal(new Date());
+        const devidaHoje = verifDevida();
+        // Check ✓ "feito hoje" (igual ao dash): verde quando última = hoje
+        const checkBtn = (motivo, parceiro, ultima, small) => {
+          const ok = !!ultima && ultima === hoje;
+          return (
+            <button type="button"
+              onClick={() => toggleVerifCheck(motivo, parceiro)}
+              title={ok ? 'Verificado hoje — clique para desfazer' : 'Marcar verificado hoje (carimba última e avança próxima)'}
+              className={`flex-shrink-0 ${small ? 'w-4 h-4 text-[9px]' : 'w-5 h-5 text-[10px]'} rounded-full border-2 flex items-center justify-center font-bold transition-all ${
+                ok ? 'bg-emerald-500 border-emerald-500 text-white hover:bg-emerald-600'
+                   : 'border-slate-300 text-slate-300 hover:border-emerald-400 hover:text-emerald-400'}`}
+            >✓</button>
+          );
+        };
+        // Célula de data (última/próxima) — editável; próxima fica vermelha + "• hoje" quando devida
+        const dateCell = (motivo, parceiro, field, val, opts) => {
+          const cor = (opts && opts.devida) ? 'text-red-600 font-semibold' : 'text-slate-500';
+          const dia = val ? DIAS[new Date(val + 'T12:00:00').getDay()] : '';
+          return (
+            <span className="inline-flex items-center gap-1.5">
+              <input type="date" value={val || ''}
+                onChange={(e) => salvarVerifCampo(motivo, parceiro, { [field]: e.target.value })}
+                title="Ajuste manual"
+                className={`bg-transparent border-0 p-0 text-xs cursor-pointer focus:outline-none ${cor}`}
+                style={{ width: val ? '92px' : '20px' }} />
+              {val && <span className={`text-[11px] ${cor}`}>({dia})</span>}
+              {opts && opts.flagHoje && <span className="text-[11px] text-red-600 font-semibold">• hoje</span>}
+            </span>
+          );
+        };
+        // Célula "Observação" (salva no blur)
+        const obsCell = (motivo, parceiro, obs, small) => (
+          <input type="text" value={obs || ''} placeholder="anotação…"
+            onChange={(e) => updateVerifLocal(motivo, parceiro, { obs: e.target.value })}
+            onBlur={(e) => postVerif(motivo, parceiro, { obs: e.target.value })}
+            className={`w-full bg-transparent border border-transparent hover:border-slate-200 focus:border-slate-300 dark:hover:border-slate-700 rounded px-2 ${small ? 'py-0.5' : 'py-1'} text-xs focus:outline-none`} />
+        );
+        return (
+        <Card className="mt-4">
+          <CardHeader className="py-3">
+            <CardTitle className="text-sm font-semibold flex items-center gap-2 flex-wrap">
+              <span>🔎 Verificação de status</span>
+              <span className="text-[11px] font-normal text-muted-foreground">
+                limpeza por motivo — 2x/semana: terça e quinta
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 dark:bg-slate-800/30 border-y">
+                <tr>
+                  <th className="text-center px-2 py-2 font-semibold w-10">✓</th>
+                  <th className="text-left px-2 py-2 font-semibold w-60">Motivo de pendência</th>
+                  <th className="text-center px-3 py-2 font-semibold w-20">Em aberto</th>
+                  <th className="text-left px-3 py-2 font-semibold w-32">Última verif.</th>
+                  <th className="text-left px-3 py-2 font-semibold w-32">Próxima verif.</th>
+                  <th className="text-left px-3 py-2 font-semibold">Observação</th>
+                </tr>
+              </thead>
+              <tbody>
+                {verifRows.map(r => {
+                  const temSub = Array.isArray(r.sub);
+                  const aberto = !!verifExpand[r.motivo];
+                  const feitoHoje = !!r.ultima && r.ultima === hoje;
+                  const flag = devidaHoje && !feitoHoje;
+                  return (
+                    <React.Fragment key={r.motivo}>
+                      <tr className="border-b last:border-0 hover:bg-muted/40">
+                        <td className="px-2 py-2 text-center">{checkBtn(r.motivo, '', r.ultima, false)}</td>
+                        <td className="px-2 py-2 font-medium">
+                          <span className="inline-flex items-center gap-1.5">
+                            {temSub ? (
+                              <button type="button"
+                                onClick={() => setVerifExpand(p => ({ ...p, [r.motivo]: !p[r.motivo] }))}
+                                title={aberto ? 'Recolher parceiros' : 'Abrir por parceiro'}
+                                className="w-4 h-4 flex items-center justify-center rounded border text-xs leading-none text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700">
+                                {aberto ? '−' : '+'}
+                              </button>
+                            ) : <span className="inline-block w-4" />}
+                            {r.motivo}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          <span className={r.qtd > 0 ? 'font-bold text-indigo-700 dark:text-indigo-400' : 'text-muted-foreground'}>{r.qtd}</span>
+                        </td>
+                        <td className="px-3 py-2">{dateCell(r.motivo, '', 'ultima', r.ultima || '', {})}</td>
+                        <td className="px-3 py-2">{dateCell(r.motivo, '', 'proxima', r.proxima || '', { devida: flag, flagHoje: flag })}</td>
+                        <td className="px-3 py-2">{obsCell(r.motivo, '', r.obs, false)}</td>
+                      </tr>
+                      {temSub && aberto && r.sub.map(s => {
+                        const subFeito = !!s.ultima && s.ultima === hoje;
+                        const subFlag = devidaHoje && !subFeito;
+                        return (
+                        <tr key={r.motivo + '::' + s.parceiro} className="border-b last:border-0 bg-slate-50/40 dark:bg-slate-800/10">
+                          <td className="px-2 py-1.5 text-center">{checkBtn(r.motivo, s.parceiro, s.ultima, true)}</td>
+                          <td className="px-2 py-1.5 pl-8 text-[13px] text-slate-600 dark:text-slate-300">↳ {s.parceiro}</td>
+                          <td className="px-3 py-1.5 text-center">
+                            <span className={s.qtd > 0 ? 'font-semibold text-indigo-600 dark:text-indigo-400' : 'text-muted-foreground'}>{s.qtd}</span>
+                          </td>
+                          <td className="px-3 py-1.5">{dateCell(r.motivo, s.parceiro, 'ultima', s.ultima || '', {})}</td>
+                          <td className="px-3 py-1.5">{dateCell(r.motivo, s.parceiro, 'proxima', s.proxima || '', { devida: subFlag, flagHoje: subFlag })}</td>
+                          <td className="px-3 py-1.5">{obsCell(r.motivo, s.parceiro, s.obs, true)}</td>
+                        </tr>
+                        );
+                      })}
+                    </React.Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </CardContent>
+        </Card>
         );
       })()}
 
@@ -1896,7 +2027,9 @@ const Dashboard = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="visao-geral" className="mt-6"><TabVisaoGeral /></TabsContent>
+        {/* Renderizado como função inline (não <TabVisaoGeral/>) para não remontar a
+            aba a cada re-render — senão os inputs (ex.: Observação) perdem o foco ao digitar. */}
+        <TabsContent value="visao-geral" className="mt-6">{TabVisaoGeral()}</TabsContent>
         <TabsContent value="volume-canal" className="mt-6"><TabVolumeCanal /></TabsContent>
         <TabsContent value="classificacao" className="mt-6"><TabClassificacao /></TabsContent>
         <TabsContent value="performance" className="mt-6"><TabPerformance /></TabsContent>

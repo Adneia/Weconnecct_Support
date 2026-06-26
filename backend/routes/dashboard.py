@@ -717,3 +717,136 @@ async def set_limpeza(payload: dict, current_user: dict = Depends(get_current_us
         upsert=True,
     )
     return {"canal": canal, "data": data}
+
+# ── Verificação de status (limpeza por MOTIVO de pendência) ──
+# Substitui a limpeza por canal. Cronograma fixo no front:
+#   Ag. Parceiro -> qua/sex | demais -> ter/sex.
+# Ag. Parceiro detalhado por parceiro (sub-linhas). Cada linha guarda
+# ultima verificacao, proxima verificacao e obs. O check (✓) marca "feito hoje":
+# carimba ultima=hoje e avanca proxima (reversivel).
+
+def _verif_hoje():
+    # Data de Brasília (UTC-3). Sem isso o check carimba o dia em UTC, que à noite
+    # já virou o dia seguinte (ex.: 25/06 em BRT aparecia como 26/06).
+    return (datetime.now(timezone.utc) - timedelta(hours=3)).strftime("%Y-%m-%d")
+
+
+@router.get("/dashboard/verificacao-status")
+async def get_verificacao_status(current_user: dict = Depends(get_current_user)):
+    """Backlog ao vivo por motivo + ultima/proxima/obs. Ag. Parceiro detalhado por parceiro."""
+    backlog = {}
+    async for d in db.chamados.aggregate([
+        {"$match": {"pendente": True}},
+        {"$group": {"_id": "$motivo_pendencia", "qtd": {"$sum": 1}}},
+    ]):
+        motivo = (d.get("_id") or "").strip()
+        if motivo:
+            backlog[motivo] = d.get("qtd", 0)
+
+    # Detalhe do Ag. Parceiro por parceiro — normaliza grafia (trim + maiúsc/minúsc),
+    # exibindo a grafia mais comum de cada variante. Vazio -> "(sem parceiro)".
+    _sub_tot = {}     # chave canônica -> qtd total
+    _sub_graf = {}    # chave canônica -> {grafia: contagem}
+    async for d in db.chamados.aggregate([
+        {"$match": {"pendente": True, "motivo_pendencia": "Ag. Parceiro"}},
+        {"$group": {"_id": "$parceiro", "qtd": {"$sum": 1}}},
+    ]):
+        raw = (d.get("_id") or "").strip()
+        qtd = d.get("qtd", 0)
+        if not raw:
+            key, graf = "", "(sem parceiro)"
+        else:
+            key, graf = raw.lower(), raw
+        _sub_tot[key] = _sub_tot.get(key, 0) + qtd
+        _sub_graf.setdefault(key, {})
+        _sub_graf[key][graf] = _sub_graf[key].get(graf, 0) + qtd
+    sub_backlog = {}
+    for key, total in _sub_tot.items():
+        label = max(_sub_graf[key].items(), key=lambda kv: kv[1])[0]
+        sub_backlog[label] = total
+
+    docs = await db.dashboard_verificacao.find({}, {"_id": 0}).to_list(500)
+    salvos = {(d.get("motivo", ""), d.get("parceiro", "")): d for d in docs}
+
+    def _campos(motivo, parceiro=""):
+        s = salvos.get((motivo, parceiro), {})
+        return {"ultima": s.get("ultima", ""), "proxima": s.get("proxima", ""),
+                "obs": s.get("obs", ""), "atualizado_por": s.get("atualizado_por", "")}
+
+    rows = []
+    for motivo in sorted(backlog.keys(), key=lambda m: -backlog[m]):
+        row = {"motivo": motivo, "qtd": backlog[motivo]}
+        row.update(_campos(motivo))
+        if motivo == "Ag. Parceiro":
+            row["sub"] = [
+                dict({"parceiro": p, "qtd": sub_backlog[p]}, **_campos(motivo, p))
+                for p in sorted(sub_backlog.keys(), key=lambda p: -sub_backlog[p])
+            ]
+        rows.append(row)
+    return {"rows": rows, "hoje": _verif_hoje()}
+
+
+@router.post("/dashboard/verificacao-status")
+async def set_verificacao_status(payload: dict, current_user: dict = Depends(get_current_user)):
+    """Edita ultima/proxima/obs de um motivo (ou parceiro). Só os campos enviados mudam."""
+    motivo = (payload.get("motivo") or "").strip()
+    if not motivo:
+        return {"error": "motivo obrigatório"}
+    parceiro = (payload.get("parceiro") or "").strip()
+    set_fields = {
+        "motivo": motivo, "parceiro": parceiro,
+        "atualizado_por": current_user.get("name", current_user.get("email", "?")),
+        "atualizado_em": datetime.now(timezone.utc).isoformat(),
+    }
+    for k in ("ultima", "proxima", "obs"):
+        if k in payload:
+            set_fields[k] = (payload.get(k) or "").strip()
+    await db.dashboard_verificacao.update_one(
+        {"motivo": motivo, "parceiro": parceiro},
+        {"$set": set_fields},
+        upsert=True,
+    )
+    return {"motivo": motivo, "parceiro": parceiro,
+            "ultima": set_fields.get("ultima"), "proxima": set_fields.get("proxima"),
+            "obs": set_fields.get("obs")}
+
+
+@router.post("/dashboard/verificacao-check")
+async def toggle_verificacao_check(payload: dict, current_user: dict = Depends(get_current_user)):
+    """Marca/desmarca 'verificado hoje'. Ao marcar: ultima=hoje e proxima=<payload>.
+    Ao desmarcar (já era hoje): restaura ultima/proxima anteriores."""
+    motivo = (payload.get("motivo") or "").strip()
+    if not motivo:
+        return {"error": "motivo obrigatório"}
+    parceiro = (payload.get("parceiro") or "").strip()
+    proxima_nova = (payload.get("proxima") or "").strip()
+    hoje = _verif_hoje()
+    quem = current_user.get("name", current_user.get("email", "?"))
+    agora = datetime.now(timezone.utc).isoformat()
+
+    doc = await db.dashboard_verificacao.find_one({"motivo": motivo, "parceiro": parceiro}) or {}
+
+    if doc.get("ultima") == hoje:
+        # UNDO — restaura os valores anteriores ao check de hoje
+        nova_ultima = doc.get("ultima_ant", "")
+        nova_proxima = doc.get("proxima_ant", "")
+        await db.dashboard_verificacao.update_one(
+            {"motivo": motivo, "parceiro": parceiro},
+            {"$set": {"motivo": motivo, "parceiro": parceiro,
+                      "ultima": nova_ultima, "proxima": nova_proxima,
+                      "atualizado_por": quem, "atualizado_em": agora},
+             "$unset": {"ultima_ant": "", "proxima_ant": ""}},
+            upsert=True,
+        )
+        return {"checked": False, "ultima": nova_ultima, "proxima": nova_proxima}
+
+    # MARCAR — guarda anteriores p/ permitir desfazer
+    await db.dashboard_verificacao.update_one(
+        {"motivo": motivo, "parceiro": parceiro},
+        {"$set": {"motivo": motivo, "parceiro": parceiro,
+                  "ultima_ant": doc.get("ultima", ""), "proxima_ant": doc.get("proxima", ""),
+                  "ultima": hoje, "proxima": proxima_nova,
+                  "atualizado_por": quem, "atualizado_em": agora}},
+        upsert=True,
+    )
+    return {"checked": True, "ultima": hoje, "proxima": proxima_nova}

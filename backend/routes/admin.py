@@ -848,8 +848,12 @@ async def atualizar_motivos_pendencia_automatico(numeros_pedido: list = None):
                 if motivo_novo_ent == 'Entregue':
                     motivo_novo_ent = 'Ag. Parceiro'
                 from datetime import timedelta as _td_re
-                data_br_re = (datetime.now(timezone.utc) - _td_re(hours=3)).strftime('%d/%m')
-                nota_re = f"[{data_br_re}] Reenvio: entrega {numero_pedido} substituída por {nova_ent} (status {status_novo})"
+                data_br_re = (datetime.now(timezone.utc) - _td_re(hours=3)).strftime('%d/%m/%Y')
+                if status_anterior and status_anterior != status_novo:
+                    _mov_re = f"movimentou de {status_anterior} para {status_novo}"
+                else:
+                    _mov_re = f"movimentou para {status_novo}"
+                nota_re = f"[{data_br_re}] Alterado para {motivo_novo_ent} — porque o pedido {_mov_re} (reenvio: entrega {numero_pedido} \u2192 {nova_ent})"
                 obs_re = chamado.get('anotacoes') or ''
                 await db.chamados.update_one(
                     {"id_atendimento": chamado.get('id_atendimento')},
@@ -891,6 +895,17 @@ async def atualizar_motivos_pendencia_automatico(numeros_pedido: list = None):
             if chamado.get('verificar_adneia'):
                 update_fields["verificar_adneia"] = False
                 stats["verificar_limpo"] += 1
+
+            # Registra no histórico do chamado a troca automática de motivo feita pelo sync
+            from datetime import timedelta as _td_sync
+            _data_sync = (datetime.now(timezone.utc) - _td_sync(hours=3)).strftime('%d/%m/%Y')
+            if status_anterior and status_anterior != status_pedido:
+                _mov = f"movimentou de {status_anterior} para {status_pedido}"
+            else:
+                _mov = f"movimentou para {status_pedido}"
+            _nota_sync = f"[{_data_sync}] Alterado para {novo_motivo} — porque o pedido {_mov}"
+            _obs = chamado.get('anotacoes') or ''
+            update_fields["anotacoes"] = (_nota_sync + ("\n" + _obs if _obs else "")).strip()
 
             await db.chamados.update_one(
                 {"id_atendimento": chamado.get('id_atendimento')},
