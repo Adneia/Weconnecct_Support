@@ -92,57 +92,9 @@ const Dashboard = () => {
     } catch {}
   };
 
-  // Datas de limpeza por canal (definidas manualmente). Estrutura: { canal: {data, atualizado_por} }
-  const [limpeza, setLimpeza] = useState({});
-  const fetchLimpeza = useCallback(async () => {
-    try {
-      const res = await axios.get(`${API_URL}/api/dashboard/limpeza`, { headers: getAuthHeader() });
-      setLimpeza(res.data.limpeza || {});
-    } catch {}
-  }, [getAuthHeader]);
-  useEffect(() => { fetchLimpeza(); }, [fetchLimpeza]);
-  const salvarLimpeza = async (canal, data) => {
-    try {
-      await axios.post(`${API_URL}/api/dashboard/limpeza`, { canal, data }, { headers: getAuthHeader() });
-      setLimpeza(prev => {
-        const next = { ...prev };
-        if (data) next[canal] = { data };
-        else delete next[canal];
-        return next;
-      });
-    } catch {}
-  };
-  // Dias da semana de limpeza por canal (JS getDay: Dom=0..Sáb=6).
-  // Canais normais: terça (2) e quinta (4). CSU: quarta (3) e sexta (5).
-  const diasLimpezaCanal = (canal) => {
-    const c = (canal || '').toLowerCase();
-    if (c.includes('csu')) return [3, 5];
-    return [2, 4];
-  };
-  const limpezaDevida = (canal) => diasLimpezaCanal(canal).includes(new Date().getDay());
   // Formata Date local -> 'YYYY-MM-DD' (sem deslocamento de fuso)
   const fmtLocal = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   const fmtBR = (s) => s ? `${s.slice(8, 10)}/${s.slice(5, 7)}` : '';
-  // Próxima data de limpeza estritamente após a data base (string 'YYYY-MM-DD' ou hoje)
-  const proximaDataLimpeza = (canal, baseStr) => {
-    const dias = diasLimpezaCanal(canal);
-    const hojeStr = fmtLocal(new Date());
-    // base = a maior entre a data informada e hoje (garante avançar pra frente)
-    const ini = (baseStr && baseStr >= hojeStr) ? new Date(baseStr + 'T12:00:00') : new Date();
-    const d = new Date(ini);
-    for (let i = 0; i < 14; i++) {
-      d.setDate(d.getDate() + 1);
-      if (dias.includes(d.getDay())) return fmtLocal(d);
-    }
-    return '';
-  };
-  // Clique na vassoura = "limpeza realizada" → avança para a próxima data
-  const registrarLimpeza = (canal) => {
-    const atual = limpeza[canal]?.data || '';
-    const prox = proximaDataLimpeza(canal, atual);
-    salvarLimpeza(canal, prox);
-    toast.success(`Limpeza registrada — próxima: ${fmtBR(prox)}`);
-  };
 
   // ── Verificação de status: limpeza por MOTIVO de pendência ──
   // Cronograma fixo: 2x/semana — terça(2) e quinta(4), para todos os motivos.

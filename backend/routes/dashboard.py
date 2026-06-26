@@ -686,38 +686,6 @@ async def toggle_canal_check(payload: dict, current_user: dict = Depends(get_cur
             "marcado_por": current_user.get("name", current_user.get("email", "?"))}
 
 
-# ── Datas de Limpeza por canal (persistente, definida manualmente pelo analista) ──
-
-@router.get("/dashboard/limpeza")
-async def get_limpeza(current_user: dict = Depends(get_current_user)):
-    """Retorna a data de limpeza definida para cada canal: { canal: 'YYYY-MM-DD' }."""
-    docs = await db.dashboard_limpeza.find({}, {"_id": 0}).to_list(200)
-    return {"limpeza": {d["canal"]: {"data": d.get("data", ""),
-                                     "atualizado_por": d.get("atualizado_por", "")}
-                        for d in docs}}
-
-
-@router.post("/dashboard/limpeza")
-async def set_limpeza(payload: dict, current_user: dict = Depends(get_current_user)):
-    """Define (ou limpa) a data de limpeza de um canal. payload: {canal, data}."""
-    canal = (payload.get("canal") or "").strip()
-    data = (payload.get("data") or "").strip()  # 'YYYY-MM-DD' ou '' para limpar
-    if not canal:
-        return {"error": "canal obrigatório"}
-    if not data:
-        await db.dashboard_limpeza.delete_one({"canal": canal})
-        return {"canal": canal, "data": ""}
-    await db.dashboard_limpeza.update_one(
-        {"canal": canal},
-        {"$set": {
-            "canal": canal, "data": data,
-            "atualizado_por": current_user.get("name", current_user.get("email", "?")),
-            "atualizado_em": datetime.now(timezone.utc).isoformat(),
-        }},
-        upsert=True,
-    )
-    return {"canal": canal, "data": data}
-
 # ── Verificação de status (limpeza por MOTIVO de pendência) ──
 # Substitui a limpeza por canal. Cronograma fixo no front:
 #   Ag. Parceiro -> qua/sex | demais -> ter/sex.
