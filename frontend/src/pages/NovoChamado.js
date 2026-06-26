@@ -164,7 +164,7 @@ const NovoAtendimento = () => {
     if (!pedidoErp?.numero_pedido) { setCancelamentosCheck(null); setCancelamentosExpanded(false); return; }
     const num = String(pedidoErp.numero_pedido).split('.')[0];
     axios.get(`${API_URL}/api/cancelamentos/check/${num}`, { headers: getAuthHeader() })
-      .then(r => setCancelamentosCheck(r.data?.has_cancelamento ? r.data : null))
+      .then(r => setCancelamentosCheck((r.data?.has_cancelamento || r.data?.aviso_movimentou) ? r.data : null))
       .catch(() => setCancelamentosCheck(null));
   }, [pedidoErp, getAuthHeader]);
 
@@ -808,6 +808,18 @@ const NovoAtendimento = () => {
                   })}
                 </div>
               )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Alerta: pedido estava p/ cancelamento mas movimentou para ETR (encerrado) */}
+        {pedidoErp && cancelamentosCheck?.aviso_movimentou && !cancelamentosCheck?.has_cancelamento && (
+          <Card className="border-amber-300 bg-amber-50/60 dark:bg-amber-950/20 dark:border-amber-800" data-testid="alerta-cancelamento-movimentou">
+            <CardContent className="py-3">
+              <div className="flex items-center gap-2 text-amber-800 dark:text-amber-200 text-sm font-medium">
+                <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                <span>⚠️ Atenção: este pedido estava para cancelamento, mas movimentou — verificar se o cliente foi acionado.</span>
+              </div>
             </CardContent>
           </Card>
         )}

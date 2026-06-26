@@ -160,6 +160,24 @@ async def _auto_encerrar_aes_por_status_pedido() -> dict:
         obs_atual = d.get("observacao", "") or ""
         status_eh_invalido = novo_status not in _AES_STATUS_MANTER_PENDENTE
 
+        # REGRA ETR: pedido movimentou para 'Entregue a Transportadora'. Mesmo com
+        # ticket aberto, encerra o cancelamento (o pedido seguiu) e marca para o card
+        # avisar o atendente a conferir se o cliente foi acionado.
+        if novo_status.strip().lower() == "entregue a transportadora":
+            nota = f"{data_br_curta} - encerrado devido a movimentação para ETR"
+            nova_obs = (nota + ("\n" + obs_atual if obs_atual else "")).strip() if nota not in obs_atual else obs_atual
+            await db.cancelamentos.update_one({"id": d["id"]}, {"$set": {
+                "status": "encerrado",
+                "data_encerramento": data_br_completa,
+                "observacao": nova_obs,
+                "encerrado_automaticamente": True,
+                "encerrado_por_etr": True,
+                "status_pedido": novo_status,
+                "updated_at": now_iso,
+            }})
+            ids_encerrados.append(d["id"])
+            continue
+
         # CASO ESPECIAL: pedido MOVIMENTOU mas há TICKET de cancelamento aberto.
         # Não encerra — mantém pendente e alerta, pois há acionamento ativo a acompanhar.
         # (só vale quando o gatilho foi o status do pedido, não o chamado encerrado)
@@ -834,6 +852,12 @@ async def check_cancelamentos(
     Cancelamentos já encerrados não disparam o alerta — só os ainda em aberto.
     """
     pedido = str(numero_pedido).strip().split(".")[0]
+    # Cancelamento encerrado porque o pedido foi p/ ETR (Entregue a Transportadora):
+    # o card mostra um aviso pedindo pra conferir se o cliente foi acionado.
+    _mov = await db.cancelamentos.find_one(
+        {"numero_pedido": pedido, "status": "encerrado", "encerrado_por_etr": True},
+        {"_id": 0, "id": 1})
+    aviso_movimentou = bool(_mov)
     # Filtra direto na query: apenas pendentes (ignora encerrados)
     docs = await db.cancelamentos.find(
         {"numero_pedido": pedido, "status": {"$ne": "encerrado"}},
@@ -843,7 +867,8 @@ async def check_cancelamentos(
     ).to_list(20)
 
     if not docs:
-        return {"has_cancelamento": False, "numero_pedido": pedido, "tipos": []}
+        return {"has_cancelamento": False, "numero_pedido": pedido, "tipos": [],
+                "aviso_movimentou": aviso_movimentou}
 
     # Agrupa por tipo (pega o mais recente de cada — só tem pendentes nesta lista)
     por_tipo = {}
@@ -859,6 +884,7 @@ async def check_cancelamentos(
         "numero_pedido": pedido,
         "tipos": list(por_tipo.values()),  # lista dos cancelamentos pendentes (1 por tipo)
         "tipos_keys": list(por_tipo.keys()),  # ex: ['aes', 'etr']
+        "aviso_movimentou": aviso_movimentou,
     }
 
 
