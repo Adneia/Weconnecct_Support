@@ -861,13 +861,14 @@ Atenciosamente,
 
     "Devolvido - Cancelamento e Estorno": """Olá,
 
-O pedido foi recebido em nosso galpão. Favor seguir com o cancelamento e estorno ao cliente.
+Informamos que o pedido foi recebido em nosso galpão. Pedimos, por gentileza, que prossigam com o cancelamento do pedido e o estorno ao cliente.
 
-Estamos à disposição para qualquer dúvida.
+Após a conclusão dessa etapa, podemos seguir com o encerramento do atendimento. Caso não tenhamos retorno em até 2 dias úteis, entenderemos que a tratativa foi concluída e prosseguiremos com o encerramento.
+
+Permanecemos à disposição.
 
 Atenciosamente,
-
-[ASSINATURA]""",
+Atendimento Weconnect""",
 
     "Devolvido - Reenvio": """Olá,
 
