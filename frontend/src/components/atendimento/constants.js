@@ -891,7 +891,8 @@ Após a conclusão dessa etapa, podemos seguir com o encerramento do atendimento
 Permanecemos à disposição.
 
 Atenciosamente,
-Atendimento Weconnect`,
+
+[ASSINATURA]`,
 
   "Devolvido - Reenvio": `Olá,
 
