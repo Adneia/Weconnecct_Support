@@ -97,7 +97,7 @@ const Dashboard = () => {
   const fmtBR = (s) => s ? `${s.slice(8, 10)}/${s.slice(5, 7)}` : '';
 
   // ── Verificação de status: limpeza por MOTIVO de pendência ──
-  // Cronograma fixo: 2x/semana — terça(2) e quinta(4), para todos os motivos.
+  // Cronograma: Ag. Parceiro → quarta(3), 1x/semana | demais motivos → terça(2) e quinta(4).
   const [verifRows, setVerifRows] = useState([]);
   const [verifHoje, setVerifHoje] = useState('');
   const fetchVerificacao = useCallback(async () => {
@@ -108,15 +108,17 @@ const Dashboard = () => {
     } catch {}
   }, [getAuthHeader]);
   useEffect(() => { fetchVerificacao(); }, [fetchVerificacao]);
-  const DIAS_VERIF = [2, 4]; // terça e quinta, todos os motivos
-  const verifDevida = () => DIAS_VERIF.includes(new Date().getDay());
-  const proximaDataVerif = (baseStr) => {
+  // Ag. Parceiro (e seus parceiros) → quarta(3), 1x/semana | demais → terça(2) e quinta(4)
+  const diasVerif = (motivo) => ((motivo || '').trim().toLowerCase() === 'ag. parceiro' ? [3] : [2, 4]);
+  const verifDevida = (motivo) => diasVerif(motivo).includes(new Date().getDay());
+  const proximaDataVerif = (motivo, baseStr) => {
+    const dias = diasVerif(motivo);
     const hojeStr = fmtLocal(new Date());
     const ini = (baseStr && baseStr >= hojeStr) ? new Date(baseStr + 'T12:00:00') : new Date();
     const d = new Date(ini);
     for (let i = 0; i < 14; i++) {
       d.setDate(d.getDate() + 1);
-      if (DIAS_VERIF.includes(d.getDay())) return fmtLocal(d);
+      if (dias.includes(d.getDay())) return fmtLocal(d);
     }
     return '';
   };
@@ -140,7 +142,7 @@ const Dashboard = () => {
   };
   // Check ✓ "feito hoje": carimba ultima=hoje e avança próxima (toggle reversível no backend)
   const toggleVerifCheck = async (motivo, parceiro) => {
-    const prox = proximaDataVerif(fmtLocal(new Date()));
+    const prox = proximaDataVerif(motivo, fmtLocal(new Date()));
     try {
       const res = await axios.post(`${API_URL}/api/dashboard/verificacao-check`, { motivo, parceiro, proxima: prox }, { headers: getAuthHeader() });
       updateVerifLocal(motivo, parceiro, { ultima: res.data.ultima || '', proxima: res.data.proxima || '' });
@@ -810,7 +812,6 @@ const Dashboard = () => {
       {verifRows.length > 0 && (() => {
         const DIAS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
         const hoje = verifHoje || fmtLocal(new Date());
-        const devidaHoje = verifDevida();
         // Check ✓ "feito hoje" (igual ao dash): verde quando última = hoje
         const checkBtn = (motivo, parceiro, ultima, small) => {
           const ok = !!ultima && ultima === hoje;
@@ -853,7 +854,7 @@ const Dashboard = () => {
             <CardTitle className="text-sm font-semibold flex items-center gap-2 flex-wrap">
               <span>🔎 Verificação de status</span>
               <span className="text-[11px] font-normal text-muted-foreground">
-                limpeza por motivo — 2x/semana: terça e quinta
+                limpeza por motivo — Ag. Parceiro: quarta · demais: terça e quinta
               </span>
             </CardTitle>
           </CardHeader>
@@ -874,7 +875,7 @@ const Dashboard = () => {
                   const temSub = Array.isArray(r.sub);
                   const aberto = !!verifExpand[r.motivo];
                   const feitoHoje = !!r.ultima && r.ultima === hoje;
-                  const flag = devidaHoje && !feitoHoje;
+                  const flag = verifDevida(r.motivo) && !feitoHoje;
                   return (
                     <React.Fragment key={r.motivo}>
                       <tr className="border-b last:border-0 hover:bg-muted/40">
@@ -901,7 +902,7 @@ const Dashboard = () => {
                       </tr>
                       {temSub && aberto && r.sub.map(s => {
                         const subFeito = !!s.ultima && s.ultima === hoje;
-                        const subFlag = devidaHoje && !subFeito;
+                        const subFlag = verifDevida(r.motivo) && !subFeito;
                         return (
                         <tr key={r.motivo + '::' + s.parceiro} className="border-b last:border-0 bg-slate-50/40 dark:bg-slate-800/10">
                           <td className="px-2 py-1.5 text-center">{checkBtn(r.motivo, s.parceiro, s.ultima, true)}</td>
