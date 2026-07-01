@@ -125,6 +125,23 @@ async def listar_retirada(current_user: dict = Depends(get_current_user)):
                 upsert=True
             )
 
+        # ENTRADA = quando o pedido CAIU em AGUARDANDO RETIRADA no BSeller (data_status).
+        # NÃO usar acomp.criado_em (data do clique/automação no ELO) — isso fazia
+        # pedidos antigos finalizados hoje aparecerem como "entrada hoje" no dashboard,
+        # inflando a coluna AR (entrada do dia).
+        data_status = pedido.get("data_status") or ""
+        criado_em_iso = ""
+        if data_status:
+            s = str(data_status).strip().split(".")[0]
+            for fmt in ("%d/%m/%Y %H:%M:%S", "%d/%m/%Y %H:%M", "%d/%m/%Y", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+                try:
+                    criado_em_iso = datetime.strptime(s, fmt).strftime("%Y-%m-%d")
+                    break
+                except Exception:
+                    continue
+        if not criado_em_iso:
+            criado_em_iso = acomp.get("criado_em", "")
+
         result.append({
             "nota_fiscal": nota,
             "numero_pedido": pedido.get("numero_pedido") or acomp.get("numero_pedido", ""),
@@ -144,7 +161,7 @@ async def listar_retirada(current_user: dict = Depends(get_current_user)):
             "status_final": status_final,
             "alerta_transportadora": not _is_total(transportadora),
             # Datas para o saldo rolante do dashboard (entrada x resolução)
-            "criado_em": acomp.get("criado_em", ""),
+            "criado_em": criado_em_iso,
             "finalizado_em": acomp.get("finalizado_em", ""),
         })
 

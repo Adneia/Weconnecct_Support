@@ -68,6 +68,8 @@ export const Layout = ({ children }) => {
   const [notificacoes, setNotificacoes] = useState([]);
   const [notificacoesNaoLidas, setNotificacoesNaoLidas] = useState(0);
   const [avisosPendentes, setAvisosPendentes] = useState(0);
+  const [avisosIds, setAvisosIds] = useState([]);      // ids dos avisos ativos atuais
+  const [avisosVistos, setAvisosVistos] = useState([]); // ids que o usuário já "olhou"
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout, getAuthHeader, isDashboardOnly, isConsulta } = useAuth();
@@ -89,7 +91,9 @@ export const Layout = ({ children }) => {
       }
       try {
         const av = await axios.get(`${API_URL}/api/avisos-compras`, { headers: getAuthHeader() });
+        const arr = av.data?.avisos || [];
         setAvisosPendentes(av.data?.total || 0);
+        setAvisosIds(arr.map(a => a.id).filter(Boolean));
       } catch (error) {
         // contador do menu é best-effort — silencioso
       }
@@ -102,6 +106,39 @@ export const Layout = ({ children }) => {
       return () => clearInterval(interval);
     }
   }, [user, getAuthHeader]);
+
+  // Chave do localStorage com os avisos já "vistos" (por usuário)
+  const _avisosVistosKey = `avisos_vistos_${user?.email || 'anon'}`;
+
+  // Carrega os avisos já vistos quando o usuário é conhecido
+  useEffect(() => {
+    if (!user) return;
+    try {
+      setAvisosVistos(JSON.parse(localStorage.getItem(`avisos_vistos_${user.email || 'anon'}`) || '[]'));
+    } catch {
+      setAvisosVistos([]);
+    }
+  }, [user]);
+
+  // Badge do menu = avisos AINDA NÃO vistos (some quando o usuário olha; volta com avisos novos)
+  const avisosNaoVistos = avisosIds.filter(id => !avisosVistos.includes(id));
+  const avisosBadge = avisosNaoVistos.length;
+
+  // Marca todos os avisos atuais como vistos → some o badge (persiste no localStorage)
+  const marcarAvisosVistos = (e) => {
+    if (e) { e.preventDefault(); e.stopPropagation(); }
+    setAvisosVistos(avisosIds.slice());
+    try { localStorage.setItem(_avisosVistosKey, JSON.stringify(avisosIds)); } catch {}
+  };
+
+  // "Olhar" = abrir a página de Avisos de Compras também marca como vistos
+  useEffect(() => {
+    if (location.pathname === '/avisos-compras' && avisosIds.length > 0) {
+      setAvisosVistos(avisosIds.slice());
+      try { localStorage.setItem(`avisos_vistos_${user?.email || 'anon'}`, JSON.stringify(avisosIds)); } catch {}
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, avisosIds]);
 
   // Marcar notificação como lida
   const marcarComoLida = async (notificacaoId) => {
@@ -210,9 +247,14 @@ export const Layout = ({ children }) => {
               >
                 <Icon className="h-5 w-5 flex-shrink-0" />
                 {sidebarOpen && <span>{item.label}</span>}
-                {item.path === '/avisos-compras' && avisosPendentes > 0 && sidebarOpen && (
-                  <span className="ml-auto inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-red-500 text-white text-[11px] font-bold">
-                    {avisosPendentes > 99 ? '99+' : avisosPendentes}
+                {item.path === '/avisos-compras' && avisosBadge > 0 && sidebarOpen && (
+                  <span
+                    role="button"
+                    title="Clique para marcar como visto"
+                    onClick={marcarAvisosVistos}
+                    className="ml-auto inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-red-500 hover:bg-red-600 text-white text-[11px] font-bold cursor-pointer transition-colors"
+                  >
+                    {avisosBadge > 99 ? '99+' : avisosBadge}
                   </span>
                 )}
               </Link>
@@ -290,9 +332,14 @@ export const Layout = ({ children }) => {
               >
                 <Icon className="h-5 w-5" />
                 <span>{item.label}</span>
-                {item.path === '/avisos-compras' && avisosPendentes > 0 && (
-                  <span className="ml-auto inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-red-500 text-white text-[11px] font-bold">
-                    {avisosPendentes > 99 ? '99+' : avisosPendentes}
+                {item.path === '/avisos-compras' && avisosBadge > 0 && (
+                  <span
+                    role="button"
+                    title="Clique para marcar como visto"
+                    onClick={marcarAvisosVistos}
+                    className="ml-auto inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full bg-red-500 hover:bg-red-600 text-white text-[11px] font-bold cursor-pointer transition-colors"
+                  >
+                    {avisosBadge > 99 ? '99+' : avisosBadge}
                   </span>
                 )}
               </Link>

@@ -59,7 +59,7 @@ const Dashboard = () => {
       const [retRes, pagRes, cancRes] = await Promise.all([
         axios.get(`${API_URL}/api/retirada`, { headers: getAuthHeader() }),
         axios.get(`${API_URL}/api/pagamento`, { headers: getAuthHeader() }),
-        axios.get(`${API_URL}/api/cancelamentos?limit=2000`, { headers: getAuthHeader() }),
+        axios.get(`${API_URL}/api/cancelamentos?limit=2000&slim=1`, { headers: getAuthHeader() }),
       ]);
       setRetiradaData(retRes.data || []);
       setPagamentoData(pagRes.data?.pedidos || []);

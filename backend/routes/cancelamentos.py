@@ -18,6 +18,10 @@ from utils.database import db
 router = APIRouter(prefix="/api")
 logger = logging.getLogger(__name__)
 
+# Cache do breakdown de lifecycle dos cards (recalcular é caro: lê ~1.6k docs + bigdata)
+_lifecycle_cache = {"ts": None, "data": None}
+_LIFECYCLE_TTL = 120  # segundos
+
 
 # ============== MODELS ==============
 class CancelamentoCreate(BaseModel):
@@ -454,12 +458,23 @@ async def _auto_mover_para_compras() -> dict:
     return {"movidos": movidos}
 
 
-async def _enrich_from_tabelao(numero_pedido: str) -> dict:
-    """Busca dados do pedido no tabelão para preenchimento automático."""
-    pedido = await db.pedidos_erp.find_one(
-        {"numero_pedido": numero_pedido},
-        {"_id": 0}
-    )
+async def _enrich_from_tabelao(numero_pedido: str, sku: Optional[str] = None) -> dict:
+    """Busca dados do pedido no tabelão para preenchimento automático.
+
+    Quando o pedido tem MAIS DE UM ITEM, o pedidos_erp grava um documento por
+    (pedido, item). Sem `sku`, find_one() pegava qualquer item — OK pros dados
+    do pedido/cliente mas trazia codigo_item_vtex/produto possivelmente de OUTRO
+    item. Quando o caller souber o SKU (ex.: fluxo Smart Compras), passa aqui
+    pra puxar o item certo.
+    """
+    pedido = None
+    if sku:
+        pedido = await db.pedidos_erp.find_one(
+            {"numero_pedido": numero_pedido, "codigo_item_vtex": sku},
+            {"_id": 0},
+        )
+    if not pedido:
+        pedido = await db.pedidos_erp.find_one({"numero_pedido": numero_pedido}, {"_id": 0})
     if not pedido:
         return {}
     return {
@@ -493,6 +508,195 @@ async def _enrich_from_tabelao(numero_pedido: str) -> dict:
     }
 
 
+async def _auto_importar_avisos_smart_compras() -> dict:
+    """
+    Importa avisos do Smart Compras (db.avisos_compras com status 'aberto'/'faturado'
+    e sem cancelamento associado) para o fluxo de Cancelamentos AES.
+
+    Regra (definida pela Adneia):
+      - Se o pedido JÁ tem cancelamento AES → mantém o existente e adiciona
+        observação "DD/M - cancelamento vindo pelo smart compras" no topo.
+      - Se NÃO tem → cria um novo cancelamento AES (status='pendente') com a
+        mesma observação + enriquece com dados do pedido_erp.
+      - Sem prioridade — segue o fluxo normal.
+
+    Idempotente: marca o aviso com `cancelamento_id` apontando pro cancelamento,
+    pra não reprocessar. Avisos já associados a algum cancelamento são pulados.
+    """
+    stats = {"vistos": 0, "anexados": 0, "criados": 0, "ignorados": 0, "erros": 0}
+    try:
+        # Avisos ativos ainda não vinculados a cancelamento
+        avisos = await db.avisos_compras.find(
+            {
+                "status": {"$in": ["aberto", "faturado"]},
+                "$or": [
+                    {"cancelamento_id": {"$exists": False}},
+                    {"cancelamento_id": None},
+                    {"cancelamento_id": ""},
+                ],
+            },
+            {"_id": 0},
+        ).to_list(500)
+        stats["vistos"] = len(avisos)
+        if not avisos:
+            return stats
+
+        data_br_curta = _br_now().strftime("%d/%m")
+        nota_smart = f"{data_br_curta} - cancelamento vindo pelo smart compras"
+
+        for av in avisos:
+            try:
+                numero_pedido = (av.get("numero_pedido") or "").strip()
+                sku_aviso = (av.get("sku") or "").strip()
+                if not numero_pedido:
+                    stats["ignorados"] += 1
+                    continue
+
+                # MATCH por (numero_pedido + SKU): um pedido pode ter vários itens com
+                # cancelamentos distintos. Casar só por numero_pedido faria o aviso de
+                # um item ser anexado ao cancelamento de outro item do mesmo pedido.
+                # Casa SÓ pelo codigo_item_vtex (cod_terceiro real, confiável). O
+                # codigo_terceiro_planilha vem do parceiro e às vezes traz outro SKU
+                # (ex.: cancelamento de Panquequeira com codigo_terceiro_planilha de
+                # uma Frigideira que estava na mesma planilha do parceiro).
+                filtro_existente = {"numero_pedido": numero_pedido, "tipo": "aes"}
+                if sku_aviso:
+                    filtro_existente["codigo_item_vtex"] = sku_aviso
+                existente = await db.cancelamentos.find_one(
+                    filtro_existente,
+                    {"_id": 0, "id": 1, "observacao": 1},
+                    sort=[("data_criacao", -1)],
+                )
+
+                if existente:
+                    obs_atual = (existente.get("observacao") or "").strip()
+                    if "smart compras" in obs_atual.lower():
+                        # já tem a observação — só vincula pra não reprocessar
+                        nova_obs = obs_atual
+                    elif obs_atual:
+                        nova_obs = nota_smart + "\n" + obs_atual
+                    else:
+                        nova_obs = nota_smart
+                    await db.cancelamentos.update_one(
+                        {"id": existente["id"]},
+                        {"$set": {"observacao": nova_obs, "updated_at": _iso_now_utc()}},
+                    )
+                    await db.avisos_compras.update_one(
+                        {"id": av["id"]},
+                        {"$set": {
+                            "cancelamento_id": existente["id"],
+                            "atualizado_em": _iso_now_utc(),
+                        }},
+                    )
+                    stats["anexados"] += 1
+                    logger.info(
+                        f"[smart→aes] aviso {av['id']} anexado a cancelamento existente "
+                        f"{existente['id']} (pedido {numero_pedido})"
+                    )
+                else:
+                    # Cria novo cancelamento AES, enriquecido com dados do tabelão
+                    dados_tabelao = await _enrich_from_tabelao(numero_pedido, sku=sku_aviso)
+                    now_br = _br_now()
+                    novo_id = str(uuid.uuid4())
+                    doc = {
+                        "id": novo_id,
+                        "tipo": "aes",
+                        "status": "pendente",
+                        "numero_pedido": numero_pedido,
+                        "data_criacao": _iso_now_utc(),
+                        "data": now_br.strftime("%Y-%m-%d"),
+                        "criado_por": "Smart Compras (auto)",
+                        "criado_por_email": av.get("criado_por") or "smartcompras-bot@wct360.com.br",
+                        "motivo": av.get("motivo") or "",
+                        "acao": "Cancelar",
+                        "motivo_rejeicao": "",
+                        "ticket": "",
+                        "instancia": "",
+                        "zerado_reserva": None,
+                        "observacao": nota_smart + (("\n" + av["comentario"]) if av.get("comentario") else ""),
+                        "cliente_confirmado_nome": "",
+                        "cliente_confirmado_cpf": "",
+                        "cliente_confirmado_endereco": "",
+                        "nova_entrega": "",
+                        # Marca a fonte (rastreabilidade)
+                        "fonte": "smart_compras",
+                        "aviso_compras_id": av["id"],
+                        "aviso_numero_po": av.get("numero_po"),
+                        "aviso_po_id": av.get("po_id"),
+                        **dados_tabelao,
+                        "updated_at": _iso_now_utc(),
+                    }
+                    # PRIORIDADE: dados do ITEM vêm do AVISO (não do enrich).
+                    # O pedidos_erp pode ter só 1 dos N itens do pedido (caso real:
+                    # pedido 122023668 só tem a Panquequeira no pedidos_erp, mas
+                    # o aviso é sobre a Frigideira BRINL1450). Os dados do PEDIDO
+                    # (cliente, endereço, NF, transportadora) do enrich servem,
+                    # mas SKU/produto/fornecedor têm que ser sempre os do aviso.
+                    if av.get("sku"):
+                        doc["codigo_item_vtex"] = av["sku"]
+                    if av.get("produto"):
+                        doc["produto"] = av["produto"]
+                    if av.get("cod_fornecedor"):
+                        doc["codigo_fornecedor"] = av["cod_fornecedor"]
+                    if av.get("fornecedor"):
+                        doc["departamento"] = av["fornecedor"]
+                    # codigo_item_bseller do enrich pode estar de outro item — limpar
+                    # se não foi confirmado pelo aviso.
+                    if av.get("sku") and not av.get("id_bseller"):
+                        # se o enrich trouxe codigo_item_bseller mas o SKU vtex
+                        # mudou, esse codigo_item_bseller é de outro item — apagar.
+                        if dados_tabelao.get("codigo_item_vtex") and dados_tabelao.get("codigo_item_vtex") != av["sku"]:
+                            doc["codigo_item_bseller"] = ""
+
+                    await db.cancelamentos.insert_one(doc)
+
+                    # ANTES do fluxo seguir: busca similar (igual o fluxo manual de
+                    # criar_cancelamento faz). Define analise_similar = 'pendente' (tem
+                    # similar com estoque) ou 'sem_similar'. Assim o card já abre com
+                    # a sugestão de similar pronta pra atendente decidir.
+                    try:
+                        from routes.produtos_busca import computar_similares_compactos
+                        sku_item = doc.get("codigo_item_vtex") or av.get("sku", "")
+                        if sku_item:
+                            res_sim = await computar_similares_compactos(
+                                sku_item, numero_pedido, max_propostos=5
+                            )
+                            novo_estado = "pendente" if res_sim.get("found") else "sem_similar"
+                            await db.cancelamentos.update_one(
+                                {"id": novo_id},
+                                {"$set": {
+                                    "analise_similar": novo_estado,
+                                    "similares_sugeridos": res_sim.get("propostos", []),
+                                }},
+                            )
+                            stats["com_similar" if novo_estado == "pendente" else "sem_similar"] = \
+                                stats.get("com_similar" if novo_estado == "pendente" else "sem_similar", 0) + 1
+                    except Exception as e:
+                        logger.warning(
+                            f"[smart→aes] busca de similar falhou pro pedido {numero_pedido}: {e}"
+                        )
+
+                    await db.avisos_compras.update_one(
+                        {"id": av["id"]},
+                        {"$set": {
+                            "cancelamento_id": novo_id,
+                            "atualizado_em": _iso_now_utc(),
+                        }},
+                    )
+                    stats["criados"] += 1
+                    logger.info(
+                        f"[smart→aes] aviso {av['id']} gerou cancelamento NOVO {novo_id} "
+                        f"(pedido {numero_pedido})"
+                    )
+            except Exception as e:
+                stats["erros"] += 1
+                logger.exception(f"[smart→aes] falha ao processar aviso {av.get('id')}: {e}")
+
+    except Exception as e:
+        logger.exception(f"[smart→aes] falha geral: {e}")
+    return stats
+
+
 # ============== ENDPOINTS ==============
 
 @router.get("/cancelamentos")
@@ -500,9 +704,32 @@ async def listar_cancelamentos(
     tipo: Optional[str] = None,
     status: Optional[str] = None,
     limit: int = 1000,
+    slim: bool = False,
     current_user: dict = Depends(get_current_user),
 ):
-    """Lista cancelamentos com filtros opcionais. Cruza com chamados para indicar atendimentos existentes."""
+    """Lista cancelamentos com filtros opcionais. Cruza com chamados para indicar atendimentos existentes.
+
+    slim=1: modo leve para o Dashboard ("Demais atividades"). Pula as 5 auto-rotinas
+    e os 2 $lookup (chamados/pedidos_erp), retornando só os campos do saldo rolante
+    (tipo/status/datas). Reduz a chamada de ~490ms p/ ~80ms e o payload em ~10x.
+    """
+    if slim:
+        proj = {"_id": 0, "tipo": 1, "status": 1, "data_criacao": 1, "data": 1,
+                "data_encerramento": 1, "updated_at": 1, "numero_pedido": 1}
+        q = {}
+        if tipo:
+            q["tipo"] = tipo
+        if status:
+            q["status"] = status
+        docs = await db.cancelamentos.find(q, proj).sort("data_criacao", -1).to_list(limit)
+        return {"total": len(docs), "cancelamentos": docs}
+
+    # Importa avisos do Smart Compras (anexa em AES existentes ou cria novos)
+    try:
+        await _auto_importar_avisos_smart_compras()
+    except Exception as e:
+        logger.warning(f"auto-importar Smart Compras falhou (seguindo com a listagem): {e}")
+
     # Antes de listar, verifica se há AES pendentes cujo pedido avançou de status (auto-encerramento)
     try:
         await _auto_encerrar_aes_por_status_pedido()
@@ -596,9 +823,183 @@ async def listar_cancelamentos(
     return {"total": len(docs), "cancelamentos": docs}
 
 
+def _to_float(v) -> float:
+    try:
+        return float(str(v).replace(",", ".")) if v not in (None, "") else 0.0
+    except Exception:
+        return 0.0
+
+
+async def _calcular_lifecycle_stats() -> dict:
+    """Breakdown por tipo + ciclo de vida (qtd + valor produto+frete), com cache.
+    Ciclos (prioridade no doc):
+      - não encerrado: tem ticket -> em_tratativa ; sem ticket -> pendente
+      - encerrado:     similar (nova entrega c/ SKU novo OU sku_similar) -> similar
+                       senão -> cancelado
+      - encerrado (card) = similar + cancelado
+    Valor = preco_final (produto) + frete da entrega (bigdata)."""
+    now = datetime.now(timezone.utc)
+    if _lifecycle_cache["ts"] and (now - _lifecycle_cache["ts"]).total_seconds() < _LIFECYCLE_TTL:
+        return _lifecycle_cache["data"]
+
+    docs = await db.cancelamentos.find(
+        {},
+        {"_id": 0, "tipo": 1, "status": 1, "ticket": 1, "sku_similar": 1,
+         "preco_final": 1, "numero_pedido": 1, "codigo_item_vtex": 1, "data_criacao": 1},
+    ).to_list(None)
+
+    pedidos = list({d.get("numero_pedido") for d in docs if d.get("numero_pedido")})
+
+    # bigdata: frete + pedido_bseller + status por id_entrega; e entregas do master (similar)
+    frete_por_entrega = {}
+    bseller_por_entrega = {}
+    status_por_entrega = {}   # id_entrega -> status BSeller (Cancelado/Liquidado/Aberto)
+    entregas_por_master = {}
+    try:
+        from routes.produtos_busca import _connect_pg
+        conn = _connect_pg()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT p.id_entrega, p.pedido_bseller, COALESCE(p.frete, 0), p.status
+                    FROM pedidos p WHERE p.id_entrega = ANY(%s)
+                    """,
+                    (pedidos,),
+                )
+                masters = set()
+                for id_ent, pb, frete, status in cur.fetchall():
+                    frete_por_entrega[id_ent] = float(frete or 0)
+                    bseller_por_entrega[id_ent] = pb
+                    status_por_entrega[id_ent] = status
+                    if pb:
+                        masters.add(pb)
+                if masters:
+                    cur.execute(
+                        """
+                        SELECT p.pedido_bseller, p.id_entrega, p.data_pedido::date, p.status,
+                               array_agg(DISTINCT pi.cod_terceiro)
+                        FROM pedidos p JOIN pedido_itens pi ON pi.pedido_id = p.id
+                        WHERE p.pedido_bseller = ANY(%s)
+                        GROUP BY p.pedido_bseller, p.id_entrega, p.data_pedido, p.status
+                        """,
+                        (list(masters),),
+                    )
+                    for pb, id_ent, dt, status, skus in cur.fetchall():
+                        entregas_por_master.setdefault(pb, []).append({
+                            "id_entrega": id_ent, "dt": dt, "status": status,
+                            "skus": set(skus or []),
+                        })
+        finally:
+            conn.close()
+    except Exception as e:
+        logger.warning(f"[lifecycle stats] bigdata indisponível (valor/similar parcial): {e}")
+
+    def tem_similar_bigdata(ped, sku):
+        pb = bseller_por_entrega.get(ped)
+        entregas = entregas_por_master.get(pb)
+        if not pb or not entregas:
+            return False
+        orig = next((e["skus"] for e in entregas if e["id_entrega"] == ped), {sku})
+        dt_orig = next((e["dt"] for e in entregas if e["id_entrega"] == ped), None)
+        for e in entregas:
+            if e["id_entrega"] == ped or e["status"] == "Cancelado":
+                continue
+            if dt_orig and e["dt"] and e["dt"] < dt_orig:
+                continue
+            if e["skus"] - orig:
+                return True
+        return False
+
+    def novo_bucket():
+        return {
+            "pendente": {"n": 0, "valor": 0.0},
+            "em_tratativa": {"n": 0, "valor": 0.0},
+            "similar": {"n": 0, "valor": 0.0},
+            "cancelado": {"n": 0, "valor": 0.0},
+            "entregue": {"n": 0, "valor": 0.0},
+            "encerrado": {"n": 0, "valor": 0.0},
+        }
+
+    out = {"aes": novo_bucket(), "etr": novo_bucket(), "erro_nota": novo_bucket()}
+    mensal = {}   # 'YYYY-MM' -> {solicitacoes, similar, cancelado, entregue}
+    desde = None
+    DESFECHOS = ("similar", "cancelado", "entregue")
+
+    for d in docs:
+        tipo = d.get("tipo")
+        if tipo not in out:
+            continue
+        ped = d.get("numero_pedido")
+        sku = d.get("codigo_item_vtex")
+        valor = _to_float(d.get("preco_final")) + frete_por_entrega.get(ped, 0.0)
+        ticket = (d.get("ticket") or "").strip()
+        sku_sim = (d.get("sku_similar") or "").strip()
+
+        if d.get("status") != "encerrado":
+            # Ainda em aberto: separa por ter ou não ticket
+            bucket = "em_tratativa" if ticket else "pendente"
+        else:
+            # Encerrado → 3 desfechos: Similar (recuperado) / Cancelado (entrega
+            # efetivamente cancelada no BSeller) / Entregue (faturado no mesmo
+            # código apesar da solicitação — BSeller 'Liquidado').
+            if bool(sku_sim) or tem_similar_bigdata(ped, sku):
+                bucket = "similar"
+            elif status_por_entrega.get(ped) == "Cancelado":
+                bucket = "cancelado"
+            else:
+                bucket = "entregue"
+
+        out[tipo][bucket]["n"] += 1
+        out[tipo][bucket]["valor"] = round(out[tipo][bucket]["valor"] + valor, 2)
+        if bucket in DESFECHOS:
+            out[tipo]["encerrado"]["n"] += 1
+            out[tipo]["encerrado"]["valor"] = round(out[tipo]["encerrado"]["valor"] + valor, 2)
+
+        # --- Série mensal (todos os tipos somados) por mês de data_criacao ---
+        dc = d.get("data_criacao") or ""
+        mes = str(dc)[:7]
+        if len(mes) == 7:
+            if desde is None or mes < desde:
+                desde = mes
+            m = mensal.setdefault(mes, {
+                "solicitacoes": 0, "similar": 0, "cancelado": 0, "entregue": 0,
+                "v_solicitacoes": 0.0, "v_similar": 0.0, "v_cancelado": 0.0, "v_entregue": 0.0,
+            })
+            m["solicitacoes"] += 1            # tudo que entrou (volume de solicitações)
+            m["v_solicitacoes"] += valor
+            if bucket in DESFECHOS:
+                m[bucket] += 1
+                m["v_" + bucket] += valor
+
+    # Série mensal ordenada
+    mensal_lista = []
+    for mes in sorted(mensal.keys()):
+        mm = mensal[mes]
+        mensal_lista.append({
+            "mes": mes,
+            "solicitacoes": mm["solicitacoes"],
+            "similar": mm["similar"],
+            "cancelado": mm["cancelado"],
+            "entregue": mm["entregue"],
+            "v_solicitacoes": round(mm["v_solicitacoes"], 2),
+            "v_similar": round(mm["v_similar"], 2),
+            "v_cancelado": round(mm["v_cancelado"], 2),
+            "v_entregue": round(mm["v_entregue"], 2),
+        })
+
+    out["desde"] = desde
+    out["mensal"] = mensal_lista
+
+    _lifecycle_cache["ts"] = now
+    _lifecycle_cache["data"] = out
+    return out
+
+
 @router.get("/cancelamentos/stats")
 async def stats_cancelamentos(current_user: dict = Depends(get_current_user)):
-    """Cards de resumo no topo da tela."""
+    """Cards de resumo no topo da tela: total/pendentes/encerrados (compat) +
+    breakdown por ciclo de vida (pendente/em_tratativa/similar/cancelado) com valor."""
     pipeline_por_tipo = [
         {"$group": {
             "_id": {"tipo": "$tipo", "status": "$status"},
@@ -620,6 +1021,11 @@ async def stats_cancelamentos(current_user: dict = Depends(get_current_user)):
                 stats[t]["encerrados"] += r["count"]
             else:
                 stats[t]["pendentes"] += r["count"]
+    try:
+        stats["lifecycle"] = await _calcular_lifecycle_stats()
+    except Exception as e:
+        logger.warning(f"[stats] lifecycle falhou: {e}")
+        stats["lifecycle"] = None
     return stats
 
 

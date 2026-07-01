@@ -15,8 +15,11 @@ import {
 } from '../components/ui/tabs';
 import {
   AlertTriangle, CheckCircle, RefreshCw, Copy, ShoppingCart, Factory, FileWarning,
-  Plus, Search, X, Save, ChevronDown, ChevronRight,
+  Plus, Search, X, Save, ChevronDown, ChevronRight, BarChart3,
 } from 'lucide-react';
+import {
+  ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+} from 'recharts';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -1672,6 +1675,8 @@ export default function Cancelamentos() {
   const { getAuthHeader } = useAuth();
   const [stats, setStats] = useState({ aes: {}, etr: {}, erro_nota: {} });
   const [refreshKey, setRefreshKey] = useState(0);
+  const [tab, setTab] = useState('aes');
+  const [showMensal, setShowMensal] = useState(false);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -1693,9 +1698,14 @@ export default function Cancelamentos() {
           </h1>
           <p className="text-sm text-muted-foreground">Gestão de cancelamentos AES, ETR e Erro na Nota</p>
         </div>
-        <Button variant="outline" size="sm" onClick={triggerRefresh}>
-          <RefreshCw className="h-4 w-4 mr-1" /> Atualizar
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant={showMensal ? 'default' : 'outline'} size="sm" onClick={() => setShowMensal(v => !v)}>
+            <BarChart3 className="h-4 w-4 mr-1" /> Indicadores mensais
+          </Button>
+          <Button variant="outline" size="sm" onClick={triggerRefresh}>
+            <RefreshCw className="h-4 w-4 mr-1" /> Atualizar
+          </Button>
+        </div>
       </div>
 
       {/* Cards de stats */}
@@ -1737,8 +1747,109 @@ export default function Cancelamentos() {
         </div>
       </div>
 
+      {/* Ciclo de vida do tipo ativo (qtd + valor produto+frete) */}
+      {stats.lifecycle?.[tab] && (() => {
+        const lc = stats.lifecycle[tab];
+        const tipoLabel = tab === 'aes' ? 'AES (Compras)' : tab === 'etr' ? 'ETR (Produção)' : 'Erro na Nota';
+        const cards = [
+          { k: 'pendente', label: 'Pendentes', sub: 'sem ticket', cls: 'border-slate-300 dark:border-slate-700 bg-slate-100 dark:bg-slate-800', txt: 'text-slate-700 dark:text-slate-200', lbl: 'text-slate-600 dark:text-slate-300' },
+          { k: 'em_tratativa', label: 'Em tratativa', sub: 'com ticket', cls: 'border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/20', txt: 'text-amber-800 dark:text-amber-200', lbl: 'text-amber-700 dark:text-amber-300' },
+          { k: 'similar', label: 'Similar', sub: 'recuperado', cls: 'border-blue-200 dark:border-blue-900 bg-blue-50 dark:bg-blue-950/20', txt: 'text-blue-800 dark:text-blue-200', lbl: 'text-blue-700 dark:text-blue-300' },
+          { k: 'cancelado', label: 'Cancelado', sub: 'entrega cancelada', cls: 'border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/20', txt: 'text-red-800 dark:text-red-200', lbl: 'text-red-700 dark:text-red-300' },
+          { k: 'entregue', label: 'Entregue', sub: 'faturado mesmo assim', cls: 'border-teal-200 dark:border-teal-900 bg-teal-50 dark:bg-teal-950/20', txt: 'text-teal-800 dark:text-teal-200', lbl: 'text-teal-700 dark:text-teal-300' },
+          { k: 'encerrado', label: 'Encerrado', sub: 'todos desfechos', cls: 'border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/20', txt: 'text-emerald-800 dark:text-emerald-200', lbl: 'text-emerald-700 dark:text-emerald-300' },
+        ];
+        const desdeFmt = stats.lifecycle?.desde
+          ? `${stats.lifecycle.desde.slice(5, 7)}/${stats.lifecycle.desde.slice(0, 4)}`
+          : null;
+        return (
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+              Ciclo de vida — {tipoLabel}
+              {desdeFmt && <span className="font-normal normal-case"> · acumulado desde {desdeFmt}</span>}
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
+              {cards.map(c => (
+                <div key={c.k} className={`rounded-lg border px-3 py-2 ${c.cls}`}>
+                  <div className={`text-[11px] font-semibold uppercase tracking-wide ${c.lbl}`}>{c.label}<span className="font-normal normal-case opacity-70"> · {c.sub}</span></div>
+                  <div className="flex items-baseline gap-2">
+                    <span className={`text-2xl font-bold ${c.txt}`}>{lc[c.k]?.n || 0}</span>
+                    <span className={`text-sm font-medium ${c.lbl}`}>{formatMoney(lc[c.k]?.valor || 0)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Indicadores mensais: solicitações (barras) x desfechos (linhas de tendência) */}
+      {showMensal && stats.lifecycle?.mensal && (() => {
+        const dados = stats.lifecycle.mensal.map(r => ({
+          ...r,
+          mesLabel: `${r.mes.slice(5, 7)}/${r.mes.slice(2, 4)}`,
+          taxaCancel: r.solicitacoes ? (r.cancelado / r.solicitacoes * 100) : 0,
+        }));
+        return (
+          <div className="border rounded-lg p-4 bg-card">
+            <div className="flex items-center gap-2 mb-3">
+              <BarChart3 className="h-5 w-5 text-indigo-600" />
+              <h3 className="font-semibold">Indicadores mensais — Solicitações e desfechos</h3>
+            </div>
+            <div style={{ width: '100%', height: 300 }}>
+              <ResponsiveContainer>
+                <ComposedChart data={dados} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                  <XAxis dataKey="mesLabel" fontSize={12} />
+                  <YAxis fontSize={12} />
+                  <Tooltip formatter={(value, name, item) => {
+                    const sol = item?.payload?.solicitacoes || 0;
+                    if (name === 'Solicitações' || !sol) return value;
+                    return `${value} (${(value / sol * 100).toFixed(1)}%)`;
+                  }} />
+                  <Legend />
+                  <Bar dataKey="solicitacoes" name="Solicitações" fill="#cbd5e1" radius={[3, 3, 0, 0]} />
+                  <Line type="monotone" dataKey="cancelado" name="Cancelados" stroke="#dc2626" strokeWidth={2} dot={{ r: 2 }} />
+                  <Line type="monotone" dataKey="similar" name="Similares" stroke="#2563eb" strokeWidth={2} dot={{ r: 2 }} />
+                  <Line type="monotone" dataKey="entregue" name="Entregues" stroke="#0d9488" strokeWidth={2} dot={{ r: 2 }} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-1">
+              Barras = volume de <strong>solicitações</strong> abertas no mês. Linhas de tendência = desfechos
+              (Cancelado = entrega cancelada · Similar = recuperado · Entregue = faturado no mesmo código apesar da solicitação).
+              Mês pela data de abertura do cancelamento.
+            </div>
+
+            {/* Gráfico 2: valores em R$ + % de cancelamento */}
+            <h3 className="font-semibold text-sm mt-5 mb-2">Valores (R$) e % de cancelamento</h3>
+            <div style={{ width: '100%', height: 300 }}>
+              <ResponsiveContainer>
+                <ComposedChart data={dados} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                  <XAxis dataKey="mesLabel" fontSize={12} />
+                  <YAxis yAxisId="esq" fontSize={12} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
+                  <YAxis yAxisId="dir" orientation="right" fontSize={12} domain={[0, 'auto']} tickFormatter={(v) => `${Math.round(v)}%`} />
+                  <Tooltip formatter={(value, name) => (name === '% Cancel.' ? `${Number(value).toFixed(1)}%` : formatMoney(value))} />
+                  <Legend />
+                  <Bar yAxisId="esq" dataKey="v_solicitacoes" name="Solicitações (R$)" fill="#cbd5e1" radius={[3, 3, 0, 0]} />
+                  <Line yAxisId="esq" type="monotone" dataKey="v_cancelado" name="Cancelados (R$)" stroke="#dc2626" strokeWidth={2} dot={{ r: 2 }} />
+                  <Line yAxisId="esq" type="monotone" dataKey="v_similar" name="Similares (R$)" stroke="#2563eb" strokeWidth={2} dot={{ r: 2 }} />
+                  <Line yAxisId="esq" type="monotone" dataKey="v_entregue" name="Entregues (R$)" stroke="#0d9488" strokeWidth={2} dot={{ r: 2 }} />
+                  <Line yAxisId="dir" type="monotone" dataKey="taxaCancel" name="% Cancel." stroke="#b45309" strokeWidth={2} strokeDasharray="5 3" dot={{ r: 2 }} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-1">
+              Valores em R$ (produto + frete) no eixo esquerdo. A linha tracejada laranja é a <strong>% de cancelamento</strong>
+              (cancelados ÷ solicitações) no eixo direito.
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Tabs */}
-      <Tabs defaultValue="aes" className="w-full">
+      <Tabs value={tab} onValueChange={setTab} className="w-full">
         <TabsList>
           <TabsTrigger value="aes"><ShoppingCart className="h-4 w-4 mr-1" /> AES (Compras)</TabsTrigger>
           <TabsTrigger value="etr"><Factory className="h-4 w-4 mr-1" /> ETR (Produção)</TabsTrigger>

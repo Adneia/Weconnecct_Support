@@ -152,8 +152,11 @@ async def listar_pagamento(current_user: dict = Depends(get_current_user)):
             "data_instancia": acomp.get("data_instancia"),
             "registrado_por": acomp.get("registrado_por"),
             # Datas para o saldo rolante do dashboard (entrada x resolução).
-            # Fallback: pedidos vindos do tabelão sem acompanhamento usam a data do status.
-            "criado_em": acomp.get("criado_em") or acomp.get("registrado_em") or _data_status_iso(data_status),
+            # ENTRADA = quando o pedido CAIU em AAP no BSeller (data_status). NÃO usar
+            # acomp.criado_em (data do clique "Processar") como entrada — isso fazia
+            # pedidos antigos processados hoje aparecerem como "entrada hoje" no dash,
+            # inflando a coluna AR (entrada do dia).
+            "criado_em": _data_status_iso(data_status) or acomp.get("criado_em") or acomp.get("registrado_em", ""),
             "updated_at": acomp.get("updated_at", ""),
         })
 

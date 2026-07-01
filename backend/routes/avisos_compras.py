@@ -150,9 +150,226 @@ async def criar_aviso(aviso: AvisoCompraCreate, current_user: dict = Depends(get
     return {"ok": True, "novo": True, "aviso": doc}
 
 
+async def _enriquecer_status_tratativa(docs: list) -> list:
+    """Calcula o status do CICLO de tratativa de cada aviso, cruzando 3 fontes:
+       - aviso.status == 'faturado'  → Estado B (item voltou a ser faturado)
+       - db.cancelamentos (AES)      → em tratativa / cancelado (encerrado+Cancelar)
+       - bigdata pedidos+tracking    → cancelado (status/tracking) e SIMILAR (nova
+                                        entrega do mesmo pedido_bseller com SKU novo)
+
+    Define em cada doc:
+      status_tratativa       : em_tratativa | cancelado | faturado | similar | sem_cancelamento
+      status_tratativa_label : rótulo humano
+      status_tratativa_data  : data associada ao desfecho (ISO ou YYYY-MM-DD) ou None
+
+    Prioridade: faturado > similar > cancelado > em_tratativa > sem_cancelamento.
+    (similar antes de cancelado: ao mandar similar, a entrega original é cancelada;
+     queremos rotular 'Similar enviado', que é mais informativo.)
+    """
+    if not docs:
+        return docs
+
+    pedidos = list({d.get("numero_pedido") for d in docs if d.get("numero_pedido")})
+    skus = list({d.get("sku") for d in docs if d.get("sku")})
+    # filial_id (bigdata) -> UF do galpão
+    FILIAL_UF = {2: "ES", 3: "SP", 4: "SC"}
+
+    # 1) Cancelamentos AES desses pedidos (Mongo) — índice por (pedido, sku) mais recente
+    canc_idx = {}
+    try:
+        cancs = await db.cancelamentos.find(
+            {"numero_pedido": {"$in": pedidos}, "tipo": "aes"},
+            {"_id": 0, "numero_pedido": 1, "codigo_item_vtex": 1, "status": 1,
+             "acao": 1, "data_encerramento": 1, "data_criacao": 1},
+        ).to_list(3000)
+        for c in cancs:
+            key = (c.get("numero_pedido"), c.get("codigo_item_vtex"))
+            prev = canc_idx.get(key)
+            if not prev or (c.get("data_criacao", "") > prev.get("data_criacao", "")):
+                canc_idx[key] = c
+    except Exception as e:
+        logger.warning(f"[avisos status] lookup cancelamentos falhou: {e}")
+
+    # 2) bigdata: status/tracking + entregas do master (pra detectar similar)
+    bd = {}                      # id_entrega -> {pedido_bseller, status, dt_cancel, filial_id, frete}
+    entregas_por_master = {}     # pedido_bseller -> [{id_entrega, dt, status, skus}]
+    item_valor = {}              # (id_entrega, sku) -> preco_unit * qtd
+    xd_por_sku = {}              # sku -> disp_venda XD
+    fisico_por_sku = {}          # sku -> {filial_id: qtd}
+    try:
+        from routes.produtos_busca import _connect_pg
+        conn = _connect_pg()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT p.id_entrega, p.pedido_bseller, p.status, p.filial_id,
+                           COALESCE(p.frete, 0),
+                           (SELECT MAX(te.data_ocorrencia)::date FROM tracking_eventos te
+                             WHERE te.pedido_bseller = p.id_entrega
+                               AND te.ponto_id IN ('CAN','I63'))
+                    FROM pedidos p
+                    WHERE p.id_entrega = ANY(%s)
+                    """,
+                    (pedidos,),
+                )
+                masters = set()
+                for id_ent, pb, status, filial_id, frete, dt_cancel in cur.fetchall():
+                    bd[id_ent] = {"pedido_bseller": pb, "status": status, "dt_cancel": dt_cancel,
+                                  "filial_id": filial_id, "frete": float(frete or 0)}
+                    if pb:
+                        masters.add(pb)
+
+                # 2b) Valor do ITEM de cada aviso (preco_unit * qtd) por (id_entrega, sku)
+                cur.execute(
+                    """
+                    SELECT p.id_entrega, pi.cod_terceiro,
+                           COALESCE(pi.preco_unit_venda, 0) * COALESCE(pi.quantidade, 1)
+                    FROM pedidos p JOIN pedido_itens pi ON pi.pedido_id = p.id
+                    WHERE p.id_entrega = ANY(%s)
+                    """,
+                    (pedidos,),
+                )
+                for id_ent, cod, valor in cur.fetchall():
+                    item_valor[(id_ent, cod)] = float(valor or 0)
+
+                # 2c) Estoque XD (disp_venda) por SKU — último snapshot por filial
+                if skus:
+                    cur.execute(
+                        """
+                        SELECT cod_terceiro, SUM(disp_venda) FROM (
+                          SELECT DISTINCT ON (cod_terceiro, filial_id) cod_terceiro, filial_id, disp_venda
+                          FROM estoque_xd
+                          WHERE cod_terceiro = ANY(%s) AND tipo_deposito = 'XD'
+                          ORDER BY cod_terceiro, filial_id, snapshot_date DESC
+                        ) t GROUP BY cod_terceiro
+                        """,
+                        (skus,),
+                    )
+                    for cod, xd in cur.fetchall():
+                        xd_por_sku[cod] = int(xd or 0)
+
+                    # 2d) Estoque FÍSICO por SKU e filial — último snapshot
+                    cur.execute(
+                        """
+                        SELECT cod_terceiro, filial_id, SUM(qtd) FROM (
+                          SELECT DISTINCT ON (cod_terceiro, filial_id, deposito_id)
+                                 cod_terceiro, filial_id, deposito_id, qtd_disponivel AS qtd
+                          FROM estoque_fisico
+                          WHERE cod_terceiro = ANY(%s)
+                          ORDER BY cod_terceiro, filial_id, deposito_id, snapshot_date DESC
+                        ) t GROUP BY cod_terceiro, filial_id HAVING SUM(qtd) > 0
+                        """,
+                        (skus,),
+                    )
+                    for cod, filial_id, qtd in cur.fetchall():
+                        fisico_por_sku.setdefault(cod, {})[filial_id] = int(qtd or 0)
+                if masters:
+                    cur.execute(
+                        """
+                        SELECT p.pedido_bseller, p.id_entrega, p.data_pedido::date, p.status,
+                               array_agg(DISTINCT pi.cod_terceiro)
+                        FROM pedidos p JOIN pedido_itens pi ON pi.pedido_id = p.id
+                        WHERE p.pedido_bseller = ANY(%s)
+                        GROUP BY p.pedido_bseller, p.id_entrega, p.data_pedido, p.status
+                        """,
+                        (list(masters),),
+                    )
+                    for pb, id_ent, dt, status, skus in cur.fetchall():
+                        entregas_por_master.setdefault(pb, []).append({
+                            "id_entrega": id_ent, "dt": dt, "status": status,
+                            "skus": set(skus or []),
+                        })
+        finally:
+            conn.close()
+    except Exception as e:
+        logger.warning(f"[avisos status] bigdata indisponível (status parcial): {e}")
+
+    def _detecta_similar(ped, sku):
+        """Retorna (cod_novo, data) se há nova entrega ativa do mesmo master com um
+        cod_terceiro que NÃO existia na entrega original do aviso. Senão (None, None)."""
+        info = bd.get(ped) or {}
+        pb = info.get("pedido_bseller")
+        entregas = entregas_por_master.get(pb)
+        if not pb or not entregas:
+            return None, None
+        orig = next((e["skus"] for e in entregas if e["id_entrega"] == ped), {sku})
+        dt_orig = next((e["dt"] for e in entregas if e["id_entrega"] == ped), None)
+        melhor = None
+        for e in entregas:
+            if e["id_entrega"] == ped or e["status"] == "Cancelado":
+                continue
+            if dt_orig and e["dt"] and e["dt"] < dt_orig:
+                continue
+            novos = e["skus"] - orig
+            if novos:
+                if melhor is None or (e["dt"] and melhor["dt"] and e["dt"] > melhor["dt"]):
+                    melhor = {"cod": sorted(novos)[0], "dt": e["dt"]}
+        if melhor:
+            return melhor["cod"], melhor["dt"]
+        return None, None
+
+    for d in docs:
+        ped = d.get("numero_pedido")
+        sku = d.get("sku")
+        info = bd.get(ped) or {}
+        canc = canc_idx.get((ped, sku))
+        sim_cod, sim_dt = _detecta_similar(ped, sku)
+
+        if d.get("status") == "faturado":
+            d["status_tratativa"] = "faturado"
+            d["status_tratativa_label"] = "Encerrado pedido faturado"
+            d["status_tratativa_data"] = d.get("faturado_em")
+        elif sim_cod:
+            d["status_tratativa"] = "similar"
+            d["status_tratativa_label"] = "Similar enviado"
+            d["status_tratativa_data"] = sim_dt.isoformat() if sim_dt else None
+            d["status_tratativa_sku"] = sim_cod
+        elif (info.get("status") in ("Cancelado", "Cancelada")) or info.get("dt_cancel") or (
+            canc and canc.get("status") == "encerrado"
+            and (canc.get("acao") or "").lower().startswith("cancel")
+        ):
+            d["status_tratativa"] = "cancelado"
+            d["status_tratativa_label"] = "Cancelado"
+            dtc = info.get("dt_cancel")
+            d["status_tratativa_data"] = (
+                dtc.isoformat() if dtc else (canc.get("data_encerramento") if canc else None)
+            )
+        elif canc:
+            d["status_tratativa"] = "em_tratativa"
+            d["status_tratativa_label"] = "Em tratativa"
+            d["status_tratativa_data"] = None
+        else:
+            d["status_tratativa"] = "sem_cancelamento"
+            d["status_tratativa_label"] = "Sem tratativa"
+            d["status_tratativa_data"] = None
+
+        # --- Valor do aviso (produto do item + frete da entrega) ---
+        valor_item = item_valor.get((ped, sku), 0.0)
+        frete = info.get("frete", 0.0)
+        d["valor_total"] = round(valor_item + frete, 2)
+
+        # --- Estoque XD + Físico do SKU ---
+        d["estoque_xd"] = xd_por_sku.get(sku, 0)
+        fis = fisico_por_sku.get(sku, {})
+        d["estoque_fisico"] = sum(fis.values())
+        ufs_fisico = sorted({FILIAL_UF.get(f, str(f)) for f, q in fis.items() if q > 0})
+        d["estoque_fisico_ufs"] = ufs_fisico
+        # Filial (galpão) esperada da entrega
+        uf_filial = FILIAL_UF.get(info.get("filial_id"), "")
+        d["uf_filial_pedido"] = uf_filial
+        # Alerta: tem físico, mas NENHUM na filial da entrega → precisa subir pedido manual
+        d["alerta_outra_filial"] = bool(
+            d["estoque_fisico"] > 0 and uf_filial and uf_filial not in ufs_fisico
+        )
+
+    return docs
+
+
 @router.get("/avisos-compras")
 async def listar_pendentes(current_user: dict = Depends(get_current_user)):
-    """Lista global dos avisos pendentes (aberto/faturado) — pra página e contador do menu."""
+    """Lista global dos avisos pendentes (aberto/faturado) — pra página e contador do menu.
+    Cada aviso vem com status_tratativa calculado (em_tratativa/cancelado/faturado/similar)."""
     docs = (
         await db.avisos_compras.find(
             {"status": {"$in": list(STATUS_ATIVOS)}}, {"_id": 0}
@@ -161,7 +378,13 @@ async def listar_pendentes(current_user: dict = Depends(get_current_user)):
         .to_list(500)
     )
     docs.sort(key=lambda d: 0 if d.get("status") == "faturado" else 1)  # faturado (voltou) primeiro
-    return {"total": len(docs), "avisos": docs}
+    try:
+        await _enriquecer_status_tratativa(docs)
+    except Exception as e:
+        logger.warning(f"[avisos status] enriquecimento falhou (seguindo sem status): {e}")
+    n_pendentes = sum(1 for d in docs if d.get("status_tratativa") in ("em_tratativa", "sem_cancelamento"))
+    n_encerrados = sum(1 for d in docs if d.get("status_tratativa") in ("cancelado", "faturado", "similar"))
+    return {"total": len(docs), "pendentes": n_pendentes, "encerrados": n_encerrados, "avisos": docs}
 
 
 @router.get("/avisos-compras/check/{numero_pedido}")
