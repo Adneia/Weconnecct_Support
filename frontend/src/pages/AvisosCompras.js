@@ -1,11 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
-import { ShoppingCart, RefreshCw, ExternalLink, Check, AlertTriangle } from 'lucide-react';
+import { ShoppingCart, RefreshCw, AlertTriangle } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -57,8 +56,7 @@ const StatusTratativa = ({ status, label, data }) => {
 const AvisosCompras = () => {
   const [avisos, setAvisos] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filtro, setFiltro] = useState('todos'); // todos | aberto | faturado
-  const navigate = useNavigate();
+  const [filtro, setFiltro] = useState('todos'); // todos | naovem | faturou | encerrado
   const { getAuthHeader } = useAuth();
 
   const fetchAvisos = useCallback(async () => {
@@ -75,22 +73,16 @@ const AvisosCompras = () => {
 
   useEffect(() => { fetchAvisos(); }, [fetchAvisos]);
 
-  const tratar = async (id) => {
-    if (!window.confirm('Marcar este aviso como tratado? Ele sai da lista.')) return;
-    try {
-      await axios.put(`${API_URL}/api/avisos-compras/${id}`, { status: 'tratado' }, { headers: getAuthHeader() });
-      setAvisos(prev => prev.filter(a => a.id !== id));
-      toast.success('Aviso tratado');
-    } catch {
-      toast.error('Não consegui tratar o aviso');
-    }
+  // Visão por situação da tratativa (não remove avisos — só filtra a exibição):
+  //   naovem = ainda em tratativa/sem cancelamento | faturou = voltou a faturar | encerrado = cancelado/similar
+  const visaoDe = (a) => {
+    const st = a.status_tratativa;
+    if (st === 'faturado' || a.status === 'faturado') return 'faturou';
+    if (st === 'cancelado' || st === 'similar') return 'encerrado';
+    return 'naovem';
   };
-
-  const abrirPedido = (entrega) => {
-    navigate(`/chamados/novo?entrega=${encodeURIComponent(String(entrega || '').split('.')[0])}`);
-  };
-
-  const lista = avisos.filter(a => (filtro === 'todos' ? true : a.status === filtro));
+  const lista = avisos.filter(a => (filtro === 'todos' ? true : visaoDe(a) === filtro));
+  const countVisao = (v) => avisos.filter(a => visaoDe(a) === v).length;
   const nFaturados = avisos.filter(a => a.status === 'faturado').length;
   const fmtBRL = (v) => (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const resumo = (st) => {
@@ -117,9 +109,9 @@ const AvisosCompras = () => {
       </div>
 
       <p className="text-sm text-muted-foreground mb-3">
-        Itens que o time de Compras marcou como "não vão chegar". Clique em <strong>Abrir pedido</strong> pra tratar
-        (propor similar / cancelar) e depois em <strong>Tratar</strong> pra tirar da lista. Itens laranja "faturou depois"
-        voltaram a ser faturados — reveja o atendimento.
+        Itens que o time de Compras marcou como "não vão chegar". A tratativa é feita na tela de <strong>Cancelamentos</strong>;
+        conforme o desfecho, o aviso muda de visão aqui: <strong>Não Vem</strong> (ainda em tratativa),
+        <strong> Encerrado</strong> (cancelado ou recuperado com similar) e <strong>Faturou depois</strong> (voltou a ser faturado — reveja o atendimento).
       </p>
 
       {/* Resumo por status (quantidade + valor do pedido: produto + frete) */}
@@ -166,18 +158,23 @@ const AvisosCompras = () => {
       </div>
 
       <div className="flex gap-2 mb-3">
-        {['todos', 'aberto', 'faturado'].map(f => (
+        {[
+          { k: 'todos', label: 'Todos' },
+          { k: 'naovem', label: 'Não Vem' },
+          { k: 'faturou', label: '⚠ Faturou depois' },
+          { k: 'encerrado', label: 'Encerrado' },
+        ].map(({ k, label }) => (
           <button
-            key={f}
-            onClick={() => setFiltro(f)}
-            data-testid={`filtro-${f}`}
+            key={k}
+            onClick={() => setFiltro(k)}
+            data-testid={`filtro-${k}`}
             className={`text-xs font-semibold px-3 py-1.5 rounded-md border transition-colors ${
-              filtro === f
+              filtro === k
                 ? 'bg-primary text-primary-foreground border-primary'
                 : 'bg-background text-muted-foreground border-border hover:bg-accent'
             }`}
           >
-            {f === 'todos' ? 'Todos' : f === 'aberto' ? 'Não vem' : '⚠ Faturou depois'}
+            {label}{k !== 'todos' ? ` (${countVisao(k)})` : ''}
           </button>
         ))}
       </div>
@@ -198,7 +195,6 @@ const AvisosCompras = () => {
                 <th className="px-3 py-2 font-semibold whitespace-nowrap">Tratativa</th>
                 <th className="px-3 py-2 font-semibold">Comentário</th>
                 <th className="px-3 py-2 font-semibold whitespace-nowrap">Quando</th>
-                <th className="px-3 py-2 font-semibold text-right">Ação</th>
               </tr>
             </thead>
             <tbody>
@@ -253,16 +249,6 @@ const AvisosCompras = () => {
                       {a.comentario || '—'}
                     </td>
                     <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">{fmtData(a.criado_em)}</td>
-                    <td className="px-3 py-2">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <Button variant="outline" size="sm" onClick={() => abrirPedido(a.numero_pedido)} data-testid="abrir-pedido-btn">
-                          <ExternalLink className="h-3.5 w-3.5 mr-1" /> Abrir pedido
-                        </Button>
-                        <Button variant="ghost" size="sm" className="text-emerald-700 dark:text-emerald-300" onClick={() => tratar(a.id)} data-testid="tratar-btn">
-                          <Check className="h-3.5 w-3.5 mr-1" /> Tratar
-                        </Button>
-                      </div>
-                    </td>
                   </tr>
                 );
               })}
