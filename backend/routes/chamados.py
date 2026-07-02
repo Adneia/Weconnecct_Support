@@ -682,12 +682,12 @@ async def list_chamados(
     if atendente:
         query['atendente'] = atendente
     if parceiro:
-        # AJUSTE 3: Suporte a múltiplos parceiros separados por vírgula
+        # AJUSTE 3: múltiplos parceiros (vírgula) + match case-insensitive
+        # (tolera grafia SENFF/Senff, NiceQuest/Nicequest sem quebrar o filtro)
+        import re as _re
         parceiros_list = [p.strip() for p in parceiro.split(',') if p.strip()]
-        if len(parceiros_list) > 1:
-            query['parceiro'] = {"$in": parceiros_list}
-        else:
-            query['parceiro'] = parceiro
+        if parceiros_list:
+            query['parceiro'] = {"$in": [_re.compile(f"^{_re.escape(p)}$", _re.IGNORECASE) for p in parceiros_list]}
     if retornar_chamado is not None:
         query['retornar_chamado'] = retornar_chamado
     if verificar_adneia is not None:
