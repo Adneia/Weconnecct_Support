@@ -1182,8 +1182,14 @@ function TabelaCancelamentos({ tipo, refreshKey, onRefresh }) {
   //   POR FIM: data asc (mais antigo no topo, mais novo no final)
   const itemsExibidos = React.useMemo(() => {
     let arr = items;
-    // Caixa Compras: filtra só os em_compras=true (ignora outros filtros de parceiro)
-    if (verCompras) {
+    // Quando há BUSCA ativa (entrega / produto / canal), varre TODAS as caixas
+    // (normal + Compras) — não esconde em_compras. Assim o pedido é encontrado em
+    // qualquer caixa e a coluna/linha indica onde ele está.
+    const buscandoAlgo = !!(filtroEntrega.trim() || filtroProduto.trim() || filtroCanal.trim());
+    if (buscandoAlgo) {
+      // busca global: não filtra por caixa
+    } else if (verCompras) {
+      // Caixa Compras: filtra só os em_compras=true (ignora outros filtros de parceiro)
       arr = arr.filter(i => i.em_compras === true);
     } else {
       // Modo normal: esconde os que foram movidos para Compras
@@ -1492,6 +1498,13 @@ function TabelaCancelamentos({ tipo, refreshKey, onRefresh }) {
                         🎫 {item.solicitacao_atendimento || 'Atendimento aberto'}
                       </span>
                     )}
+                    {/* Caixa onde o pedido está (útil na busca global, que varre as duas) */}
+                    <span
+                      className={`text-[10px] font-semibold inline-flex items-center gap-1 w-fit px-1.5 py-0.5 rounded ${item.em_compras ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}
+                      title={item.em_compras ? 'Caixa 🛒 Compras (movido para Compras)' : 'Lista normal (por canal)'}
+                    >
+                      {item.em_compras ? '🛒 Compras' : '📋 Normal'}
+                    </span>
                   </div>
                 </td>
                 <td className="px-2 py-2 text-sm">{item.canal_vendas || item.parceiro_planilha || '—'}</td>
