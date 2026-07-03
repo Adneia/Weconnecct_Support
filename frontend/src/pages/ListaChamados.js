@@ -100,6 +100,7 @@ const ListaAtendimentos = () => {
   const [motivosDisponiveis, setMotivosDisponiveis] = useState([]);
   
   const [totalNaBase, setTotalNaBase] = useState(null);
+  const [cancelMap, setCancelMap] = useState({}); // {numero_pedido: {has_cancelamento, tipos, aviso_movimentou}}
   const [acionarData, setAcionarData] = useState(null); // modal "Acionar Parceiro"
 
   // Estados para mesclar atendimentos
@@ -235,6 +236,16 @@ const ListaAtendimentos = () => {
       setAtendimentos(chamadosRes.data);
       if (totalRes?.data) {
         setTotalNaBase(totalRes.data.total_chamados);
+      }
+
+      // Alerta na lista: checa em lote quais entregas estão para cancelamento
+      const entregasLote = [...new Set(chamadosRes.data.map(a => String(a.numero_pedido || '').split('.')[0]).filter(Boolean))];
+      if (entregasLote.length) {
+        axios.post(`${API_URL}/api/cancelamentos/check-lote`, { pedidos: entregasLote }, { headers: getAuthHeader() })
+          .then(r => setCancelMap(r.data?.results || {}))
+          .catch(() => setCancelMap({}));
+      } else {
+        setCancelMap({});
       }
 
       // Extrair lista de parceiros únicos
@@ -1445,6 +1456,27 @@ const ListaAtendimentos = () => {
                         title="Clique para copiar"
                       >
                         {atd.numero_pedido}
+                        {(() => {
+                          const c = cancelMap[String(atd.numero_pedido || '').split('.')[0]];
+                          if (c?.has_cancelamento) {
+                            const tp = (c.tipos || []).map(t => t === 'aes' ? 'AES' : t === 'etr' ? 'ETR' : 'Erro Nota').join(', ');
+                            return (
+                              <span className="mt-0.5 block w-fit text-[10px] font-semibold px-1.5 py-0.5 rounded bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                                title={`Consta na lista de Cancelamentos${tp ? ' (' + tp + ')' : ''}`}>
+                                🔔 Cancelamento{tp ? ` · ${tp}` : ''}
+                              </span>
+                            );
+                          }
+                          if (c?.aviso_movimentou) {
+                            return (
+                              <span className="mt-0.5 block w-fit text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                                title="Estava para cancelamento, mas movimentou — verificar se o cliente foi acionado">
+                                ⚠️ Movimentou
+                              </span>
+                            );
+                          }
+                          return null;
+                        })()}
                       </TableCell>
                       {/* Coluna Cliente - copiável ao clicar */}
                       <TableCell 

@@ -1294,6 +1294,40 @@ async def check_cancelamentos(
     }
 
 
+@router.post("/cancelamentos/check-lote")
+async def check_cancelamentos_lote(payload: dict, current_user: dict = Depends(get_current_user)):
+    """Checa EM LOTE quais entregas têm cancelamento PENDENTE (AES/ETR/Erro na Nota) ou
+    foram encerradas por movimentação para ETR. Usado pela lista de Atendimentos pra
+    mostrar o alerta na linha. payload: {pedidos: [numero_pedido, ...]}."""
+    pedidos = list({str(p).strip().split(".")[0] for p in (payload.get("pedidos") or []) if p})
+    if not pedidos:
+        return {"results": {}}
+    results = {}
+
+    def _slot(num):
+        return results.setdefault(num, {"has_cancelamento": False, "tipos": [], "aviso_movimentou": False})
+
+    # Pendentes (não encerrados) → alerta "está para cancelamento"
+    async for d in db.cancelamentos.find(
+        {"numero_pedido": {"$in": pedidos}, "status": {"$ne": "encerrado"}},
+        {"_id": 0, "numero_pedido": 1, "tipo": 1},
+    ):
+        r = _slot(d["numero_pedido"])
+        r["has_cancelamento"] = True
+        t = d.get("tipo")
+        if t and t not in r["tipos"]:
+            r["tipos"].append(t)
+
+    # Encerrados por movimentação para ETR → alerta "estava p/ cancelamento, mas movimentou"
+    async for d in db.cancelamentos.find(
+        {"numero_pedido": {"$in": pedidos}, "status": "encerrado", "encerrado_por_etr": True},
+        {"_id": 0, "numero_pedido": 1},
+    ):
+        _slot(d["numero_pedido"])["aviso_movimentou"] = True
+
+    return {"results": results}
+
+
 @router.get("/cancelamentos/lookup/{numero_pedido}")
 async def lookup_pedido(
     numero_pedido: str,
