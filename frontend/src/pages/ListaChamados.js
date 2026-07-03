@@ -470,6 +470,7 @@ const ListaAtendimentos = () => {
           'Galpão': item.galpao || '',
           'Status Entrega': item.status_entrega || '',
           'Data Último Ponto': item.data_ultimo_ponto || '',
+          'Dias em ETR': item.dias_no_status ?? '',
           'Status Atendimento': statusAtendimento
         };
       });
@@ -486,6 +487,7 @@ const ListaAtendimentos = () => {
         { wch: 15 }, // Galpão
         { wch: 18 }, // Status Entrega
         { wch: 18 }, // Data
+        { wch: 12 }, // Dias em ETR
         { wch: 18 }, // Status Atendimento
       ];
 

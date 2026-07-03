@@ -106,10 +106,6 @@ async def get_relatorio_ag_compras(current_user: dict = Depends(get_current_user
 
 @router.get("/relatorios/ag-logistica")
 async def get_relatorio_ag_logistica(current_user: dict = Depends(get_current_user)):
-    STATUS_LOGISTICA = [
-        'entregue a transportadora', 'nota fiscal emitida',
-        'nota fiscal aprovada', 'separado'
-    ]
     chamados = await db.chamados.find(
         {"motivo_pendencia": "Ag. Logística", "pendente": True}, {"_id": 0}
     ).to_list(5000)
@@ -126,19 +122,14 @@ async def get_relatorio_ag_logistica(current_user: dict = Depends(get_current_us
         pedido = pedidos_dict.get(chamado.get('numero_pedido'))
         if not pedido:
             continue
-        status_pedido = pedido.get('status_pedido', '').lower()
+        status_pedido = (pedido.get('status_pedido', '') or '').lower()
         data_status = pedido.get('data_status', '')
-        incluir = False
-        if 'pedido aprovado' in status_pedido:
-            incluir = True
-        else:
-            for status_valido in STATUS_LOGISTICA:
-                if status_valido in status_pedido:
-                    dias_no_status = calcular_dias_uteis(data_status)
-                    if dias_no_status >= 2:
-                        incluir = True
-                        break
-        if not incluir:
+        # Regra (definida pela Adneia): SÓ pedidos em ETR (Entregue a Transportadora),
+        # com MAIS DE 2 dias úteis nesse status. 'Pedido aprovado' e demais status NÃO entram.
+        if 'entregue a transportadora' not in status_pedido:
+            continue
+        dias_no_status = calcular_dias_uteis(data_status)
+        if dias_no_status <= 2:  # "mais de 2 dias úteis" = > 2 (inclui a partir de 3)
             continue
 
         status_atendimento = ""
@@ -153,6 +144,9 @@ async def get_relatorio_ag_logistica(current_user: dict = Depends(get_current_us
             "galpao": pedido.get('filial', ''),
             "status_entrega": pedido.get('status_pedido', ''),
             "data_ultimo_ponto": data_status,
+            "dias_no_status": dias_no_status,
             "status_atendimento": status_atendimento
         })
+    # Relatório em ORDEM DE GALPÃO (e, dentro de cada galpão, os mais parados primeiro)
+    resultado.sort(key=lambda r: ((r.get('galpao') or '').upper(), -int(r.get('dias_no_status') or 0), str(r.get('entrega') or '')))
     return resultado
