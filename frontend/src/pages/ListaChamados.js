@@ -397,7 +397,7 @@ const ListaAtendimentos = () => {
           'Cód. Fornecedor': item.codigo_fornecedor || '',
           'ID': item.id_produto || '',
           'SKU': item.sku || '',
-          'Estoque Disp.': item.estoque_disponivel !== null ? item.estoque_disponivel : '-',
+          'Estoque XD': item.estoque_disponivel ?? 0,
           'Qtd. Pedido': item.quantidade || '',
           'Entrega': item.entrega || '',
           'Parceiro/Canal': item.parceiro_canal || '',

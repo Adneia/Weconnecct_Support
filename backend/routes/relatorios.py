@@ -33,21 +33,15 @@ async def get_relatorio_ag_compras(current_user: dict = Depends(get_current_user
     ).to_list(len(pedido_numbers)) if pedido_numbers else []
     pedidos_dict = {p['numero_pedido']: p for p in pedidos_raw}
 
-    # Bulk query estoque
-    codigo_items = []
-    for chamado in chamados:
-        pedido = pedidos_dict.get(chamado.get('numero_pedido'))
-        if pedido:
-            ci = pedido.get('codigo_item_bseller', '')
-            if ci:
-                ci_str = str(ci)
-                if ci_str.endswith('.0'):
-                    ci_str = ci_str[:-2]
-                codigo_items.append(ci_str)
-    estoques_raw = await db.estoque_sigeq.find(
-        {"id_item": {"$in": codigo_items}}, {"_id": 0}
-    ).to_list(len(codigo_items)) if codigo_items else []
-    estoques_dict = {e['id_item']: e for e in estoques_raw}
+    # Estoque XD (cross-dock) = estoque_sigeq com source 'SIGEQ425', casado pelo SKU
+    # (cod_terceiro = codigo_item_vtex). Item sem registro XD → 0 (nunca "-").
+    skus = [str(p.get('codigo_item_vtex') or '').strip()
+            for p in pedidos_dict.values() if p.get('codigo_item_vtex')]
+    xd_raw = await db.estoque_sigeq.find(
+        {"cod_terceiro": {"$in": skus}, "source": "SIGEQ425"},
+        {"_id": 0, "cod_terceiro": 1, "disp_venda": 1, "codigo_fornecedor": 1}
+    ).to_list(len(skus)) if skus else []
+    xd_dict = {e['cod_terceiro']: e for e in xd_raw}
 
     resultado = []
     for chamado in chamados:
@@ -74,16 +68,10 @@ async def get_relatorio_ag_compras(current_user: dict = Depends(get_current_user
         elif chamado.get('verificar_adneia'):
             status_atendimento = "Verificar"
 
-        codigo_item = pedido.get('codigo_item_bseller', '')
-        estoque_disponivel = None
-        estoque = None
-        if codigo_item:
-            ci_str = str(codigo_item)
-            if ci_str.endswith('.0'):
-                ci_str = ci_str[:-2]
-            estoque = estoques_dict.get(ci_str)
-            if estoque:
-                estoque_disponivel = estoque.get('disp_venda', 0)
+        sku = str(pedido.get('codigo_item_vtex') or '').strip()
+        xd = xd_dict.get(sku)
+        # Estoque XD: sempre número (0 quando não há registro), nunca None/"-"
+        estoque_disponivel = int(xd.get('disp_venda') or 0) if xd else 0
 
         resultado.append({
             "fornecedor": fornecedor,
@@ -91,7 +79,7 @@ async def get_relatorio_ag_compras(current_user: dict = Depends(get_current_user
             "id_produto": pedido.get('codigo_item_bseller', ''),
             "sku": pedido.get('codigo_item_vtex', ''),
             "quantidade": pedido.get('quantidade', ''),
-            "codigo_fornecedor": estoque.get('codigo_fornecedor', '') if estoque else pedido.get('codigo_fornecedor', ''),
+            "codigo_fornecedor": (xd.get('codigo_fornecedor') if xd and xd.get('codigo_fornecedor') else pedido.get('codigo_fornecedor', '')),
             "entrega": chamado.get('numero_pedido', ''),
             "parceiro_canal": pedido.get('canal_vendas', ''),
             "cidade": pedido.get('cidade', ''),
