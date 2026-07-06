@@ -109,7 +109,12 @@ const Dashboard = () => {
   }, [getAuthHeader]);
   useEffect(() => { fetchVerificacao(); }, [fetchVerificacao]);
   // Ag. Parceiro (e seus parceiros) → quarta(3), 1x/semana | demais → terça(2) e quinta(4)
-  const diasVerif = (motivo) => ((motivo || '').trim().toLowerCase() === 'ag. parceiro' ? [3] : [2, 4]);
+  const diasVerif = (motivo) => {
+    const m = (motivo || '').trim().toLowerCase();
+    if (m === 'entregue' || m.includes('j&t')) return [1, 2, 3, 4, 5];  // diário (dias úteis: seg-sex)
+    if (m === 'ag. parceiro') return [3];                                // quarta
+    return [2, 4];                                                       // demais: terça e quinta
+  };
   const verifDevida = (motivo) => diasVerif(motivo).includes(new Date().getDay());
   const proximaDataVerif = (motivo, baseStr) => {
     const dias = diasVerif(motivo);
@@ -854,7 +859,7 @@ const Dashboard = () => {
             <CardTitle className="text-sm font-semibold flex items-center gap-2 flex-wrap">
               <span>🔎 Verificação de status</span>
               <span className="text-[11px] font-normal text-muted-foreground">
-                limpeza por motivo — Ag. Parceiro: quarta · demais: terça e quinta
+                limpeza por motivo — Entregue e J&T: diário · Ag. Parceiro: quarta · demais: terça e quinta
               </span>
             </CardTitle>
           </CardHeader>
