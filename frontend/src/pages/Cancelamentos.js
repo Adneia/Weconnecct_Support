@@ -1151,6 +1151,33 @@ function TabelaCancelamentos({ tipo, refreshKey, onRefresh }) {
 
   useEffect(() => { fetchItems(); }, [fetchItems, refreshKey]);
 
+  // Importa a devolução do Compras (arquivo da Relação Compras com Retorno + Status)
+  const importarRetorno = async (file) => {
+    try {
+      toast.info('Lendo o retorno do Compras...');
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      const rows = data.map(r => ({
+        entrega: String(r['Entrega'] ?? r['Entrega Ped'] ?? r['entrega'] ?? '').split('.')[0].trim(),
+        retorno: String(r['Retorno Compras'] ?? r['Retorno'] ?? '').trim(),
+        status: String(r['Status'] ?? r['status'] ?? '').trim(),
+      })).filter(r => r.entrega && (r.retorno || r.status));
+      if (!rows.length) {
+        toast.warning('Arquivo sem linhas válidas — precisa das colunas Entrega, Retorno Compras e Status.');
+        return;
+      }
+      const res = await axios.post(`${API_URL}/api/cancelamentos/importar-retorno`, { rows }, { headers: getAuthHeader() });
+      const s = res.data?.stats || {};
+      toast.success(`Retorno importado: ${s.encerrados || 0} encerrados · ${s.mantidos || 0} mantidos · ${s.notas || 0} notas${s.nao_encontrados ? ` · ${s.nao_encontrados} não encontrados` : ''}`);
+      fetchItems();
+    } catch (e) {
+      console.error(e);
+      toast.error('Erro ao importar o retorno do Compras.');
+    }
+  };
+
   // Detecta se é "Similar": baseado APENAS no campo acao (não na observação)
 
   const isSimilar = (item) => {
@@ -1297,6 +1324,15 @@ function TabelaCancelamentos({ tipo, refreshKey, onRefresh }) {
               className="bg-red-50 hover:bg-red-100 text-red-700 border-red-300">
               ⚠️ Relação Compras
             </Button>
+          )}
+          {tipo === 'aes' && (
+            <label
+              className="inline-flex items-center gap-1 text-sm font-medium h-9 px-3 rounded-md border border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 cursor-pointer"
+              title="Importar o arquivo devolvido pelo Compras (Relação Compras com Retorno Compras + Status)">
+              ⬆️ Importar Retorno
+              <input type="file" accept=".xlsx,.xls,.csv" className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) importarRetorno(f); e.target.value = ''; }} />
+            </label>
           )}
           <Button size="sm" onClick={() => setShowNovo(true)}>
             <Plus className="h-4 w-4 mr-1" /> Novo

@@ -1328,6 +1328,81 @@ async def check_cancelamentos_lote(payload: dict, current_user: dict = Depends(g
     return {"results": results}
 
 
+@router.post("/cancelamentos/importar-retorno")
+async def importar_retorno_compras(payload: dict, current_user: dict = Depends(get_current_user)):
+    """Importa a devolução do Compras (arquivo da Relação Compras).
+    payload: {rows: [{entrega, retorno, status}]}. Por linha, casa o AES por numero_pedido:
+      - adiciona o 'Retorno Compras' (coluna I) na observação (idempotente);
+      - 'Encerrar cancelamento' -> encerra (se já encerrado, só registra a nota);
+      - 'Manter cancelamento'   -> mantém pendente + nota; se XD==0 tira da caixa Compras
+        (volta pro canal), se XD>0 adiciona nota p/ Compras zerar o estoque e mantém
+        (reaparece na próxima Relação Compras, que é AES pendente com XD)."""
+    def _n(s):
+        return " ".join(str(s or "").lower().split())
+
+    rows = payload.get("rows") or []
+    hoje = _br_now().strftime("%d/%m")
+    hoje_full = _br_now().strftime("%Y-%m-%d")
+    now = _iso_now_utc()
+    stats = {"encerrados": 0, "mantidos": 0, "notas": 0, "nao_encontrados": 0, "detalhes": []}
+
+    for row in rows:
+        ent = str(row.get("entrega") or "").split(".")[0].strip()
+        retorno = str(row.get("retorno") or "").strip()
+        status_dec = _n(row.get("status"))
+        if not ent:
+            continue
+        c = await db.cancelamentos.find_one({"numero_pedido": ent, "tipo": "aes"})
+        if not c:
+            stats["nao_encontrados"] += 1
+            stats["detalhes"].append({"entrega": ent, "resultado": "não encontrado (sem AES)"})
+            continue
+
+        obs = c.get("observacao", "") or ""
+        set_fields = {"updated_at": now}
+        if retorno:
+            set_fields["retorno_compras"] = retorno
+            set_fields["retorno_compras_em"] = hoje_full
+            if _n(retorno) not in _n(obs):  # idempotente
+                obs = (retorno + ("\n" + obs if obs else "")).strip()
+                stats["notas"] += 1
+
+        if "encerrar" in status_dec:
+            ja = c.get("status") == "encerrado"
+            if not ja:
+                set_fields["status"] = "encerrado"
+                set_fields["data_encerramento"] = hoje_full
+                set_fields["encerrado_por_compras"] = True
+            set_fields["em_compras"] = False  # encerrado sai da fila/caixa Compras
+            set_fields["observacao"] = obs
+            await db.cancelamentos.update_one({"id": c["id"]}, {"$set": set_fields})
+            stats["encerrados"] += 1
+            stats["detalhes"].append({"entrega": ent, "resultado": "encerrado" + (" (já estava)" if ja else "")})
+        else:
+            # Manter cancelamento — checa o XD ao vivo (estoque_sigeq SIGEQ425 pelo SKU)
+            sku = c.get("codigo_item_vtex") or ""
+            xd = 0
+            if sku:
+                e = await db.estoque_sigeq.find_one({"cod_terceiro": sku, "source": "SIGEQ425"}, {"_id": 0, "disp_venda": 1})
+                xd = int((e or {}).get("disp_venda") or 0)
+            if xd <= 0:
+                set_fields["em_compras"] = False  # sem estoque → volta pro canal cancelar
+                res_txt = "mantido · XD=0 → fora da caixa Compras"
+            else:
+                nota_est = f"{hoje} - Pedido avaliado por Compras, porém consta estoque XD ({xd}) — Compras zerar o estoque"
+                if _n(nota_est) not in _n(obs):
+                    obs = (nota_est + ("\n" + obs if obs else "")).strip()
+                set_fields["em_compras"] = True  # segue na fila → reaparece na próxima Relação Compras
+                res_txt = f"mantido · XD={xd} → nota p/ Compras zerar (reaparece na relação)"
+            set_fields["observacao"] = obs
+            await db.cancelamentos.update_one({"id": c["id"]}, {"$set": set_fields})
+            stats["mantidos"] += 1
+            stats["detalhes"].append({"entrega": ent, "resultado": res_txt})
+
+    logger.info(f"[importar-retorno] encerrados={stats['encerrados']} mantidos={stats['mantidos']} notas={stats['notas']} nao_enc={stats['nao_encontrados']}")
+    return {"success": True, "stats": stats}
+
+
 @router.get("/cancelamentos/lookup/{numero_pedido}")
 async def lookup_pedido(
     numero_pedido: str,
