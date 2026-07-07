@@ -1929,3 +1929,35 @@ async def similar_custo_diff(current_user: dict = Depends(get_current_user)):
         "custo_sim_medio": round(sum(css) / n, 2) if n else 0.0,
         "itens": itens,
     }
+
+
+@router.get("/cancelamentos/custo-skus")
+async def custo_skus(skus: str = "", current_user: dict = Depends(get_current_user)):
+    """Último preço de compra (custo) de cada SKU. Query: skus=A,B,C → {custos: {SKU: valor}}."""
+    from routes.produtos_busca import _connect_pg
+    lista = [s.strip() for s in (skus or "").split(",") if s.strip()]
+    if not lista:
+        return {"custos": {}}
+    custos = {}
+    try:
+        conn = _connect_pg()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT UPPER(cod_terceiro), preco FROM (
+                        SELECT DISTINCT ON (cod_terceiro) cod_terceiro, preco
+                        FROM precos_compra_hist
+                        WHERE UPPER(cod_terceiro) = ANY(%s) AND preco > 0
+                        ORDER BY cod_terceiro, data_alteracao DESC NULLS LAST
+                    ) t
+                    """,
+                    ([s.upper() for s in lista],),
+                )
+                for cod, preco in cur.fetchall():
+                    custos[cod] = round(float(preco or 0), 2)
+        finally:
+            conn.close()
+    except Exception as e:
+        logger.warning(f"[custo-skus] erro no postgres: {e}")
+    return {"custos": custos}

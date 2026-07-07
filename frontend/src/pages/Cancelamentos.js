@@ -895,6 +895,18 @@ function ZapModal({ item, onClose }) {
   }, []); // eslint-disable-line
   const imgDe = (s) => s.image_url || imgMap[s.sku] || '';
   const linkOriginal = imgMap[skuOriginal] || '';
+
+  // Custo (último preço de compra) do original + similares — pra decidir o envio
+  const [custoMap, setCustoMap] = React.useState({});
+  React.useEffect(() => {
+    const sk = [skuOriginal, ...listaSimilares.map(s => s.sku)].filter(Boolean);
+    if (!sk.length) return;
+    axios.get(`${API_URL}/api/cancelamentos/custo-skus?skus=${encodeURIComponent(sk.join(','))}`, { headers: getAuthHeader() })
+      .then(r => setCustoMap(r.data?.custos || {}))
+      .catch(() => {});
+  }, []); // eslint-disable-line
+  const custoDe = (s) => { const c = custoMap[(s?.sku || '').toUpperCase()]; return (c != null) ? c : null; };
+  const custoOriginal = (custoMap[(skuOriginal || '').toUpperCase()] != null) ? custoMap[(skuOriginal || '').toUpperCase()] : null;
   const linkSufixo = (url) => url ? ` - ${url}` : '';
   const fmtSimComLink = (s) => `${fmtSim(s)}${linkSufixo(imgDe(s))}`;
 
@@ -992,38 +1004,67 @@ function ZapModal({ item, onClose }) {
           </div>
         </div>
 
-        {/* Imagens: original x similar(es) — para comparar e enviar no WhatsApp */}
-        {(linkOriginal || listaSimilares.some(s => imgDe(s))) && (
+        {/* Imagens + custo: original x similar(es) — comparar custo e decidir o envio */}
+        {(linkOriginal || custoOriginal != null || listaSimilares.some(s => imgDe(s) || custoDe(s) != null)) && (
           <div className="space-y-1">
             <div className="text-xs font-semibold text-slate-600">🖼️ Comparação (clique para abrir / copiar link):</div>
             <div className="flex flex-wrap gap-3 items-start">
               {/* Original */}
-              {linkOriginal && (
+              {(linkOriginal || custoOriginal != null) && (
                 <div className="flex flex-col items-center gap-1">
                   <span className="text-[10px] font-semibold text-slate-500">ORIGINAL</span>
-                  <a href={linkOriginal} target="_blank" rel="noopener noreferrer" title="Abrir imagem">
-                    <img src={linkOriginal} alt={produto}
-                      className="w-24 h-24 object-contain border-2 border-slate-300 rounded bg-white" />
-                  </a>
-                  <button onClick={() => copiar(linkOriginal, 'Link do original copiado!')}
-                    className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 border text-slate-600">📋 Copiar link</button>
+                  {linkOriginal ? (
+                    <a href={linkOriginal} target="_blank" rel="noopener noreferrer" title="Abrir imagem">
+                      <img src={linkOriginal} alt={produto}
+                        className="w-24 h-24 object-contain border-2 border-slate-300 rounded bg-white" />
+                    </a>
+                  ) : (
+                    <div className="w-24 h-24 flex items-center justify-center border-2 border-dashed border-slate-200 rounded text-[10px] text-slate-400">sem imagem</div>
+                  )}
+                  {custoOriginal != null && (
+                    <span className="text-[11px] font-semibold text-slate-700">Custo: {formatMoney(custoOriginal)}</span>
+                  )}
+                  {linkOriginal && (
+                    <button onClick={() => copiar(linkOriginal, 'Link do original copiado!')}
+                      className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 border text-slate-600">📋 Copiar link</button>
+                  )}
                 </div>
               )}
-              {linkOriginal && listaSimilares.some(s => imgDe(s)) && (
+              {(linkOriginal || custoOriginal != null) && listaSimilares.some(s => imgDe(s) || custoDe(s) != null) && (
                 <div className="self-center text-2xl text-slate-300">→</div>
               )}
               {/* Similares */}
-              {listaSimilares.filter(s => imgDe(s)).map((s) => (
+              {listaSimilares.filter(s => imgDe(s) || custoDe(s) != null).map((s) => {
+                const cs = custoDe(s);
+                const dif = (cs != null && custoOriginal != null) ? Math.round((cs - custoOriginal) * 100) / 100 : null;
+                return (
                 <div key={s.sku} className="flex flex-col items-center gap-1">
                   <span className="text-[10px] font-semibold text-green-600">SIMILAR</span>
-                  <a href={imgDe(s)} target="_blank" rel="noopener noreferrer" title="Abrir imagem">
-                    <img src={imgDe(s)} alt={s.nome}
-                      className="w-24 h-24 object-contain border-2 border-green-300 rounded bg-white" />
-                  </a>
-                  <button onClick={() => copiar(imgDe(s), 'Link do similar copiado!')}
-                    className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 border text-slate-600">📋 Copiar link</button>
+                  {imgDe(s) ? (
+                    <a href={imgDe(s)} target="_blank" rel="noopener noreferrer" title="Abrir imagem">
+                      <img src={imgDe(s)} alt={s.nome}
+                        className="w-24 h-24 object-contain border-2 border-green-300 rounded bg-white" />
+                    </a>
+                  ) : (
+                    <div className="w-24 h-24 flex items-center justify-center border-2 border-dashed border-green-200 rounded text-[10px] text-slate-400">sem imagem</div>
+                  )}
+                  {cs != null && (
+                    <span className="text-[11px] font-semibold text-slate-700">
+                      Custo: {formatMoney(cs)}
+                      {dif != null && (
+                        <span className={dif > 0 ? 'text-red-600' : dif < 0 ? 'text-emerald-600' : ''}>
+                          {' '}({dif >= 0 ? '+' : '−'}{formatMoney(Math.abs(dif))})
+                        </span>
+                      )}
+                    </span>
+                  )}
+                  {imgDe(s) && (
+                    <button onClick={() => copiar(imgDe(s), 'Link do similar copiado!')}
+                      className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 border text-slate-600">📋 Copiar link</button>
+                  )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
