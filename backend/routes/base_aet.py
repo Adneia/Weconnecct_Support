@@ -116,11 +116,19 @@ async def importar_base_aet(
             contagem_pedidos[entrega] = contagem_pedidos.get(entrega, 0) + 1
     rows_iter = iter(all_rows)  # reinicia iteração
 
-    # Carrega numero_pedidos já existentes em cancelamentos AES
+    # Carrega os cancelamentos AES já existentes (o mais recente por numero_pedido)
+    _CANCELADO = {"Cancelado", "Cancelada", "CANCELADO", "Entrega cancelada"}
     existentes = await db.cancelamentos.find(
-        {"tipo": "aes"}, {"numero_pedido": 1, "_id": 0}
-    ).to_list(None)
-    pedidos_existentes = set(c.get("numero_pedido") for c in existentes if c.get("numero_pedido"))
+        {"tipo": "aes"},
+        {"numero_pedido": 1, "id": 1, "status": 1, "data_encerramento": 1, "observacao": 1, "_id": 0},
+    ).sort("data_criacao", -1).to_list(None)
+    aes_por_pedido = {}
+    for c in existentes:
+        np = c.get("numero_pedido")
+        if np and np not in aes_por_pedido:
+            aes_por_pedido[np] = c
+    pedidos_existentes = set(aes_por_pedido.keys())
+    reabertos = 0
 
     user_name = current_user.get("name") or current_user.get("email", "Sistema")
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -158,6 +166,28 @@ async def importar_base_aet(
             is_parcial = contagem_pedidos.get(entrega, 1) > 1
 
             if entrega in pedidos_existentes:
+                ex = aes_por_pedido[entrega]
+                enc = str(ex.get("data_encerramento") or "")[:10]
+                row_data = _to_date_iso(row[15] if len(row) > 15 else None) or hoje_str
+                # Reabre se o AES está encerrado e a solicitação da AET é POSTERIOR ao
+                # encerramento — exceto se o pedido já foi realmente cancelado.
+                if ex.get("status") == "encerrado" and len(enc) >= 10 and str(row_data) > enc:
+                    ped_c = await db.pedidos_erp.find_one({"numero_pedido": entrega}, {"_id": 0, "status_pedido": 1})
+                    if ped_c and (ped_c.get("status_pedido") or "") in _CANCELADO:
+                        ja_existiam += 1
+                        continue
+                    obs_ex = ex.get("observacao", "") or ""
+                    nota = f"{hoje_str[8:10]}/{hoje_str[5:7]} - Reaberto: nova solicitação na planilha AET (após encerramento em {enc[8:10]}/{enc[5:7]})"
+                    await db.cancelamentos.update_one(
+                        {"id": ex["id"]},
+                        {"$set": {"status": "pendente", "data_encerramento": "", "reaberto": True,
+                                  "reaberto_em": now_iso, "reaberto_motivo": "planilha_aet",
+                                  "observacao": (nota + ("\n" + obs_ex if obs_ex else "")).strip(),
+                                  "updated_at": now_iso},
+                         "$unset": {"encerrado_por_compras": "", "encerrado_por_etr": ""}},
+                    )
+                    reabertos += 1
+                    continue
                 ja_existiam += 1
                 continue
 
@@ -259,6 +289,8 @@ async def importar_base_aet(
     # Notificar admins
     try:
         partes = [f"{inseridos} novos cancelamentos AES inseridos"]
+        if reabertos:
+            partes.append(f"{reabertos} reaberto(s) por nova solicitação")
         partes.append(f"{ja_existiam} já existiam")
         msg = f"Base AET importada por {user_name}. {', '.join(partes)}."
 
@@ -290,10 +322,11 @@ async def importar_base_aet(
         "ok": True,
         "total_linhas": total_linhas,
         "inseridos": inseridos,
+        "reabertos": reabertos,
         "ja_existiam": ja_existiam,
         "ignorados_decisao": ignorados_decisao,
         "enriquecidos": enriquecidos,
         "erros": erros,
         "sem_pedido": sem_pedido,
-        "message": f"{total_linhas} linhas processadas — {inseridos} novos inseridos, {ja_existiam} já existiam.",
+        "message": f"{total_linhas} linhas processadas — {inseridos} novos, {reabertos} reaberto(s), {ja_existiam} já existiam.",
     }

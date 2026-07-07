@@ -458,6 +458,55 @@ async def _auto_mover_para_compras() -> dict:
     return {"movidos": movidos}
 
 
+async def _auto_reabrir_encerrados() -> dict:
+    """Reabre AES encerrados quando chega NOVA solicitação (Smart Compras) DEPOIS da
+    data de encerramento. Não reabre pedidos realmente cancelados (entrega cancelada).
+    Idempotente: ao reabrir vira 'pendente', então não é reprocessado."""
+    encerrados = await db.cancelamentos.find(
+        {"tipo": "aes", "status": "encerrado", "data_encerramento": {"$nin": ["", None]}},
+        {"_id": 0, "id": 1, "numero_pedido": 1, "codigo_item_vtex": 1,
+         "data_encerramento": 1, "observacao": 1},
+    ).to_list(5000)
+    if not encerrados:
+        return {"reabertos": 0}
+    reabertos = 0
+    now_iso = _iso_now_utc()
+    data_br = _br_now().strftime("%d/%m")
+    for c in encerrados:
+        ped = (c.get("numero_pedido") or "").strip()
+        enc = str(c.get("data_encerramento") or "")[:10]  # YYYY-MM-DD
+        if not ped or len(enc) < 10:
+            continue
+        # nova solicitação = aviso ativo do Smart Compras atualizado APÓS o dia do encerramento
+        q = {"numero_pedido": ped, "status": {"$in": ["aberto", "faturado"]},
+             "atualizado_em": {"$gt": enc + "T23:59:59.999999"}}
+        sku = (c.get("codigo_item_vtex") or "").strip()
+        if sku:
+            q["sku"] = sku
+        aviso = await db.avisos_compras.find_one(q, {"_id": 0, "id": 1})
+        if not aviso:
+            continue
+        # não reabrir se o pedido já foi realmente cancelado (entrega cancelada)
+        ped_doc = await db.pedidos_erp.find_one({"numero_pedido": ped}, {"_id": 0, "status_pedido": 1})
+        if ped_doc and (ped_doc.get("status_pedido") or "") in _AES_STATUS_JA_CANCELADO:
+            continue
+        obs = c.get("observacao", "") or ""
+        enc_br = f"{enc[8:10]}/{enc[5:7]}"
+        nota = f"{data_br} - Reaberto: nova solicitação no Smart Compras (após encerramento em {enc_br})"
+        nova_obs = (nota + ("\n" + obs if obs else "")).strip()
+        await db.cancelamentos.update_one(
+            {"id": c["id"]},
+            {"$set": {"status": "pendente", "data_encerramento": "", "reaberto": True,
+                      "reaberto_em": now_iso, "reaberto_motivo": "smart_compras",
+                      "observacao": nova_obs, "updated_at": now_iso},
+             "$unset": {"encerrado_por_compras": "", "encerrado_por_etr": ""}},
+        )
+        reabertos += 1
+    if reabertos:
+        logger.info(f"[auto-reabrir] {reabertos} AES reaberto(s) por nova solicitação Smart Compras")
+    return {"reabertos": reabertos}
+
+
 async def _enrich_from_tabelao(numero_pedido: str, sku: Optional[str] = None) -> dict:
     """Busca dados do pedido no tabelão para preenchimento automático.
 
@@ -753,6 +802,12 @@ async def listar_cancelamentos(
         await _auto_voltar_de_compras()
     except Exception as e:
         logger.warning(f"auto-voltar Compras falhou (seguindo com a listagem): {e}")
+
+    # Reabre AES encerrados que receberam nova solicitação (Smart Compras) após o encerramento
+    try:
+        await _auto_reabrir_encerrados()
+    except Exception as e:
+        logger.warning(f"auto-reabrir encerrados falhou (seguindo com a listagem): {e}")
 
     query = {}
     if tipo:
