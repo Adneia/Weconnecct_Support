@@ -1706,6 +1706,7 @@ async function baixarRelacaoComprasXLSX(getAuthHeader) {
 export default function Cancelamentos() {
   const { getAuthHeader } = useAuth();
   const [stats, setStats] = useState({ aes: {}, etr: {}, erro_nota: {} });
+  const [similarCusto, setSimilarCusto] = useState(null); // dif média de custo original x similar
   const [refreshKey, setRefreshKey] = useState(0);
   const [tab, setTab] = useState('aes');
   const [showMensal, setShowMensal] = useState(false);
@@ -1715,6 +1716,10 @@ export default function Cancelamentos() {
       const res = await axios.get(`${API_URL}/api/cancelamentos/stats`, { headers: getAuthHeader() });
       setStats(res.data || {});
     } catch (e) { /* ignore */ }
+    try {
+      const r2 = await axios.get(`${API_URL}/api/cancelamentos/similar-custo`, { headers: getAuthHeader() });
+      setSimilarCusto(r2.data || null);
+    } catch { setSimilarCusto(null); }
   }, [getAuthHeader]);
 
   useEffect(() => { fetchStats(); }, [fetchStats, refreshKey]);
@@ -1808,6 +1813,13 @@ export default function Cancelamentos() {
                     <span className={`text-2xl font-bold ${c.txt}`}>{lc[c.k]?.n || 0}</span>
                     <span className={`text-sm font-medium ${c.lbl}`}>{formatMoney(lc[c.k]?.valor || 0)}</span>
                   </div>
+                  {c.k === 'similar' && tab === 'aes' && similarCusto?.n > 0 && (
+                    <div className={`text-[10px] mt-0.5 ${c.lbl}`}
+                      title={`Média sobre ${similarCusto.n} caso(s) com similar registrado · custo médio: original ${formatMoney(similarCusto.custo_orig_medio)} → similar ${formatMoney(similarCusto.custo_sim_medio)}`}>
+                      Δ custo méd.: <b>{similarCusto.dif_media >= 0 ? '+' : '−'}{formatMoney(Math.abs(similarCusto.dif_media))}</b>
+                      {similarCusto.dif_media > 0 ? ' (mais caro)' : similarCusto.dif_media < 0 ? ' (economia)' : ''}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

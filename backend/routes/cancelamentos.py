@@ -1845,3 +1845,69 @@ async def relacao_compras_xlsx(current_user: dict = Depends(get_current_user)):
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="{fname}"'},
     )
+
+
+@router.get("/cancelamentos/similar-custo")
+async def similar_custo_diff(current_user: dict = Depends(get_current_user)):
+    """Diferença MÉDIA do valor de custo (último preço de compra) entre o produto
+    ORIGINAL e o SIMILAR enviado, nos AES com similar registrado (sku_similar).
+    dif_media = média de (custo do similar − custo do original). Positivo = similar
+    saiu mais caro; negativo = economia."""
+    from routes.produtos_busca import _connect_pg
+    docs = await db.cancelamentos.find(
+        {"tipo": "aes", "sku_similar": {"$nin": ["", None]}},
+        {"_id": 0, "codigo_item_vtex": 1, "sku_similar": 1},
+    ).to_list(5000)
+    pares = []
+    skus = set()
+    for d in docs:
+        orig = (d.get("codigo_item_vtex") or "").strip()
+        sim = (d.get("sku_similar") or "").strip()
+        if orig and sim:
+            pares.append((orig, sim))
+            skus.add(orig.upper())
+            skus.add(sim.upper())
+    if not pares:
+        return {"n": 0, "total_pares": 0, "dif_media": 0.0, "custo_orig_medio": 0.0, "custo_sim_medio": 0.0}
+
+    custo = {}
+    try:
+        conn = _connect_pg()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT UPPER(cod_terceiro), preco FROM (
+                        SELECT DISTINCT ON (cod_terceiro) cod_terceiro, preco
+                        FROM precos_compra_hist
+                        WHERE UPPER(cod_terceiro) = ANY(%s) AND preco > 0
+                        ORDER BY cod_terceiro, data_alteracao DESC NULLS LAST
+                    ) t
+                    """,
+                    ([s for s in skus],),
+                )
+                for cod, preco in cur.fetchall():
+                    custo[cod] = float(preco or 0)
+        finally:
+            conn.close()
+    except Exception as e:
+        logger.warning(f"[similar-custo] erro no postgres: {e}")
+
+    difs, cos, css = [], [], []
+    for orig, sim in pares:
+        co = custo.get(orig.upper())
+        cs = custo.get(sim.upper())
+        if co and cs and co > 0 and cs > 0:
+            difs.append(cs - co)
+            cos.append(co)
+            css.append(cs)
+    n = len(difs)
+    if not n:
+        return {"n": 0, "total_pares": len(pares), "dif_media": 0.0, "custo_orig_medio": 0.0, "custo_sim_medio": 0.0}
+    return {
+        "n": n,
+        "total_pares": len(pares),
+        "dif_media": round(sum(difs) / n, 2),
+        "custo_orig_medio": round(sum(cos) / n, 2),
+        "custo_sim_medio": round(sum(css) / n, 2),
+    }
