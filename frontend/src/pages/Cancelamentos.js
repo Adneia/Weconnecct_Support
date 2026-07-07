@@ -1680,42 +1680,25 @@ function TabelaCancelamentos({ tipo, refreshKey, onRefresh }) {
 
 // =================== EXPORT DIRETO: RELAÇÃO COMPRAS XLSX ===================
 async function baixarRelacaoComprasXLSX(getAuthHeader) {
+  // Gerado no backend (openpyxl): inclui a coluna "Retorno Compras" e destaca em
+  // AMARELO os itens já avaliados pelo Compras (que ainda constam com estoque).
   try {
-    const r = await axios.get(`${API_URL}/api/cancelamentos/relacao-compras`, { headers: getAuthHeader() });
-    const itens = r.data?.itens || [];
-    if (!itens.length) {
-      toast.info('Nenhum cancelamento com estoque acima de 10 e pedido ativo.');
-      return;
-    }
-    const dataToExport = itens.map(i => ({
-      'Fornecedor': i.fornecedor || '',
-      'Cód. fornecedor': i.codigo_fornecedor || '',
-      'Produto': i.produto || '',
-      'SKU': i.sku || '',
-      'Estoque XD': i.xd || 0,
-      'UF do estoque': i.ufs_estoque || '',
-      'Entrega': i.entrega || '',
-      'Parceiro': i.canal_vendas || '',
-    }));
-    const ws = XLSX.utils.json_to_sheet(dataToExport);
-    // Larguras de coluna (em caracteres) — ajustadas para o conteúdo
-    ws['!cols'] = [
-      { wch: 22 },  // Fornecedor
-      { wch: 16 },  // Cód. fornecedor
-      { wch: 55 },  // Produto
-      { wch: 12 },  // SKU
-      { wch: 12 },  // Estoque XD
-      { wch: 14 },  // UF do estoque
-      { wch: 12 },  // Entrega
-      { wch: 14 },  // Parceiro
-    ];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Relação de Compras - AES');
-    const dataStr = new Date().toISOString().slice(0, 10);
-    XLSX.writeFile(wb, `Relação de Compras - AES ${dataStr}.xlsx`);
-    toast.success(`Relação de Compras exportada (${itens.length} item${itens.length > 1 ? 's' : ''})`);
+    const r = await axios.get(`${API_URL}/api/cancelamentos/relacao-compras-xlsx`,
+      { headers: getAuthHeader(), responseType: 'blob' });
+    const cd = r.headers['content-disposition'] || '';
+    const m = /filename="?([^"]+)"?/.exec(cd);
+    const fname = m ? m[1] : `Relacao de Compras - AES ${new Date().toISOString().slice(0, 10)}.xlsx`;
+    const url = window.URL.createObjectURL(new Blob([r.data]));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fname;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+    toast.success('Relação de Compras gerada (já avaliados pelo Compras saem em amarelo).');
   } catch (e) {
-    toast.error('Erro ao exportar: ' + (e?.response?.data?.detail || e?.message || 'erro desconhecido'));
+    toast.error('Erro ao gerar a Relação de Compras.');
   }
 }
 

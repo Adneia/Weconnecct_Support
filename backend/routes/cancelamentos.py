@@ -1725,6 +1725,7 @@ async def relacao_compras(current_user: dict = Depends(get_current_user)):
             "xd_disp": 1,
             "canal_vendas": 1,
             "status_pedido_atual": 1,
+            "observacao": 1,
         }},
         {"$sort": {"fornecedor_nome": 1, "produto": 1}},
     ]
@@ -1780,6 +1781,10 @@ async def relacao_compras(current_user: dict = Depends(get_current_user)):
         sku = d.get("codigo_item_vtex") or ""
         ufs_dict = ufs_por_sku.get(sku.upper()) or {}
         ufs_str = ", ".join(f"{u} ({q})" for u, q in sorted(ufs_dict.items()))
+        # "Retorno Compras": se o pedido já foi avaliado por Compras (mas consta estoque),
+        # traz a observação já registrada no portal → sinaliza (linha amarela no xlsx).
+        obs = d.get("observacao", "") or ""
+        linha_aval = next((l.strip() for l in obs.split("\n") if "avaliado por compras" in l.lower()), "")
         itens.append({
             "fornecedor": d.get("fornecedor_nome") or "",
             "codigo_fornecedor": d.get("cod_fornec") or "",
@@ -1791,5 +1796,52 @@ async def relacao_compras(current_user: dict = Depends(get_current_user)):
             "entrega": d.get("numero_pedido") or "",
             "canal_vendas": d.get("canal_vendas") or "",
             "status_pedido": d.get("status_pedido_atual") or "",
+            "retorno_compras": linha_aval,
+            "ja_avaliado": bool(linha_aval),
         })
     return {"total": len(itens), "itens": itens}
+
+
+@router.get("/cancelamentos/relacao-compras-xlsx")
+async def relacao_compras_xlsx(current_user: dict = Depends(get_current_user)):
+    """Gera a Relação Compras já em .xlsx (com a coluna 'Retorno Compras' e as linhas
+    já avaliadas pelo Compras destacadas em amarelo). Feito no backend porque a
+    geração no front (SheetJS free) não pinta células."""
+    from fastapi.responses import StreamingResponse
+    import io as _io
+    from openpyxl import Workbook
+    from openpyxl.styles import PatternFill, Font
+
+    data = await relacao_compras(current_user)
+    itens = data.get("itens", [])
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Relação de Compras - AES"
+    cols = ["Fornecedor", "Cód. fornecedor", "Produto", "SKU", "Estoque XD",
+            "UF do estoque", "Entrega", "Parceiro", "Retorno Compras"]
+    ws.append(cols)
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+    amarelo = PatternFill("solid", fgColor="FFFF00")
+    for it in itens:
+        ws.append([
+            it.get("fornecedor", ""), it.get("codigo_fornecedor", ""), it.get("produto", ""),
+            it.get("sku", ""), it.get("xd", 0), it.get("ufs_estoque", ""),
+            it.get("entrega", ""), it.get("canal_vendas", ""), it.get("retorno_compras", ""),
+        ])
+        if it.get("ja_avaliado"):
+            for cell in ws[ws.max_row]:
+                cell.fill = amarelo
+    for i, w in enumerate([22, 16, 55, 12, 12, 14, 12, 14, 55], start=1):
+        ws.column_dimensions[chr(64 + i)].width = w
+
+    buf = _io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    fname = f"Relacao de Compras - AES {_br_now().strftime('%Y-%m-%d')}.xlsx"
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
