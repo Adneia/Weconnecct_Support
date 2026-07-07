@@ -1856,58 +1856,76 @@ async def similar_custo_diff(current_user: dict = Depends(get_current_user)):
     from routes.produtos_busca import _connect_pg
     docs = await db.cancelamentos.find(
         {"tipo": "aes", "sku_similar": {"$nin": ["", None]}},
-        {"_id": 0, "codigo_item_vtex": 1, "sku_similar": 1},
+        {"_id": 0, "numero_pedido": 1, "produto": 1, "codigo_item_vtex": 1,
+         "sku_similar": 1, "nome_similar": 1, "canal_vendas": 1, "data": 1},
     ).to_list(5000)
-    pares = []
     skus = set()
+    for d in docs:
+        o = (d.get("codigo_item_vtex") or "").strip()
+        s = (d.get("sku_similar") or "").strip()
+        if o:
+            skus.add(o.upper())
+        if s:
+            skus.add(s.upper())
+
+    custo = {}
+    if skus:
+        try:
+            conn = _connect_pg()
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        """
+                        SELECT UPPER(cod_terceiro), preco FROM (
+                            SELECT DISTINCT ON (cod_terceiro) cod_terceiro, preco
+                            FROM precos_compra_hist
+                            WHERE UPPER(cod_terceiro) = ANY(%s) AND preco > 0
+                            ORDER BY cod_terceiro, data_alteracao DESC NULLS LAST
+                        ) t
+                        """,
+                        ([s for s in skus],),
+                    )
+                    for cod, preco in cur.fetchall():
+                        custo[cod] = float(preco or 0)
+            finally:
+                conn.close()
+        except Exception as e:
+            logger.warning(f"[similar-custo] erro no postgres: {e}")
+
+    itens = []
+    difs, cos, css = [], [], []
     for d in docs:
         orig = (d.get("codigo_item_vtex") or "").strip()
         sim = (d.get("sku_similar") or "").strip()
-        if orig and sim:
-            pares.append((orig, sim))
-            skus.add(orig.upper())
-            skus.add(sim.upper())
-    if not pares:
-        return {"n": 0, "total_pares": 0, "dif_media": 0.0, "custo_orig_medio": 0.0, "custo_sim_medio": 0.0}
-
-    custo = {}
-    try:
-        conn = _connect_pg()
-        try:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT UPPER(cod_terceiro), preco FROM (
-                        SELECT DISTINCT ON (cod_terceiro) cod_terceiro, preco
-                        FROM precos_compra_hist
-                        WHERE UPPER(cod_terceiro) = ANY(%s) AND preco > 0
-                        ORDER BY cod_terceiro, data_alteracao DESC NULLS LAST
-                    ) t
-                    """,
-                    ([s for s in skus],),
-                )
-                for cod, preco in cur.fetchall():
-                    custo[cod] = float(preco or 0)
-        finally:
-            conn.close()
-    except Exception as e:
-        logger.warning(f"[similar-custo] erro no postgres: {e}")
-
-    difs, cos, css = [], [], []
-    for orig, sim in pares:
+        if not (orig and sim):
+            continue
         co = custo.get(orig.upper())
         cs = custo.get(sim.upper())
-        if co and cs and co > 0 and cs > 0:
-            difs.append(cs - co)
+        dif = round(cs - co, 2) if (co and cs and co > 0 and cs > 0) else None
+        if dif is not None:
+            difs.append(dif)
             cos.append(co)
             css.append(cs)
+        itens.append({
+            "entrega": d.get("numero_pedido") or "",
+            "produto": d.get("produto") or "",
+            "sku_original": orig,
+            "sku_similar": sim,
+            "nome_similar": d.get("nome_similar") or "",
+            "canal": d.get("canal_vendas") or "",
+            "data": d.get("data") or "",
+            "custo_original": round(co, 2) if (co and co > 0) else None,
+            "custo_similar": round(cs, 2) if (cs and cs > 0) else None,
+            "diferenca": dif,
+        })
+    # maiores diferenças primeiro; itens sem custo conhecido vão pro fim
+    itens.sort(key=lambda x: (x["diferenca"] is None, -(x["diferenca"] if x["diferenca"] is not None else 0)))
     n = len(difs)
-    if not n:
-        return {"n": 0, "total_pares": len(pares), "dif_media": 0.0, "custo_orig_medio": 0.0, "custo_sim_medio": 0.0}
     return {
         "n": n,
-        "total_pares": len(pares),
-        "dif_media": round(sum(difs) / n, 2),
-        "custo_orig_medio": round(sum(cos) / n, 2),
-        "custo_sim_medio": round(sum(css) / n, 2),
+        "total_pares": len(itens),
+        "dif_media": round(sum(difs) / n, 2) if n else 0.0,
+        "custo_orig_medio": round(sum(cos) / n, 2) if n else 0.0,
+        "custo_sim_medio": round(sum(css) / n, 2) if n else 0.0,
+        "itens": itens,
     }

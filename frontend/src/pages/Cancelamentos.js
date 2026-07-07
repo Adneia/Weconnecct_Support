@@ -1710,6 +1710,7 @@ export default function Cancelamentos() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [tab, setTab] = useState('aes');
   const [showMensal, setShowMensal] = useState(false);
+  const [showSimilares, setShowSimilares] = useState(false);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -1736,6 +1737,9 @@ export default function Cancelamentos() {
           <p className="text-sm text-muted-foreground">Gestão de cancelamentos AES, ETR e Erro na Nota</p>
         </div>
         <div className="flex items-center gap-2">
+          <Button variant={showSimilares ? 'default' : 'outline'} size="sm" onClick={() => setShowSimilares(v => !v)}>
+            🔁 Similares
+          </Button>
           <Button variant={showMensal ? 'default' : 'outline'} size="sm" onClick={() => setShowMensal(v => !v)}>
             <BarChart3 className="h-4 w-4 mr-1" /> Indicadores mensais
           </Button>
@@ -1826,6 +1830,54 @@ export default function Cancelamentos() {
           </div>
         );
       })()}
+
+      {/* Painel: similares enviados — original × similar (custos + diferença) */}
+      {showSimilares && (
+        <div className="border rounded-lg p-4">
+          <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+            <h3 className="font-semibold">🔁 Similares enviados — original × similar (custo)</h3>
+            <span className="text-xs text-muted-foreground">
+              {similarCusto?.total_pares || 0} itens · dif. média {similarCusto?.n ? `${similarCusto.dif_media >= 0 ? '+' : '−'}${formatMoney(Math.abs(similarCusto.dif_media))}` : '—'} ({similarCusto?.n || 0} com custo)
+            </span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 border-y">
+                <tr className="text-left">
+                  <th className="px-2 py-2 font-semibold">Entrega</th>
+                  <th className="px-2 py-2 font-semibold">Produto</th>
+                  <th className="px-2 py-2 font-semibold">SKU original</th>
+                  <th className="px-2 py-2 font-semibold">SKU similar</th>
+                  <th className="px-2 py-2 font-semibold text-right">Custo original</th>
+                  <th className="px-2 py-2 font-semibold text-right">Custo similar</th>
+                  <th className="px-2 py-2 font-semibold text-right">Diferença</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(similarCusto?.itens || []).map((it, idx) => (
+                  <tr key={idx} className="border-b last:border-0 hover:bg-muted/40">
+                    <td className="px-2 py-1.5 font-mono whitespace-nowrap">{it.entrega}</td>
+                    <td className="px-2 py-1.5 max-w-[280px] truncate" title={it.produto}>{it.produto || '—'}</td>
+                    <td className="px-2 py-1.5 font-mono whitespace-nowrap">{it.sku_original}</td>
+                    <td className="px-2 py-1.5 font-mono whitespace-nowrap" title={it.nome_similar}>{it.sku_similar}</td>
+                    <td className="px-2 py-1.5 text-right whitespace-nowrap">{it.custo_original != null ? formatMoney(it.custo_original) : '—'}</td>
+                    <td className="px-2 py-1.5 text-right whitespace-nowrap">{it.custo_similar != null ? formatMoney(it.custo_similar) : '—'}</td>
+                    <td className={`px-2 py-1.5 text-right font-semibold whitespace-nowrap ${it.diferenca == null ? 'text-muted-foreground' : it.diferenca > 0 ? 'text-red-600' : it.diferenca < 0 ? 'text-emerald-600' : ''}`}>
+                      {it.diferenca == null ? '—' : `${it.diferenca >= 0 ? '+' : '−'}${formatMoney(Math.abs(it.diferenca))}`}
+                    </td>
+                  </tr>
+                ))}
+                {(!similarCusto?.itens || similarCusto.itens.length === 0) && (
+                  <tr><td colSpan={7} className="px-2 py-6 text-center text-muted-foreground">Nenhum similar registrado.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-2">
+            Custo = último preço de compra. Diferença = custo do similar − custo do original (vermelho = mais caro, verde = economia). Itens sem custo cadastrado aparecem com "—".
+          </p>
+        </div>
+      )}
 
       {/* Indicadores mensais: solicitações (barras) x desfechos (linhas de tendência) */}
       {showMensal && stats.lifecycle?.mensal && (() => {
