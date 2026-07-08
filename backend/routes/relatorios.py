@@ -1,10 +1,94 @@
+import io
+from datetime import datetime, timezone, timedelta
+
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi.responses import StreamingResponse
 
 from utils.database import db
 from utils.auth import get_current_user
 from utils.helpers import calcular_dias_uteis
 
 router = APIRouter(prefix="/api")
+
+_BRT = timezone(timedelta(hours=-3))
+
+
+def _gerar_relatorio_xlsx(titulo, headers, rows, header_hex, col_widths,
+                          sheet_name, left_align):
+    """Monta um .xlsx padronizado: título + 'Gerado em DD/MM/AAAA | Total: N',
+    cabeçalho colorido com filtro, bordas, faixas alternadas e 'Crítico' em
+    vermelho. `left_align` = set de cabeçalhos alinhados à esquerda."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = sheet_name
+    ncols = len(headers)
+    last_col = get_column_letter(ncols)
+    data_str = datetime.now(_BRT).strftime("%d/%m/%Y")
+
+    # Título (linha 1) + subtítulo (linha 2); linha 3 vazia; cabeçalho na 4
+    ws.merge_cells(f"A1:{last_col}1")
+    t = ws["A1"]
+    t.value = titulo
+    t.font = Font(bold=True, size=14, name="Calibri")
+    t.alignment = Alignment(horizontal="center", vertical="center")
+    ws.row_dimensions[1].height = 22
+
+    ws.merge_cells(f"A2:{last_col}2")
+    s = ws["A2"]
+    s.value = f"Gerado em {data_str} | Total: {len(rows)}"
+    s.font = Font(bold=True, size=11, color="595959", name="Calibri")
+    s.alignment = Alignment(horizontal="center", vertical="center")
+
+    HDR = 4
+    thin = Side(style="thin", color="BFBFBF")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+    header_fill = PatternFill("solid", fgColor=header_hex)
+    header_font = Font(bold=True, color="000000", name="Calibri")
+    for j, h in enumerate(headers, start=1):
+        c = ws.cell(row=HDR, column=j, value=h)
+        c.fill = header_fill
+        c.font = header_font
+        c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        c.border = border
+    ws.row_dimensions[HDR].height = 26
+
+    band = PatternFill("solid", fgColor="F2F2F2")
+    critico_font = Font(bold=True, color="C00000", name="Calibri")
+    for i, row in enumerate(rows):
+        r = HDR + 1 + i
+        for j, val in enumerate(row, start=1):
+            c = ws.cell(row=r, column=j, value=val)
+            c.border = border
+            esq = headers[j - 1] in left_align
+            c.alignment = Alignment(horizontal="left" if esq else "center", vertical="center")
+            if i % 2 == 1:
+                c.fill = band
+            if isinstance(val, str) and val.strip() == "Crítico":
+                c.font = critico_font
+
+    for j, w in enumerate(col_widths, start=1):
+        ws.column_dimensions[get_column_letter(j)].width = w
+
+    ws.auto_filter.ref = f"A{HDR}:{last_col}{HDR + max(len(rows), 1)}"
+    ws.freeze_panes = f"A{HDR + 1}"
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return buf
+
+
+def _xlsx_response(buf, prefixo):
+    fname = f"{prefixo}_{datetime.now(_BRT).strftime('%d-%m-%Y')}.xlsx"
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
 
 
 @router.get("/relatorios/ag-compras")
@@ -138,3 +222,61 @@ async def get_relatorio_ag_logistica(current_user: dict = Depends(get_current_us
     # Relatório em ORDEM DE GALPÃO (e, dentro de cada galpão, os mais parados primeiro)
     resultado.sort(key=lambda r: ((r.get('galpao') or '').upper(), -int(r.get('dias_no_status') or 0), str(r.get('entrega') or '')))
     return resultado
+
+
+def _map_critico(status):
+    return "Crítico" if status in ("Verificar", "Retornar") else (status or "")
+
+
+@router.get("/relatorios/ag-compras-xlsx")
+async def get_relatorio_ag_compras_xlsx(current_user: dict = Depends(get_current_user)):
+    data = await get_relatorio_ag_compras(current_user)
+    headers = ["Fornecedor", "Produto", "Cód. Fornecedor", "ID", "SKU", "Estoque XD",
+               "Qtd. Pedido", "Entrega", "Parceiro/Canal", "Cidade", "UF",
+               "Status Atendimento", "Status Entrega", "Data Último Ponto"]
+    widths = [20, 38, 16, 12, 13, 11, 11, 13, 16, 18, 6, 16, 20, 20]
+    rows = []
+    for it in data:
+        rows.append([
+            it.get("fornecedor") or "",
+            it.get("produto") or "",
+            it.get("codigo_fornecedor") or "",
+            it.get("id_produto") or "",
+            it.get("sku") or "",
+            it.get("estoque_disponivel") if it.get("estoque_disponivel") is not None else 0,
+            it.get("quantidade") or "",
+            it.get("entrega") or "",
+            it.get("parceiro_canal") or "",
+            it.get("cidade") or "",
+            it.get("uf") or "",
+            _map_critico(it.get("status_atendimento")),
+            it.get("status_entrega") or "",
+            it.get("data_ultimo_ponto") or "",
+        ])
+    buf = _gerar_relatorio_xlsx(
+        "Atendimentos pendentes em Compras", headers, rows, "4BACC6", widths,
+        "Ag Compras", {"Fornecedor", "Produto", "Cidade", "Status Entrega", "Parceiro/Canal"})
+    return _xlsx_response(buf, "relatorio_ag_compras")
+
+
+@router.get("/relatorios/ag-logistica-xlsx")
+async def get_relatorio_ag_logistica_xlsx(current_user: dict = Depends(get_current_user)):
+    data = await get_relatorio_ag_logistica(current_user)
+    headers = ["Entrega", "Nota", "Galpão", "Status Entrega", "Data Último Ponto",
+               "Dias em ETR", "Status Atendimento"]
+    widths = [15, 15, 12, 24, 20, 12, 18]
+    rows = []
+    for it in data:
+        rows.append([
+            it.get("entrega") or "",
+            it.get("nota") or "",
+            it.get("galpao") or "",
+            it.get("status_entrega") or "",
+            it.get("data_ultimo_ponto") or "",
+            it.get("dias_no_status") if it.get("dias_no_status") is not None else "",
+            _map_critico(it.get("status_atendimento")),
+        ])
+    buf = _gerar_relatorio_xlsx(
+        "Atendimentos pendentes na logística", headers, rows, "ED7D31", widths,
+        "Ag Logistica", {"Status Entrega"})
+    return _xlsx_response(buf, "relatorio_ag_logistica")

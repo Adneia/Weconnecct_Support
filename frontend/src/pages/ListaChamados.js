@@ -379,132 +379,48 @@ const ListaAtendimentos = () => {
     }
   };
 
-  // Função para exportar relatório Ag. Compras
+  // Função para exportar relatório Ag. Compras (xlsx estilizado gerado no backend)
   const exportRelatorioCompras = async () => {
     try {
       toast.info('Gerando relatório Ag. Compras...');
       const response = await axios.get(
-        `${API_URL}/api/relatorios/ag-compras`,
-        { headers: getAuthHeader() }
+        `${API_URL}/api/relatorios/ag-compras-xlsx`,
+        { headers: getAuthHeader(), responseType: 'blob' }
       );
-      
-      const data = response.data;
-      if (data.length === 0) {
-        toast.warning('Nenhum atendimento com Ag. Compras encontrado');
-        return;
-      }
-
-      // Preparar dados para exportação - ordem conforme imagem
-      const dataToExport = data.map(item => {
-        // Determinar se é crítico (Verificar ou Retornar)
-        let statusAtendimento = item.status_atendimento || '';
-        if (statusAtendimento === 'Verificar' || statusAtendimento === 'Retornar') {
-          statusAtendimento = 'Crítico';
-        }
-        
-        return {
-          'Fornecedor': item.fornecedor || '',
-          'Produto': item.produto || '',
-          'Cód. Fornecedor': item.codigo_fornecedor || '',
-          'ID': item.id_produto || '',
-          'SKU': item.sku || '',
-          'Estoque XD': item.estoque_disponivel ?? 0,
-          'Qtd. Pedido': item.quantidade || '',
-          'Entrega': item.entrega || '',
-          'Parceiro/Canal': item.parceiro_canal || '',
-          'Cidade': item.cidade || '',
-          'UF': item.uf || '',
-          'Status Atendimento': statusAtendimento,
-          'Status Entrega': item.status_entrega || '',
-          'Data Último Ponto': item.data_ultimo_ponto || ''
-        };
-      });
-
-      // Criar workbook
-      const ws = XLSX.utils.json_to_sheet(dataToExport);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Ag Compras');
-
-      // Ajustar largura das colunas
-      ws['!cols'] = [
-        { wch: 20 }, // Fornecedor
-        { wch: 35 }, // Produto
-        { wch: 15 }, // Cód Fornecedor
-        { wch: 12 }, // ID
-        { wch: 12 }, // SKU
-        { wch: 12 }, // Estoque Disp.
-        { wch: 10 }, // Qtd
-        { wch: 12 }, // Entrega
-        { wch: 15 }, // Parceiro/Canal
-        { wch: 15 }, // Cidade
-        { wch: 5 },  // UF
-        { wch: 15 }, // Status Atendimento
-        { wch: 18 }, // Status Entrega
-        { wch: 18 }, // Data
-      ];
-
       const dataAtual = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
-      XLSX.writeFile(wb, `relatorio_ag_compras_${dataAtual}.xlsx`);
-      toast.success(`Relatório Ag. Compras exportado (${data.length} registros)`);
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `relatorio_ag_compras_${dataAtual}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('Relatório Ag. Compras exportado');
     } catch (error) {
       console.error('Erro ao exportar relatório:', error);
       toast.error('Erro ao gerar relatório Ag. Compras');
     }
   };
 
-  // Função para exportar relatório Ag. Logística
+  // Função para exportar relatório Ag. Logística (xlsx estilizado gerado no backend)
   const exportRelatorioLogistica = async () => {
     try {
       toast.info('Gerando relatório Ag. Logística...');
       const response = await axios.get(
-        `${API_URL}/api/relatorios/ag-logistica`,
-        { headers: getAuthHeader() }
+        `${API_URL}/api/relatorios/ag-logistica-xlsx`,
+        { headers: getAuthHeader(), responseType: 'blob' }
       );
-      
-      const data = response.data;
-      if (data.length === 0) {
-        toast.warning('Nenhum atendimento com Ag. Logística encontrado');
-        return;
-      }
-
-      // Preparar dados para exportação
-      const dataToExport = data.map(item => {
-        // Determinar se é crítico (Verificar ou Retornar)
-        let statusAtendimento = item.status_atendimento || '';
-        if (statusAtendimento === 'Verificar' || statusAtendimento === 'Retornar') {
-          statusAtendimento = 'Crítico';
-        }
-        
-        return {
-          'Entrega': item.entrega || '',
-          'Nota': item.nota || '',
-          'Galpão': item.galpao || '',
-          'Status Entrega': item.status_entrega || '',
-          'Data Último Ponto': item.data_ultimo_ponto || '',
-          'Dias em ETR': item.dias_no_status ?? '',
-          'Status Atendimento': statusAtendimento
-        };
-      });
-
-      // Criar workbook
-      const ws = XLSX.utils.json_to_sheet(dataToExport);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Ag Logistica');
-
-      // Ajustar largura das colunas
-      ws['!cols'] = [
-        { wch: 15 }, // Entrega
-        { wch: 15 }, // Nota
-        { wch: 15 }, // Galpão
-        { wch: 18 }, // Status Entrega
-        { wch: 18 }, // Data
-        { wch: 12 }, // Dias em ETR
-        { wch: 18 }, // Status Atendimento
-      ];
-
       const dataAtual = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
-      XLSX.writeFile(wb, `relatorio_ag_logistica_${dataAtual}.xlsx`);
-      toast.success(`Relatório Ag. Logística exportado (${data.length} registros)`);
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `relatorio_ag_logistica_${dataAtual}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('Relatório Ag. Logística exportado');
     } catch (error) {
       console.error('Erro ao exportar relatório:', error);
       toast.error('Erro ao gerar relatório Ag. Logística');
