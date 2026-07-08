@@ -1860,7 +1860,7 @@ export default function Cancelamentos() {
                   </div>
                   {c.k === 'similar' && tab === 'aes' && similarCusto?.n > 0 && (
                     <div className={`text-[10px] mt-0.5 ${c.lbl}`}
-                      title={`Média sobre ${similarCusto.n} caso(s) com similar registrado · custo médio: original ${formatMoney(similarCusto.custo_orig_medio)} → similar ${formatMoney(similarCusto.custo_sim_medio)}`}>
+                      title={`Média sobre ${similarCusto.n} caso(s) com similar enviado · custo médio: original ${formatMoney(similarCusto.custo_orig_medio)} → similar ${formatMoney(similarCusto.custo_sim_medio)}`}>
                       Δ custo méd.: <b>{similarCusto.dif_media >= 0 ? '+' : '−'}{formatMoney(Math.abs(similarCusto.dif_media))}</b>
                       {similarCusto.dif_media > 0 ? ' (mais caro)' : similarCusto.dif_media < 0 ? ' (economia)' : ''}
                     </div>
@@ -1889,6 +1889,7 @@ export default function Cancelamentos() {
                   <th className="px-2 py-2 font-semibold">Produto</th>
                   <th className="px-2 py-2 font-semibold">SKU original</th>
                   <th className="px-2 py-2 font-semibold">SKU similar</th>
+                  <th className="px-2 py-2 font-semibold text-right">Preço venda</th>
                   <th className="px-2 py-2 font-semibold text-right">Custo original</th>
                   <th className="px-2 py-2 font-semibold text-right">Custo similar</th>
                   <th className="px-2 py-2 font-semibold text-right">Diferença</th>
@@ -1900,7 +1901,11 @@ export default function Cancelamentos() {
                     <td className="px-2 py-1.5 font-mono whitespace-nowrap">{it.entrega}</td>
                     <td className="px-2 py-1.5 max-w-[280px] truncate" title={it.produto}>{it.produto || '—'}</td>
                     <td className="px-2 py-1.5 font-mono whitespace-nowrap">{it.sku_original}</td>
-                    <td className="px-2 py-1.5 font-mono whitespace-nowrap" title={it.nome_similar}>{it.sku_similar}</td>
+                    <td className="px-2 py-1.5 font-mono whitespace-nowrap" title={it.sku_registrado ? `Despachado: ${it.sku_similar} · registrado no chamado: ${it.sku_registrado}` : it.nome_similar}>
+                      {it.sku_similar}
+                      {it.sku_registrado ? <span className="ml-1 text-[10px] text-amber-600">≠ reg</span> : null}
+                    </td>
+                    <td className="px-2 py-1.5 text-right whitespace-nowrap">{it.preco_venda != null ? formatMoney(it.preco_venda) : '—'}</td>
                     <td className="px-2 py-1.5 text-right whitespace-nowrap">{it.custo_original != null ? formatMoney(it.custo_original) : '—'}</td>
                     <td className="px-2 py-1.5 text-right whitespace-nowrap">{it.custo_similar != null ? formatMoney(it.custo_similar) : '—'}</td>
                     <td className={`px-2 py-1.5 text-right font-semibold whitespace-nowrap ${it.diferenca == null ? 'text-muted-foreground' : it.diferenca > 0 ? 'text-red-600' : it.diferenca < 0 ? 'text-emerald-600' : ''}`}>
@@ -1909,7 +1914,7 @@ export default function Cancelamentos() {
                   </tr>
                 ))}
                 {(!similarCusto?.itens || similarCusto.itens.length === 0) && (
-                  <tr><td colSpan={7} className="px-2 py-6 text-center text-muted-foreground">Nenhum similar registrado.</td></tr>
+                  <tr><td colSpan={8} className="px-2 py-6 text-center text-muted-foreground">Nenhum similar enviado.</td></tr>
                 )}
               </tbody>
             </table>

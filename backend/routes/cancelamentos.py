@@ -951,6 +951,11 @@ async def _calcular_lifecycle_stats() -> dict:
         logger.warning(f"[lifecycle stats] bigdata indisponível (valor/similar parcial): {e}")
 
     def tem_similar_bigdata(ped, sku):
+        # Similar real só existe se a entrega ORIGINAL foi cancelada (senão o
+        # cliente recebeu o original — e SKUs "novos" seriam apenas outros itens
+        # do mesmo pedido multi-item, não um substituto).
+        if status_por_entrega.get(ped) != "Cancelado":
+            return False
         pb = bseller_por_entrega.get(ped)
         entregas = entregas_por_master.get(pb)
         if not pb or not entregas:
@@ -960,7 +965,9 @@ async def _calcular_lifecycle_stats() -> dict:
         for e in entregas:
             if e["id_entrega"] == ped or e["status"] == "Cancelado":
                 continue
-            if dt_orig and e["dt"] and e["dt"] < dt_orig:
+            # Só entrega POSTERIOR ao original conta como reenvio/similar. Entregas
+            # de mesma data são itens-irmãos do mesmo pedido multi-item, não substitutos.
+            if not (dt_orig and e["dt"] and e["dt"] > dt_orig):
                 continue
             if e["skus"] - orig:
                 return True
@@ -998,7 +1005,10 @@ async def _calcular_lifecycle_stats() -> dict:
             # Encerrado → 3 desfechos: Similar (recuperado) / Cancelado (entrega
             # efetivamente cancelada no BSeller) / Entregue (faturado no mesmo
             # código apesar da solicitação — BSeller 'Liquidado').
-            if bool(sku_sim) or tem_similar_bigdata(ped, sku):
+            # "Recuperado" = similar REALMENTE despachado (bigdata: o master
+            # enviou um SKU novo em outra entrega não-cancelada). Ter apenas o
+            # sku_similar registrado (proposto) NÃO conta como enviado.
+            if tem_similar_bigdata(ped, sku):
                 bucket = "similar"
             elif status_por_entrega.get(ped) == "Cancelado":
                 bucket = "cancelado"
@@ -1849,74 +1859,138 @@ async def relacao_compras_xlsx(current_user: dict = Depends(get_current_user)):
 
 @router.get("/cancelamentos/similar-custo")
 async def similar_custo_diff(current_user: dict = Depends(get_current_user)):
-    """Diferença MÉDIA do valor de custo (último preço de compra) entre o produto
-    ORIGINAL e o SIMILAR enviado, nos AES com similar registrado (sku_similar).
-    dif_media = média de (custo do similar − custo do original). Positivo = similar
-    saiu mais caro; negativo = economia."""
+    """Similares REALMENTE enviados (recuperados) — original × similar despachado.
+    Mesma detecção do card "recuperado": via bigdata, o master (pedido_bseller)
+    despachou um SKU novo numa entrega não-cancelada (≠ a original, mesma data ou
+    depois). O SKU exibido é o que FOI despachado — se diferente do sku_similar
+    registrado no chamado, prevalece o real. dif_media = média de (custo do similar
+    − custo do original); positivo = similar saiu mais caro; negativo = economia."""
     from routes.produtos_busca import _connect_pg
     docs = await db.cancelamentos.find(
-        {"tipo": "aes", "sku_similar": {"$nin": ["", None]}},
+        {"tipo": "aes", "status": "encerrado"},
         {"_id": 0, "numero_pedido": 1, "produto": 1, "codigo_item_vtex": 1,
-         "sku_similar": 1, "nome_similar": 1, "canal_vendas": 1, "data": 1},
-    ).to_list(5000)
-    skus = set()
-    for d in docs:
-        o = (d.get("codigo_item_vtex") or "").strip()
-        s = (d.get("sku_similar") or "").strip()
-        if o:
-            skus.add(o.upper())
-        if s:
-            skus.add(s.upper())
+         "sku_similar": 1, "nome_similar": 1, "canal_vendas": 1, "data": 1, "preco_final": 1},
+    ).to_list(20000)
+    entregas = [str(d.get("numero_pedido") or "").split(".")[0] for d in docs if d.get("numero_pedido")]
 
-    custo = {}
-    if skus:
+    bseller, ent_master, custo, status_orig = {}, {}, {}, {}
+    raw = []
+    itens = []
+    difs, cos, css = [], [], []
+    if entregas:
         try:
             conn = _connect_pg()
             try:
                 with conn.cursor() as cur:
-                    cur.execute(
-                        """
-                        SELECT UPPER(cod_terceiro), preco FROM (
-                            SELECT DISTINCT ON (cod_terceiro) cod_terceiro, preco
-                            FROM precos_compra_hist
-                            WHERE UPPER(cod_terceiro) = ANY(%s) AND preco > 0
-                            ORDER BY cod_terceiro, data_alteracao DESC NULLS LAST
-                        ) t
-                        """,
-                        ([s for s in skus],),
-                    )
-                    for cod, preco in cur.fetchall():
-                        custo[cod] = float(preco or 0)
+                    # master (pedido_bseller) de cada entrega
+                    cur.execute("SELECT id_entrega, pedido_bseller, status FROM pedidos WHERE id_entrega = ANY(%s)", (entregas,))
+                    masters = set()
+                    for ie, pb, st in cur.fetchall():
+                        bseller[ie] = pb
+                        status_orig[ie] = st
+                        if pb:
+                            masters.add(pb)
+                    # entregas de cada master (data + status + SKUs) p/ detectar o despacho
+                    if masters:
+                        cur.execute(
+                            """
+                            SELECT p.pedido_bseller, p.id_entrega, p.data_pedido::date, p.status,
+                                   array_agg(DISTINCT pi.cod_terceiro)
+                            FROM pedidos p JOIN pedido_itens pi ON pi.pedido_id = p.id
+                            WHERE p.pedido_bseller = ANY(%s)
+                            GROUP BY p.pedido_bseller, p.id_entrega, p.data_pedido, p.status
+                            """,
+                            (list(masters),),
+                        )
+                        for pb, ie, dt, st, sks in cur.fetchall():
+                            ent_master.setdefault(pb, []).append({
+                                "id_entrega": ie, "dt": dt, "status": st, "skus": set(sks or []),
+                            })
+
+                    def _similar_enviado(ent, orig_sku, rec_sim):
+                        # SKU do similar REALMENTE despachado (bigdata). Regras (idênticas
+                        # ao card "recuperado"): a original tem que estar CANCELADA e o
+                        # substituto vem numa entrega POSTERIOR não-cancelada com SKU novo.
+                        # Entregas de mesma data são itens-irmãos (multi-item), não similar.
+                        if status_orig.get(ent) != "Cancelado":
+                            return None
+                        pb = bseller.get(ent)
+                        ents = ent_master.get(pb)
+                        if not pb or not ents:
+                            return None
+                        orig = next((e["skus"] for e in ents if e["id_entrega"] == ent), {orig_sku})
+                        dt_orig = next((e["dt"] for e in ents if e["id_entrega"] == ent), None)
+                        candidatos = []
+                        for e in ents:
+                            if e["id_entrega"] == ent or e["status"] == "Cancelado":
+                                continue
+                            if not (dt_orig and e["dt"] and e["dt"] > dt_orig):
+                                continue
+                            candidatos.extend(e["skus"] - orig)
+                        if not candidatos:
+                            return None
+                        recU = (rec_sim or "").upper()
+                        for c in candidatos:  # se algum bate com o registrado, prioriza
+                            if c.upper() == recU:
+                                return c
+                        return sorted(candidatos)[0]
+
+                    skus_custo = set()
+                    for d in docs:
+                        ent = str(d.get("numero_pedido") or "").split(".")[0]
+                        orig = (d.get("codigo_item_vtex") or "").strip()
+                        if not (ent and orig):
+                            continue
+                        ship = _similar_enviado(ent, orig, (d.get("sku_similar") or "").strip())
+                        if not ship:
+                            continue
+                        raw.append((d, ent, orig, ship))
+                        skus_custo.add(orig.upper())
+                        skus_custo.add(ship.upper())
+
+                    if skus_custo:
+                        cur.execute(
+                            """
+                            SELECT UPPER(cod_terceiro), preco FROM (
+                                SELECT DISTINCT ON (cod_terceiro) cod_terceiro, preco
+                                FROM precos_compra_hist
+                                WHERE UPPER(cod_terceiro) = ANY(%s) AND preco > 0
+                                ORDER BY cod_terceiro, data_alteracao DESC NULLS LAST
+                            ) t
+                            """,
+                            (list(skus_custo),),
+                        )
+                        for cod, preco in cur.fetchall():
+                            custo[cod] = float(preco or 0)
             finally:
                 conn.close()
         except Exception as e:
             logger.warning(f"[similar-custo] erro no postgres: {e}")
+            raw = []
 
-    itens = []
-    difs, cos, css = [], [], []
-    for d in docs:
-        orig = (d.get("codigo_item_vtex") or "").strip()
-        sim = (d.get("sku_similar") or "").strip()
-        if not (orig and sim):
-            continue
+    for d, ent, orig, ship in raw:
+        rec = (d.get("sku_similar") or "").strip()
+        divergente = bool(rec) and rec.upper() != ship.upper()
         co = custo.get(orig.upper())
-        cs = custo.get(sim.upper())
+        cs = custo.get(ship.upper())
         dif = round(cs - co, 2) if (co and cs and co > 0 and cs > 0) else None
         if dif is not None:
             difs.append(dif)
             cos.append(co)
             css.append(cs)
         itens.append({
-            "entrega": d.get("numero_pedido") or "",
+            "entrega": ent,
             "produto": d.get("produto") or "",
             "sku_original": orig,
-            "sku_similar": sim,
-            "nome_similar": d.get("nome_similar") or "",
+            "sku_similar": ship,                       # o que FOI despachado
+            "sku_registrado": rec if divergente else "",  # registrado no chamado, se diferente
+            "nome_similar": (d.get("nome_similar") or "") if not divergente else "",
             "canal": d.get("canal_vendas") or "",
             "data": d.get("data") or "",
             "custo_original": round(co, 2) if (co and co > 0) else None,
             "custo_similar": round(cs, 2) if (cs and cs > 0) else None,
             "diferenca": dif,
+            "preco_venda": round(_to_float(d.get("preco_final")), 2) if d.get("preco_final") else None,
         })
     # maiores diferenças primeiro; itens sem custo conhecido vão pro fim
     itens.sort(key=lambda x: (x["diferenca"] is None, -(x["diferenca"] if x["diferenca"] is not None else 0)))
