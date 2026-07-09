@@ -116,6 +116,19 @@ const Dashboard = () => {
     return [2, 4];                                                       // demais: terça e quinta
   };
   const verifDevida = (motivo) => diasVerif(motivo).includes(new Date().getDay());
+  // Flags da "Próxima verif.": respeita a DATA marcada (ajuste manual vale — ex.:
+  // feriado movido p/ o dia seguinte). Sem data marcada, cai na regra semanal.
+  //   proxima < hoje  → atrasada (vermelho)  ·  proxima === hoje → "• hoje"
+  const flagsVerif = (proxima, ultima, motivo, hojeStr) => {
+    const feitoHoje = !!ultima && ultima === hojeStr;
+    if (feitoHoje) return {};
+    if (proxima) {
+      if (proxima < hojeStr) return { devida: true, atraso: true };
+      if (proxima === hojeStr) return { devida: true, flagHoje: true };
+      return {};
+    }
+    return verifDevida(motivo) ? { devida: true, flagHoje: true } : {};
+  };
   const proximaDataVerif = (motivo, baseStr) => {
     const dias = diasVerif(motivo);
     const hojeStr = fmtLocal(new Date());
@@ -842,6 +855,7 @@ const Dashboard = () => {
                 className={`bg-transparent border-0 p-0 text-xs cursor-pointer focus:outline-none ${cor}`}
                 style={{ width: val ? '92px' : '20px' }} />
               {val && <span className={`text-[11px] ${cor}`}>({dia})</span>}
+              {opts && opts.atraso && <span className="text-[11px] text-red-600 font-bold">• atrasada</span>}
               {opts && opts.flagHoje && <span className="text-[11px] text-red-600 font-semibold">• hoje</span>}
             </span>
           );
@@ -879,8 +893,7 @@ const Dashboard = () => {
                 {verifRows.map(r => {
                   const temSub = Array.isArray(r.sub);
                   const aberto = !!verifExpand[r.motivo];
-                  const feitoHoje = !!r.ultima && r.ultima === hoje;
-                  const flag = verifDevida(r.motivo) && !feitoHoje;
+                  const flags = flagsVerif(r.proxima || '', r.ultima || '', r.motivo, hoje);
                   return (
                     <React.Fragment key={r.motivo}>
                       <tr className="border-b last:border-0 hover:bg-muted/40">
@@ -902,12 +915,11 @@ const Dashboard = () => {
                           <span className={r.qtd > 0 ? 'font-bold text-indigo-700 dark:text-indigo-400' : 'text-muted-foreground'}>{r.qtd}</span>
                         </td>
                         <td className="px-3 py-2">{dateCell(r.motivo, '', 'ultima', r.ultima || '', {})}</td>
-                        <td className="px-3 py-2">{dateCell(r.motivo, '', 'proxima', r.proxima || '', { devida: flag, flagHoje: flag })}</td>
+                        <td className="px-3 py-2">{dateCell(r.motivo, '', 'proxima', r.proxima || '', flags)}</td>
                         <td className="px-3 py-2">{obsCell(r.motivo, '', r.obs, false)}</td>
                       </tr>
                       {temSub && aberto && r.sub.map(s => {
-                        const subFeito = !!s.ultima && s.ultima === hoje;
-                        const subFlag = verifDevida(r.motivo) && !subFeito;
+                        const subFlags = flagsVerif(s.proxima || '', s.ultima || '', r.motivo, hoje);
                         return (
                         <tr key={r.motivo + '::' + s.parceiro} className="border-b last:border-0 bg-slate-50/40 dark:bg-slate-800/10">
                           <td className="px-2 py-1.5 text-center">{checkBtn(r.motivo, s.parceiro, s.ultima, true)}</td>
@@ -916,7 +928,7 @@ const Dashboard = () => {
                             <span className={s.qtd > 0 ? 'font-semibold text-indigo-600 dark:text-indigo-400' : 'text-muted-foreground'}>{s.qtd}</span>
                           </td>
                           <td className="px-3 py-1.5">{dateCell(r.motivo, s.parceiro, 'ultima', s.ultima || '', {})}</td>
-                          <td className="px-3 py-1.5">{dateCell(r.motivo, s.parceiro, 'proxima', s.proxima || '', { devida: subFlag, flagHoje: subFlag })}</td>
+                          <td className="px-3 py-1.5">{dateCell(r.motivo, s.parceiro, 'proxima', s.proxima || '', subFlags)}</td>
                           <td className="px-3 py-1.5">{obsCell(r.motivo, s.parceiro, s.obs, true)}</td>
                         </tr>
                         );
