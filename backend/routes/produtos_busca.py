@@ -175,6 +175,35 @@ def _connect_pg():
     )
 
 
+def _resolver_cod_terceiro(cur, termo: str) -> Optional[str]:
+    """Aceita SKU (cod_terceiro), código do fornecedor ou ID BSeller (id_item_bseller)
+    e devolve o cod_terceiro correspondente. None se não achar de nenhuma forma."""
+    t = (termo or "").strip().upper()
+    if not t:
+        return None
+    # 1) SKU direto
+    cur.execute("SELECT cod_terceiro FROM itens WHERE UPPER(cod_terceiro)=%s LIMIT 1", (t,))
+    row = cur.fetchone()
+    if row:
+        return row["cod_terceiro"]
+    # 2) ID BSeller (numérico)
+    if t.isdigit():
+        cur.execute(
+            "SELECT cod_terceiro FROM itens WHERE id_item_bseller::text=%s "
+            "ORDER BY (status='Aberto') DESC, cod_terceiro LIMIT 1", (t,))
+        row = cur.fetchone()
+        if row:
+            return row["cod_terceiro"]
+    # 3) Código do fornecedor (pode haver mais de um item; prioriza status Aberto)
+    cur.execute(
+        "SELECT cod_terceiro FROM itens WHERE UPPER(codigo_fornec)=%s "
+        "ORDER BY (status='Aberto') DESC, cod_terceiro LIMIT 1", (t,))
+    row = cur.fetchone()
+    if row:
+        return row["cod_terceiro"]
+    return None
+
+
 def _carrega_produto(cur, cod_terceiro: str) -> Optional[dict]:
     """Carrega ficha do produto + estoque consolidado."""
     cur.execute(
@@ -562,9 +591,14 @@ async def sugerir_similar(
     try:
         conn = _connect_pg()
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            original = _carrega_produto(cur, sku_clean)
+            # Aceita SKU, código do fornecedor ou ID BSeller
+            cod_resolvido = _resolver_cod_terceiro(cur, sku_clean) or sku_clean
+            original = _carrega_produto(cur, cod_resolvido)
             if not original:
-                raise HTTPException(status_code=404, detail=f"SKU '{sku_clean}' não encontrado no catálogo")
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"'{sku_clean}' não encontrado no catálogo (procurei por SKU, código de fornecedor e ID do produto)")
+            sku_clean = original["cod_terceiro"]
 
             voltagem_original = _extract_voltagem(original.get("descricao") or "")
             voltagem_alvo = _voltagem_oposta(voltagem_original) if tipo == "outra_tensao" else None
@@ -629,13 +663,21 @@ async def sugerir_similar(
 
             propostos = propostos[:max_propostos]
 
-            # Enriquece cada proposto com filiais (pra checagem de entrega)
+            # Valores do original (venda + custo de última compra) p/ comparação na tela
+            original["custo"] = _ultimo_preco_compra(cur, original["cod_terceiro"])
+            original["preco_venda"] = _ultimo_preco_venda(cur, original["cod_terceiro"])
+
+            # Enriquece cada proposto com filiais (pra checagem de entrega) + valores
             for p in propostos:
                 enriched = _carrega_produto(cur, p["cod_terceiro"])
                 if enriched:
                     p["filiais_fisico"] = enriched["filiais_fisico"]
                     p["xd_por_estab"] = enriched["xd_por_estab"]
                     p["ufs_com_estoque"] = enriched["ufs_com_estoque"]
+                if not p.get("custo"):
+                    p["custo"] = _ultimo_preco_compra(cur, p["cod_terceiro"])
+                if not p.get("preco_venda"):
+                    p["preco_venda"] = _ultimo_preco_venda(cur, p["cod_terceiro"])
 
         # Filial/parceiro/produto da entrega já foram carregados no topo (eh_nicequest depende deles).
 
