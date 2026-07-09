@@ -320,7 +320,9 @@ def _ultimo_preco_venda(cur, cod_terceiro: str) -> float:
 def _candidatos_similares(cur, original: dict, limit: int = 30,
                           original_custo: float = 0, valor_vendido: float = 0,
                           original_preco_venda: float = 0,
-                          preco_venda_fator: float = 1.0) -> List[dict]:
+                          preco_venda_fator: float = 1.0,
+                          volt_alvo: Optional[str] = None,
+                          permitir_sem_tensao: bool = False) -> List[dict]:
     """Busca candidatos similares por subcategoria + categoria, com estoque > 0.
     Regra de custo (preço de última compra):
       - candidato >= custo do original (não oferecer item inferior)
@@ -390,12 +392,22 @@ def _candidatos_similares(cur, original: dict, limit: int = 30,
             return pv >= piso
         rows = [r for r in rows if preco_venda_ok(r)]
 
-    # Filtro de tensão: um similar precisa ter a MESMA tensão do original.
-    # Produto com tensão diferente não é "similar" — seria caso de "outra tensão".
+    # Filtro de tensão:
+    # - Busca SIMILAR normal: candidato precisa ter a MESMA tensão do original
+    #   (tensão diferente não é "similar" — seria caso de "outra tensão").
+    # - Modo OUTRA TENSÃO (volt_alvo preenchido): candidato precisa ter a tensão
+    #   ALVO (ou Bivolt). `permitir_sem_tensao` inclui itens sem tensão
+    #   identificável (fallback — exigem conferência manual).
     # Detecta tensão tanto na descrição quanto no codigo_fornec (sufixos -127/-220/-BIV).
-    # Aceita candidatos com a mesma voltagem, sem voltagem identificável ou Bivolt.
     volt_original = _detectar_voltagem(original)
-    if volt_original and volt_original != "BIVOLT":
+    if volt_alvo:
+        def voltagem_ok(r):
+            v = _detectar_voltagem(r)
+            if v == volt_alvo or v == "BIVOLT":
+                return True
+            return v is None and permitir_sem_tensao
+        rows = [r for r in rows if voltagem_ok(r)]
+    elif volt_original and volt_original != "BIVOLT":
         def voltagem_ok(r):
             v = _detectar_voltagem(r)
             return v is None or v == volt_original or v == "BIVOLT"
@@ -634,10 +646,12 @@ async def sugerir_similar(
                     if not propostos:
                         aviso_fallback = (
                             f"Não encontrei {voltagem_alvo} do mesmo produto com estoque. "
-                            f"Mostrando similares (atenção à tensão)."
+                            f"Mostrando similares em {voltagem_alvo}."
                         )
 
-            # Se ainda não temos propostos: cai para busca similar (com filtro de custo)
+            # Se ainda não temos propostos: cai para busca similar (com filtro de custo).
+            # No modo "outra tensão", os similares são filtrados pela TENSÃO ALVO
+            # (ex.: original 220V → só candidatos 127V/Bivolt), não pela original.
             preco_fallback_aplicado = False
             if not propostos:
                 # NiceQuest: pedido pago em pontos (preco_final ~ R$0,01) — filtro de custo
@@ -645,21 +659,34 @@ async def sugerir_similar(
                 _orig_custo = 0.0 if eh_nicequest else _ultimo_preco_compra(cur, sku_clean)
                 # Preço de venda do original — usado como piso pra não oferecer item inferior.
                 _orig_preco_venda = _ultimo_preco_venda(cur, sku_clean)
+                _volt_alvo = voltagem_alvo if tipo == "outra_tensao" else None
+
+                def _busca(fator, permitir_sem=False):
+                    return _candidatos_similares(cur, original, limit=max_propostos,
+                                                 original_custo=_orig_custo,
+                                                 original_preco_venda=_orig_preco_venda,
+                                                 preco_venda_fator=fator,
+                                                 volt_alvo=_volt_alvo,
+                                                 permitir_sem_tensao=permitir_sem)
+
                 # Tenta primeiro com piso de 100% do preço de venda do original.
-                propostos = _candidatos_similares(cur, original, limit=max_propostos,
-                                                  original_custo=_orig_custo,
-                                                  original_preco_venda=_orig_preco_venda,
-                                                  preco_venda_fator=1.0)
+                propostos = _busca(1.0)
                 # Se zerou tudo, relaxa pra 80% e marca aviso.
                 if not propostos and _orig_preco_venda > 0:
-                    propostos = _candidatos_similares(cur, original, limit=max_propostos,
-                                                      original_custo=_orig_custo,
-                                                      original_preco_venda=_orig_preco_venda,
-                                                      preco_venda_fator=0.8)
+                    propostos = _busca(0.8)
                     if propostos:
                         preco_fallback_aplicado = True
                         if not aviso_fallback:
                             aviso_fallback = "Não achei similar de igual valor; mostrando próximos (até 20% abaixo)."
+                # Outra tensão sem candidato na tensão alvo: inclui itens SEM tensão
+                # identificável (podem ser bivolt não descrito — conferir manualmente).
+                if not propostos and _volt_alvo:
+                    propostos = _busca(1.0, permitir_sem=True) or (_busca(0.8, permitir_sem=True) if _orig_preco_venda > 0 else [])
+                    if propostos:
+                        aviso_fallback = (
+                            f"Nenhum similar com {_volt_alvo} identificado no texto — mostrando itens "
+                            f"sem tensão informada na descrição. Confirme a tensão antes de ofertar."
+                        )
 
             propostos = propostos[:max_propostos]
 
