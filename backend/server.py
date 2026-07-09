@@ -9,6 +9,7 @@ load_dotenv()
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 import jwt
 
@@ -29,6 +30,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Compressão gzip das respostas (JSON das listas cai ~8-10x no tráfego)
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 # ---- Perfil "consulta": somente leitura ----
 # Bloqueia qualquer escrita (POST/PUT/PATCH/DELETE) para usuários com role 'consulta'.

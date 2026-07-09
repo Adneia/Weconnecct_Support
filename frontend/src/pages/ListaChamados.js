@@ -227,10 +227,17 @@ const ListaAtendimentos = () => {
         motivosParams.append('search_type', searchType);
       }
 
+      // A lista de motivos p/ o multi-select só precisa de uma consulta EXTRA quando
+      // há filtro de motivo ativo (aí a lista principal vem filtrada e não cobre todo
+      // o contexto). Sem filtro de motivo, reaproveitamos a própria lista principal —
+      // evita baixar a mesma lista 2x a cada carregamento.
+      const temFiltroMotivo = Array.isArray(filters.motivo_pendencia) && filters.motivo_pendencia.length > 0;
       const [chamadosRes, totalRes, motivosRes] = await Promise.all([
         axios.get(`${API_URL}/api/chamados?${params.toString()}`, { headers: getAuthHeader() }),
         totalNaBase === null ? axios.get(`${API_URL}/api/admin/total-na-base`, { headers: getAuthHeader() }).catch(() => null) : Promise.resolve(null),
-        axios.get(`${API_URL}/api/chamados?${motivosParams.toString()}`, { headers: getAuthHeader() }).catch(() => null)
+        temFiltroMotivo
+          ? axios.get(`${API_URL}/api/chamados?${motivosParams.toString()}`, { headers: getAuthHeader() }).catch(() => null)
+          : Promise.resolve(null)
       ]);
 
       setAtendimentos(chamadosRes.data);
@@ -251,11 +258,11 @@ const ListaAtendimentos = () => {
       // Extrair lista de parceiros únicos
       const parceirosUnicos = [...new Set(chamadosRes.data.map(a => a.parceiro).filter(p => p))].sort();
       setParceiros(parceirosUnicos);
-      // Extrair motivos do contexto atual (sem filtro de motivo) para o multi-select
-      if (motivosRes?.data) {
-        const motivosUnicos = [...new Set(motivosRes.data.map(a => a.motivo_pendencia).filter(m => m))].sort();
-        setMotivosDisponiveis(motivosUnicos);
-      }
+      // Motivos p/ o multi-select: da consulta extra (quando houve filtro de motivo)
+      // ou, senão, do próprio resultado principal — que já é o contexto completo.
+      const motivosFonte = motivosRes?.data || chamadosRes.data;
+      const motivosUnicos = [...new Set(motivosFonte.map(a => a.motivo_pendencia).filter(m => m))].sort();
+      setMotivosDisponiveis(motivosUnicos);
     } catch (error) {
       toast.error('Erro ao carregar atendimentos');
     } finally {
