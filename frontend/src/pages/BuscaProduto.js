@@ -32,7 +32,8 @@ function saudacao() {
 
 // Modal com os textos automáticos p/ envio ao cliente (mesmo padrão do WhatsApp
 // Similar de Cancelamentos). `similares` = lista de propostos selecionados.
-function TextosModal({ orig, similares, entrega, imgMap, onClose }) {
+// `voltagemAlvo` (ex.: "127V") muda o texto p/ oferta de outra tensão.
+function TextosModal({ orig, similares, entrega, imgMap, voltagemAlvo, onClose }) {
   const [abertos, setAbertos] = useState({ 0: true });
   const toggleTexto = (i) => setAbertos(prev => ({ ...prev, [i]: !prev[i] }));
 
@@ -46,8 +47,10 @@ function TextosModal({ orig, similares, entrega, imgMap, onClose }) {
   };
   const multiplos = similares.length > 1;
   const blocoInicial = multiplos
-    ? `Temos como alternativa os seguintes itens similares:\n${similares.map((p, i) => `${i + 1}) ${fmtSim(p)}`).join('\n')}\nPoderia confirmar se aceita a substituição por um deles?`
-    : `Temos como alternativa um item similar: ${fmtSim(similares[0])}. Poderia confirmar se aceita a substituição pelo item similar?`;
+    ? `${voltagemAlvo
+        ? `Temos como alternativa pelo ${voltagemAlvo} os seguintes itens:`
+        : 'Temos como alternativa os seguintes itens similares:'}\n${similares.map((p, i) => `${i + 1}) ${fmtSim(p)}`).join('\n')}\nPoderia confirmar se aceita a substituição por um deles?`
+    : `Temos como alternativa ${voltagemAlvo ? `pelo ${voltagemAlvo}` : 'um item similar'}: ${fmtSim(similares[0])}. Poderia confirmar se aceita a substituição?`;
   const blocoAceita = multiplos
     ? `os novos itens:\n${similares.map((p, i) => `${i + 1}) ${fmtSim(p)}`).join('\n')}`
     : `o novo item - ${fmtSim(similares[0])}`;
@@ -57,7 +60,7 @@ function TextosModal({ orig, similares, entrega, imgMap, onClose }) {
     {
       label: 'Mensagem inicial',
       emoji: '💬',
-      texto: `${saudacao()}\nInfelizmente, tivemos uma falha sistêmica no item ${produto}${refEntrega}${linkSufixo(linkOriginal)}\n${blocoInicial}\nAguardamos retorno e seguimos à disposição.\nAtenciosamente!\nAtendimento Weconnect`,
+      texto: `${saudacao()}\nNo momento estamos sem previsão para reposição do item ${produto}${refEntrega}${linkSufixo(linkOriginal)}\n${blocoInicial}\nAguardamos retorno e seguimos à disposição.\nAtenciosamente!\nAtendimento Weconnect`,
     },
     {
       label: 'Cliente não aceita',
@@ -79,7 +82,7 @@ function TextosModal({ orig, similares, entrega, imgMap, onClose }) {
       >
         <div className="flex items-center justify-between">
           <h2 className="font-bold text-base flex items-center gap-2">
-            <span>📱</span> Textos p/ cliente — Similar
+            <span>📱</span> Textos p/ cliente — {voltagemAlvo ? `Outra tensão (${voltagemAlvo})` : 'Similar'}
           </h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-700">
             <X className="h-5 w-5" />
@@ -89,7 +92,7 @@ function TextosModal({ orig, similares, entrega, imgMap, onClose }) {
           <div><strong>Produto:</strong> {produto}</div>
           {entrega && <div><strong>Entrega:</strong> {entrega}</div>}
           <div className="flex items-start gap-1">
-            <strong>{multiplos ? 'Similares:' : 'Similar:'}</strong>
+            <strong>{voltagemAlvo ? `Alternativa ${voltagemAlvo}:` : (multiplos ? 'Similares:' : 'Similar:')}</strong>
             <span>{similares.map((p, i) => (
               <span key={p.cod_terceiro} className="block">
                 {multiplos ? `${i + 1}) ` : ''}{p.descricao || p.cod_terceiro}{p.id_item_bseller ? ` (ID: ${p.id_item_bseller})` : ''}
@@ -419,6 +422,7 @@ export default function BuscaProduto() {
           similares={textosDe}
           entrega={entrega.trim()}
           imgMap={imgMap}
+          voltagemAlvo={resultado?.voltagem_alvo || ''}
           onClose={() => setTextosDe(null)}
         />
       )}
