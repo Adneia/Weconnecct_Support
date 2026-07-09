@@ -539,7 +539,11 @@ const ListaAtendimentos = () => {
     ws['!cols'] = [{ wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 16 }, { wch: 12 }, { wch: 50 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Acionar Parceiro');
-    XLSX.writeFile(wb, `Acionar Parceiro ${new Date().toISOString().slice(0, 10)}.xlsx`);
+    // Nome do arquivo com o(s) parceiro(s) da lista: "Acionar Parceiro 2026-07-09 (CSU).xlsx"
+    const unicos = [...new Set(acionarData.map(r => (r.parceiro || '').trim()).filter(p => p && p !== '-'))];
+    const rotulo = unicos.length === 0 ? '' : unicos.length <= 3 ? unicos.join(' + ') : 'vários';
+    const sufixo = rotulo ? ` (${rotulo.replace(/[\\/:*?"<>|]/g, '')})` : '';
+    XLSX.writeFile(wb, `Acionar Parceiro ${new Date().toISOString().slice(0, 10)}${sufixo}.xlsx`);
   };
 
   const getCategoryBadgeColor = (categoria) => {
