@@ -14,7 +14,8 @@ _BRT = timezone(timedelta(hours=-3))
 
 
 def _gerar_relatorio_xlsx(titulo, headers, rows, header_hex, col_widths,
-                          sheet_name, left_align):
+                          sheet_name, left_align,
+                          header_font_hex="000000", band_hex="F2F2F2"):
     """Monta um .xlsx padronizado: título + 'Gerado em DD/MM/AAAA | Total: N',
     cabeçalho colorido com filtro, bordas, faixas alternadas e 'Crítico' em
     vermelho. `left_align` = set de cabeçalhos alinhados à esquerda."""
@@ -47,7 +48,7 @@ def _gerar_relatorio_xlsx(titulo, headers, rows, header_hex, col_widths,
     thin = Side(style="thin", color="BFBFBF")
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
     header_fill = PatternFill("solid", fgColor=header_hex)
-    header_font = Font(bold=True, color="000000", name="Calibri")
+    header_font = Font(bold=True, color=header_font_hex, name="Calibri")
     for j, h in enumerate(headers, start=1):
         c = ws.cell(row=HDR, column=j, value=h)
         c.fill = header_fill
@@ -56,7 +57,7 @@ def _gerar_relatorio_xlsx(titulo, headers, rows, header_hex, col_widths,
         c.border = border
     ws.row_dimensions[HDR].height = 26
 
-    band = PatternFill("solid", fgColor="F2F2F2")
+    band = PatternFill("solid", fgColor=band_hex)
     critico_font = Font(bold=True, color="C00000", name="Calibri")
     for i, row in enumerate(rows):
         r = HDR + 1 + i
@@ -280,3 +281,33 @@ async def get_relatorio_ag_logistica_xlsx(current_user: dict = Depends(get_curre
         "Atendimentos pendentes na logística", headers, rows, "ED7D31", widths,
         "Ag Logistica", {"Status Entrega"})
     return _xlsx_response(buf, "relatorio_ag_logistica")
+
+
+@router.post("/relatorios/acionar-parceiro-xlsx")
+async def acionar_parceiro_xlsx(payload: dict, current_user: dict = Depends(get_current_user)):
+    """Gera o xlsx estilizado do 'Acionar Parceiro' a partir das linhas já
+    compiladas na tela (mesmo conteúdo do modal). Tema vermelho."""
+    linhas = payload.get("linhas") or []
+    if not linhas:
+        raise HTTPException(status_code=400, detail="Sem linhas para exportar")
+    headers = ["Parceiro", "Entrega", "Pedido", "Solicitação", "CPF",
+               "Data Anotação", "Última Anotação"]
+    widths = [16, 15, 18, 14, 16, 14, 62]
+    rows = [[
+        l.get("parceiro") or "",
+        l.get("entrega") or "",
+        l.get("pedido") or "",
+        l.get("solicitacao") or "",
+        l.get("cpf") or "",
+        l.get("data_anotacao") or "",
+        l.get("anotacao") or "",
+    ] for l in linhas]
+    parceiros = sorted({(l.get("parceiro") or "").strip() for l in linhas
+                        if (l.get("parceiro") or "").strip() not in ("", "-")})
+    rotulo = " + ".join(parceiros) if 0 < len(parceiros) <= 3 else ("vários" if parceiros else "")
+    titulo = f"Base Acionar Parceiro{f' - {rotulo}' if rotulo else ''}"
+    buf = _gerar_relatorio_xlsx(
+        titulo, headers, rows, "C0504D", widths, "Acionar Parceiro",
+        {"Parceiro", "Pedido", "Última Anotação"},
+        header_font_hex="FFFFFF", band_hex="F2DCDB")
+    return _xlsx_response(buf, "acionar_parceiro")

@@ -530,20 +530,30 @@ const ListaAtendimentos = () => {
     const body = acionarData.map(r => [r.parceiro, r.entrega, r.pedido, r.solicitacao, r.cpf, r.data_anotacao, r.anotacao].join('\t')).join('\n');
     copyToClipboardHTTP(head + '\n' + body, () => toast.success(`${acionarData.length} pendência(s) copiada(s)!`), () => toast.error('Erro ao copiar'));
   };
-  const exportarAcionar = () => {
-    const data = acionarData.map(r => ({
-      'Parceiro': r.parceiro, 'Entrega': r.entrega, 'Pedido': r.pedido,
-      'Solicitação': r.solicitacao, 'CPF': r.cpf, 'Data Anotação': r.data_anotacao, 'Última Anotação': r.anotacao,
-    }));
-    const ws = XLSX.utils.json_to_sheet(data);
-    ws['!cols'] = [{ wch: 14 }, { wch: 14 }, { wch: 16 }, { wch: 14 }, { wch: 16 }, { wch: 12 }, { wch: 50 }];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Acionar Parceiro');
-    // Nome do arquivo com o(s) parceiro(s) da lista: "Acionar Parceiro 2026-07-09 (CSU).xlsx"
-    const unicos = [...new Set(acionarData.map(r => (r.parceiro || '').trim()).filter(p => p && p !== '-'))];
-    const rotulo = unicos.length === 0 ? '' : unicos.length <= 3 ? unicos.join(' + ') : 'vários';
-    const sufixo = rotulo ? ` (${rotulo.replace(/[\\/:*?"<>|]/g, '')})` : '';
-    XLSX.writeFile(wb, `Acionar Parceiro ${new Date().toISOString().slice(0, 10)}${sufixo}.xlsx`);
+  const exportarAcionar = async () => {
+    try {
+      // xlsx estilizado gerado no backend (título + cabeçalho colorido, como o da logística)
+      const response = await axios.post(
+        `${API_URL}/api/relatorios/acionar-parceiro-xlsx`,
+        { linhas: acionarData },
+        { headers: getAuthHeader(), responseType: 'blob' }
+      );
+      // Nome do arquivo com o(s) parceiro(s) da lista: "Acionar Parceiro 2026-07-09 (CSU).xlsx"
+      const unicos = [...new Set(acionarData.map(r => (r.parceiro || '').trim()).filter(p => p && p !== '-'))];
+      const rotulo = unicos.length === 0 ? '' : unicos.length <= 3 ? unicos.join(' + ') : 'vários';
+      const sufixo = rotulo ? ` (${rotulo.replace(/[\\/:*?"<>|]/g, '')})` : '';
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Acionar Parceiro ${new Date().toISOString().slice(0, 10)}${sufixo}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Erro ao exportar Acionar Parceiro:', error);
+      toast.error('Erro ao gerar o arquivo');
+    }
   };
 
   const getCategoryBadgeColor = (categoria) => {
