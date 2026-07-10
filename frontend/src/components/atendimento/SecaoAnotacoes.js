@@ -605,9 +605,21 @@ const SecaoAnotacoes = ({
             : (transpNorm.includes('asap') || transpNorm.includes('logistica e solucoes')) ? 'ASAP Log'
             : transpNorm.includes('correios') ? 'Correios'
             : transp || null;
-          const titulosSelecionados = causaSelecionada
+          // Variantes por parceiro: texto com 'parceiro' preenchido substitui o padrão
+          // de mesmo título quando o parceiro do chamado bate (ex.: Entregue — Livelo).
+          const parcNorm = (parceiro || '').trim().toLowerCase();
+          const brutos = causaSelecionada
             ? (textosMotivo.find(g => g.causa === causaSelecionada)?.textos || [])
             : [];
+          const porTitulo = {};
+          brutos.forEach(t => {
+            const alvo = (t.parceiro || '').trim().toLowerCase();
+            if (alvo && alvo !== parcNorm) return;           // variante de outro parceiro: oculta
+            const atual = porTitulo[t.titulo];
+            if (alvo) porTitulo[t.titulo] = { ...t, matchParceiro: true };  // variante do parceiro: prevalece
+            else if (!atual || !atual.matchParceiro) porTitulo[t.titulo] = t;
+          });
+          const titulosSelecionados = Object.values(porTitulo);
           return (
             <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40">
               <button
@@ -648,14 +660,17 @@ const SecaoAnotacoes = ({
                             key={t.titulo}
                             type="button"
                             onClick={() => { if (onLoadTextoRaw) onLoadTextoRaw(t.texto, t.titulo); }}
-                            className={isMatch
+                            title={t.matchParceiro ? `Texto específico ${parceiro}` : undefined}
+                            className={t.matchParceiro
+                              ? 'px-3 py-1.5 text-sm rounded-md font-medium bg-violet-600 text-white border border-violet-600 hover:bg-violet-700'
+                              : isMatch
                               ? 'px-3 py-1.5 text-sm rounded-md font-medium bg-amber-500 text-white border border-amber-500 hover:bg-amber-600'
                               : titulosSelecionados.length === 1
                                 ? 'px-3 py-1.5 text-sm rounded-md font-medium bg-slate-800 text-white border border-slate-800 hover:bg-slate-700 dark:bg-slate-200 dark:text-slate-800'
                                 : 'px-3 py-1.5 text-sm rounded-md font-medium border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-600'
                             }
                           >
-                            {isMatch ? `★ ${t.titulo}` : t.titulo}
+                            {t.matchParceiro ? `★ ${t.titulo} (${parceiro})` : isMatch ? `★ ${t.titulo}` : t.titulo}
                           </button>
                         );
                       })}

@@ -152,7 +152,10 @@ async def get_textos_por_motivo_excel(motivo: str, current_user: dict = Depends(
         causa = t.get('causa', '')
         if causa not in grupos:
             grupos[causa] = []
-        grupos[causa].append({'titulo': t.get('titulo', ''), 'texto': t.get('texto', '')})
+        # 'parceiro' preenchido = variante específica daquele parceiro (ex.: Livelo);
+        # o frontend usa a variante quando o parceiro do chamado bate, senão a padrão.
+        grupos[causa].append({'titulo': t.get('titulo', ''), 'texto': t.get('texto', ''),
+                              'parceiro': t.get('parceiro', '')})
     return {'motivo': motivo_decoded, 'grupos': [{'causa': c, 'textos': ts} for c, ts in grupos.items()]}
 
 
