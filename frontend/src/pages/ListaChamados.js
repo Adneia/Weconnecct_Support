@@ -43,10 +43,13 @@ import * as XLSX from 'xlsx';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
+// Mesmas grafias do formulário de atendimento (constants.js) — o filtro busca
+// por igualdade exata, então divergência de grafia = filtro vazio.
 const CATEGORIAS = [
-  "Falha Produção", "Falha de Compras", "Falha Transporte",
-  "Divergência de Produto", "Arrependimento",
-  "Dúvida", "Reclamação", "Assistência Técnica", "Falha de Integração"
+  "Acompanhamento", "Arrependimento", "Assistência Técnica",
+  "Comprovante de Entrega", "Falha Cadastro", "Falha Compras",
+  "Falha Fornecedor", "Falha Integração", "Falha Parceiro",
+  "Falha Produção", "Falha Transporte", "Impossibilidade de Entrega",
 ];
 
 const MOTIVOS_PENDENCIA = [
@@ -559,14 +562,18 @@ const ListaAtendimentos = () => {
   const getCategoryBadgeColor = (categoria) => {
     const colors = {
       'Falha Produção': 'bg-red-50 text-red-700 dark:bg-red-950/50 dark:text-red-400',
-      'Falha de Compras': 'bg-orange-50 text-orange-700 dark:bg-orange-950/50 dark:text-orange-400',
+      'Falha Compras': 'bg-orange-50 text-orange-700 dark:bg-orange-950/50 dark:text-orange-400',
       'Falha Transporte': 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400',
-
+      'Falha Fornecedor': 'bg-lime-50 text-lime-700 dark:bg-lime-950/50 dark:text-lime-400',
+      'Falha Parceiro': 'bg-fuchsia-50 text-fuchsia-700 dark:bg-fuchsia-950/50 dark:text-fuchsia-400',
+      'Falha Cadastro': 'bg-teal-50 text-teal-700 dark:bg-teal-950/50 dark:text-teal-400',
       'Arrependimento': 'bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400',
       'Acompanhamento': 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/50 dark:text-cyan-400',
       'Reclame Aqui': 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400',
       'Assistência Técnica': 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-400',
-      'Falha de Integração': 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300',
+      'Falha Integração': 'bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300',
+      'Comprovante de Entrega': 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400',
+      'Impossibilidade de Entrega': 'bg-violet-50 text-violet-700 dark:bg-violet-950/50 dark:text-violet-400',
     };
     return colors[categoria] || 'bg-slate-100 text-slate-700';
   };

@@ -604,6 +604,11 @@ async def create_chamado(
     chamado.id_atendimento = id_atendimento
     chamado.criado_por_id = current_user['id']
     chamado.criado_por_nome = current_user['name']
+    # Normaliza espaços — "CSU " ≠ "CSU" quebra os filtros por igualdade exata
+    if chamado.parceiro:
+        chamado.parceiro = chamado.parceiro.strip()
+    if chamado.categoria:
+        chamado.categoria = chamado.categoria.strip()
     if not chamado.categoria_inicial:
         chamado.categoria_inicial = chamado.categoria
     pedido = await db.pedidos_erp.find_one({"numero_pedido": chamado_data.numero_pedido}, {"_id": 0})
@@ -801,6 +806,11 @@ async def update_chamado(
     if not existing:
         raise HTTPException(status_code=404, detail="Chamado não encontrado")
     update_data = {k: v for k, v in chamado_data.model_dump().items() if v is not None}
+
+    # Normaliza espaços — "CSU " ≠ "CSU" quebra os filtros por igualdade exata
+    for _campo in ("parceiro", "categoria"):
+        if isinstance(update_data.get(_campo), str):
+            update_data[_campo] = update_data[_campo].strip()
 
     # Normaliza 'Em devolução' genérico → Correios/Transp./Aguardando pela reversa
     if update_data.get('motivo_pendencia') == 'Em devolução':
