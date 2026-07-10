@@ -283,6 +283,45 @@ async def get_relatorio_ag_logistica_xlsx(current_user: dict = Depends(get_curre
     return _xlsx_response(buf, "relatorio_ag_logistica")
 
 
+@router.get("/relatorios/falha-integracao-xlsx")
+async def get_relatorio_falha_integracao_xlsx(current_user: dict = Depends(get_current_user)):
+    """Relatório dos atendimentos PENDENTES com categoria Falha Integração."""
+    chamados = await db.chamados.find(
+        {"categoria": "Falha Integração", "pendente": True},
+        {"_id": 0, "numero_pedido": 1, "cpf_cliente": 1, "solicitacao": 1, "categoria": 1},
+    ).sort("numero_pedido", 1).to_list(5000)
+
+    # CPF ausente no chamado → busca no ERP. Falha de integração costuma usar o
+    # pedido EXTERNO (PTM-xxx) como entrega, então procura por numero_pedido E
+    # pedido_externo (cobre o caso do pedido integrar depois).
+    sem_cpf = [c.get("numero_pedido") for c in chamados if not c.get("cpf_cliente") and c.get("numero_pedido")]
+    cpf_erp = {}
+    if sem_cpf:
+        pedidos = await db.pedidos_erp.find(
+            {"$or": [{"numero_pedido": {"$in": sem_cpf}}, {"pedido_externo": {"$in": sem_cpf}}]},
+            {"_id": 0, "numero_pedido": 1, "pedido_externo": 1, "cpf_cliente": 1},
+        ).to_list(len(sem_cpf) * 2)
+        for p in pedidos:
+            cpf = p.get("cpf_cliente") or ""
+            if p.get("numero_pedido"):
+                cpf_erp.setdefault(p["numero_pedido"], cpf)
+            if p.get("pedido_externo"):
+                cpf_erp.setdefault(p["pedido_externo"], cpf)
+
+    headers = ["Entrega", "CPF", "Solicitação", "Categoria"]
+    widths = [16, 18, 16, 20]
+    rows = [[
+        (c.get("numero_pedido") or "").strip(),
+        (c.get("cpf_cliente") or cpf_erp.get(c.get("numero_pedido"), "") or "").strip(),
+        (c.get("solicitacao") or "").strip(),
+        (c.get("categoria") or "").strip(),
+    ] for c in chamados]
+    buf = _gerar_relatorio_xlsx(
+        "Atendimentos pendentes — Falha de Integração", headers, rows, "FFC000",
+        widths, "Falha Integracao", set())
+    return _xlsx_response(buf, "relatorio_falha_integracao")
+
+
 @router.post("/relatorios/acionar-parceiro-xlsx")
 async def acionar_parceiro_xlsx(payload: dict, current_user: dict = Depends(get_current_user)):
     """Gera o xlsx estilizado do 'Acionar Parceiro' a partir das linhas já

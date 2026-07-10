@@ -413,6 +413,30 @@ const ListaAtendimentos = () => {
     }
   };
 
+  // Relatório Falha de Integração (xlsx estilizado gerado no backend)
+  const exportRelatorioFalhaIntegracao = async () => {
+    try {
+      toast.info('Gerando relatório Falha de Integração...');
+      const response = await axios.get(
+        `${API_URL}/api/relatorios/falha-integracao-xlsx`,
+        { headers: getAuthHeader(), responseType: 'blob' }
+      );
+      const dataAtual = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `relatorio_falha_integracao_${dataAtual}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      toast.success('Relatório Falha de Integração exportado');
+    } catch (error) {
+      console.error('Erro ao exportar relatório:', error);
+      toast.error('Erro ao gerar relatório Falha de Integração');
+    }
+  };
+
   // Função para exportar relatório Ag. Logística (xlsx estilizado gerado no backend)
   const exportRelatorioLogistica = async () => {
     try {
@@ -894,6 +918,10 @@ const ListaAtendimentos = () => {
           <Button variant="outline" onClick={exportRelatorioLogistica} className="bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200" data-testid="btn-relatorio-logistica">
             <FileSpreadsheet className="h-4 w-4 mr-2" />
             Relatório Ag. Logística
+          </Button>
+          <Button variant="outline" onClick={exportRelatorioFalhaIntegracao} className="bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200" data-testid="btn-relatorio-falha-integracao">
+            <FileSpreadsheet className="h-4 w-4 mr-2" />
+            Relatório Falha Integração
           </Button>
           <Button variant="outline" onClick={exportToExcel} data-testid="btn-exportar">
             <Download className="h-4 w-4 mr-2" />
