@@ -472,23 +472,48 @@ async def _auto_reabrir_encerrados() -> dict:
     reabertos = 0
     now_iso = _iso_now_utc()
     data_br = _br_now().strftime("%d/%m")
+
+    # Bulk: avisos ativos do Smart Compras UMA vez (evita 1 find_one por encerrado —
+    # com ~900 encerrados isso custava ~2s em toda listagem da tela).
+    pedidos_enc = list({(c.get("numero_pedido") or "").strip()
+                        for c in encerrados if c.get("numero_pedido")})
+    avisos_raw = await db.avisos_compras.find(
+        {"numero_pedido": {"$in": pedidos_enc}, "status": {"$in": ["aberto", "faturado"]}},
+        {"_id": 0, "numero_pedido": 1, "sku": 1, "atualizado_em": 1},
+    ).to_list(20000) if pedidos_enc else []
+    avisos_por_ped = {}
+    for a in avisos_raw:
+        avisos_por_ped.setdefault((a.get("numero_pedido") or "").strip(), []).append(a)
+
+    # Candidatos (aviso novo após o encerramento) — checa o status do pedido em bulk
+    candidatos = []
     for c in encerrados:
         ped = (c.get("numero_pedido") or "").strip()
         enc = str(c.get("data_encerramento") or "")[:10]  # YYYY-MM-DD
         if not ped or len(enc) < 10:
             continue
-        # nova solicitação = aviso ativo do Smart Compras atualizado APÓS o dia do encerramento
-        q = {"numero_pedido": ped, "status": {"$in": ["aberto", "faturado"]},
-             "atualizado_em": {"$gt": enc + "T23:59:59.999999"}}
         sku = (c.get("codigo_item_vtex") or "").strip()
-        if sku:
-            q["sku"] = sku
-        aviso = await db.avisos_compras.find_one(q, {"_id": 0, "id": 1})
-        if not aviso:
-            continue
+        corte = enc + "T23:59:59.999999"
+        tem_novo = any(
+            (str(a.get("atualizado_em") or "") > corte) and (not sku or (a.get("sku") or "").strip() == sku)
+            for a in avisos_por_ped.get(ped, [])
+        )
+        if tem_novo:
+            candidatos.append(c)
+    if not candidatos:
+        return {"reabertos": 0}
+    peds_cand = list({(c.get("numero_pedido") or "").strip() for c in candidatos})
+    status_ped = {}
+    async for p in db.pedidos_erp.find(
+            {"numero_pedido": {"$in": peds_cand}},
+            {"_id": 0, "numero_pedido": 1, "status_pedido": 1}):
+        status_ped[p["numero_pedido"]] = p.get("status_pedido") or ""
+
+    for c in candidatos:
+        ped = (c.get("numero_pedido") or "").strip()
+        enc = str(c.get("data_encerramento") or "")[:10]
         # não reabrir se o pedido já foi realmente cancelado (entrega cancelada)
-        ped_doc = await db.pedidos_erp.find_one({"numero_pedido": ped}, {"_id": 0, "status_pedido": 1})
-        if ped_doc and (ped_doc.get("status_pedido") or "") in _AES_STATUS_JA_CANCELADO:
+        if status_ped.get(ped, "") in _AES_STATUS_JA_CANCELADO:
             continue
         obs = c.get("observacao", "") or ""
         enc_br = f"{enc[8:10]}/{enc[5:7]}"
