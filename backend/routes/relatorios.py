@@ -288,8 +288,9 @@ async def get_relatorio_falha_integracao_xlsx(current_user: dict = Depends(get_c
     """Relatório dos atendimentos PENDENTES com categoria Falha Integração."""
     chamados = await db.chamados.find(
         {"categoria": "Falha Integração", "pendente": True},
-        {"_id": 0, "numero_pedido": 1, "cpf_cliente": 1, "solicitacao": 1, "categoria": 1},
-    ).sort("numero_pedido", 1).to_list(5000)
+        {"_id": 0, "numero_pedido": 1, "cpf_cliente": 1, "solicitacao": 1, "categoria": 1,
+         "data_abertura": 1},
+    ).sort("data_abertura", 1).to_list(5000)  # mais antigas primeiro
 
     # CPF ausente no chamado → busca no ERP. Falha de integração costuma usar o
     # pedido EXTERNO (PTM-xxx) como entrega, então procura por numero_pedido E
@@ -308,10 +309,27 @@ async def get_relatorio_falha_integracao_xlsx(current_user: dict = Depends(get_c
             if p.get("pedido_externo"):
                 cpf_erp.setdefault(p["pedido_externo"], cpf)
 
-    headers = ["Entrega", "CPF", "Solicitação", "Categoria"]
-    widths = [16, 18, 16, 20]
+    def _data_entrada(c):
+        """data_abertura (UTC) → DD/MM/AAAA em horário de Brasília."""
+        raw = c.get("data_abertura")
+        try:
+            if isinstance(raw, str):
+                dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+            elif raw:
+                dt = raw
+            else:
+                return ""
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.astimezone(_BRT).strftime("%d/%m/%Y")
+        except Exception:
+            return str(raw)[:10]
+
+    headers = ["Entrega", "Data Entrada", "CPF", "Solicitação", "Categoria"]
+    widths = [16, 14, 18, 16, 20]
     rows = [[
         (c.get("numero_pedido") or "").strip(),
+        _data_entrada(c),
         (c.get("cpf_cliente") or cpf_erp.get(c.get("numero_pedido"), "") or "").strip(),
         (c.get("solicitacao") or "").strip(),
         (c.get("categoria") or "").strip(),
