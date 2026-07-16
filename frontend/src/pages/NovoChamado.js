@@ -117,7 +117,7 @@ const NovoAtendimento = () => {
   const [showProporSimilar, setShowProporSimilar] = useState(false);
 
   const [formData, setFormData] = useState({
-    numero_pedido: '', solicitacao: '', parceiro: '',
+    numero_pedido: '', solicitacao: '', parceiro: '', cpf_cliente: '',
     categoria: '', categoria_inicial: '', motivo: '',
     anotacoes: '', atendente: '', nova_entrega: ''
   });
@@ -719,7 +719,7 @@ const NovoAtendimento = () => {
               <div className="p-4 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
                 <p className="text-sm text-amber-700 dark:text-amber-300 mb-3">Nenhum pedido encontrado. Verifique o número e tente novamente.</p>
                 <Button type="button" variant="outline" className="border-amber-500 text-amber-700 hover:bg-amber-100" data-testid="btn-falha-integracao"
-                  onClick={() => { setModoFalhaIntegracao(true); setFormData(prev => ({ ...prev, numero_pedido: searchValue, categoria: 'Falha de Integração', motivo: 'Pedido não localizado na base' })); setPedidoNotFound(false); }}>
+                  onClick={() => { setModoFalhaIntegracao(true); setFormData(prev => ({ ...prev, numero_pedido: searchValue, categoria: 'Falha Integração', motivo: 'Pedido não localizado na base' })); setPedidoNotFound(false); }}>
                   <AlertCircle className="h-4 w-4 mr-2" /> Abrir Chamado de Falha de Integração
                 </Button>
               </div>
@@ -733,25 +733,31 @@ const NovoAtendimento = () => {
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg flex items-center gap-2 text-amber-700 dark:text-amber-300"><AlertCircle className="h-5 w-5" /> Falha de Integração</CardTitle>
-                <Button type="button" variant="ghost" size="sm" onClick={() => { setModoFalhaIntegracao(false); setFormData(prev => ({ ...prev, categoria: '', motivo: '', numero_pedido: '' })); }}>Cancelar</Button>
+                <Button type="button" variant="ghost" size="sm" onClick={() => { setModoFalhaIntegracao(false); setFormData(prev => ({ ...prev, categoria: '', motivo: '', numero_pedido: '', cpf_cliente: '' })); }}>Cancelar</Button>
               </div>
               <CardDescription className="text-amber-600 dark:text-amber-400">Pedido não encontrado na base. Preencha os dados manualmente.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label>CPF do Cliente <span className="text-red-500">*</span></Label>
-                  <Input value={formData.numero_pedido} onChange={(e) => handleChange('numero_pedido', e.target.value)} placeholder="Digite o CPF do cliente" data-testid="input-numero-pedido-falha" />
+                  <Label>Número do Pedido <span className="text-red-500">*</span></Label>
+                  <Input value={formData.numero_pedido} onChange={(e) => handleChange('numero_pedido', e.target.value)} placeholder="Ex: PTM-4873250" data-testid="input-numero-pedido-falha" />
                   <p className="text-xs text-amber-600 mt-1">* Este campo será usado como identificador do atendimento</p>
                 </div>
+                <div>
+                  <Label>CPF do Cliente</Label>
+                  <Input value={formData.cpf_cliente} onChange={(e) => handleChange('cpf_cliente', e.target.value)} placeholder="Digite o CPF do cliente" data-testid="input-cpf-falha" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label>Solicitação <span className="text-red-500">*</span></Label>
                   <Input value={formData.solicitacao} onChange={(e) => handleChange('solicitacao', e.target.value)} placeholder="Número da solicitação" className={fieldErrors.solicitacao ? 'border-red-500' : ''} data-testid="input-solicitacao-falha" />
                 </div>
-              </div>
-              <div>
-                <Label>Parceiro/Canal <span className="text-red-500">*</span></Label>
-                <Input value={formData.parceiro} onChange={(e) => handleChange('parceiro', e.target.value)} placeholder="Digite o parceiro ou canal de venda" data-testid="input-parceiro-falha" />
+                <div>
+                  <Label>Parceiro/Canal <span className="text-red-500">*</span></Label>
+                  <Input value={formData.parceiro} onChange={(e) => handleChange('parceiro', e.target.value)} placeholder="Digite o parceiro ou canal de venda" data-testid="input-parceiro-falha" />
+                </div>
               </div>
             </CardContent>
           </Card>
