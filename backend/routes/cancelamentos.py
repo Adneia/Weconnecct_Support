@@ -278,7 +278,7 @@ async def _auto_nota_consta_estoque() -> dict:
     return {"adicionadas": adicionadas}
 
 
-async def _analisar_similares_pendentes(limit: int = 200) -> dict:
+async def _analisar_similares_pendentes(limit: int = 200, ignorar_frescor: bool = False) -> dict:
     """
     Para AES pendentes ainda NÃO analisados (sem campo analise_similar ou em estado
     recomputável), busca similares no catálogo (mesma tensão, com estoque).
@@ -286,6 +286,9 @@ async def _analisar_similares_pendentes(limit: int = 200) -> dict:
     - Não encontrou → analise_similar='sem_similar' (segue como cancelamento normal).
     Não mexe em quem o analista já decidiu (proposto / cancelar).
     Idempotente. Pesado (Postgres) — chamar em lote controlado (criação, backlog, sync).
+    Frescor: pula quem já foi analisado há menos de 1h (o sync de 15min reprocessava os
+    mesmos ~190 docs toda rodada). Doc novo (sem o campo) é analisado no próximo sync.
+    ignorar_frescor=True força rodada completa (endpoint manual).
     """
     from routes.produtos_busca import computar_similares_compactos
     # Estados que devem ser (re)analisados: ainda não decididos pelo analista.
@@ -299,6 +302,12 @@ async def _analisar_similares_pendentes(limit: int = 200) -> dict:
             {"analise_similar": {"$in": ["pendente", "sem_similar"]}},
         ],
     }
+    if not ignorar_frescor:
+        cutoff_frescor = (datetime.now(timezone.utc) - timedelta(hours=1)).isoformat()
+        query["$and"] = [{"$or": [
+            {"similares_analisado_em": {"$exists": False}},
+            {"similares_analisado_em": {"$lt": cutoff_frescor}},
+        ]}]
     docs = await db.cancelamentos.find(
         query, {"_id": 0, "id": 1, "codigo_item_vtex": 1, "numero_pedido": 1}
     ).to_list(limit)
@@ -312,7 +321,7 @@ async def _analisar_similares_pendentes(limit: int = 200) -> dict:
         if not sku:
             await db.cancelamentos.update_one(
                 {"id": d["id"]},
-                {"$set": {"analise_similar": "sem_similar", "similares_sugeridos": [], "updated_at": _iso_now_utc()}},
+                {"$set": {"analise_similar": "sem_similar", "similares_sugeridos": [], "similares_analisado_em": _iso_now_utc(), "updated_at": _iso_now_utc()}},
             )
             analisados += 1
             continue
@@ -323,6 +332,7 @@ async def _analisar_similares_pendentes(limit: int = 200) -> dict:
                 {"$set": {
                     "analise_similar": "pendente",
                     "similares_sugeridos": res["propostos"],
+                    "similares_analisado_em": _iso_now_utc(),
                     "updated_at": _iso_now_utc(),
                 }},
             )
@@ -330,7 +340,7 @@ async def _analisar_similares_pendentes(limit: int = 200) -> dict:
         else:
             await db.cancelamentos.update_one(
                 {"id": d["id"]},
-                {"$set": {"analise_similar": "sem_similar", "similares_sugeridos": [], "updated_at": _iso_now_utc()}},
+                {"$set": {"analise_similar": "sem_similar", "similares_sugeridos": [], "similares_analisado_em": _iso_now_utc(), "updated_at": _iso_now_utc()}},
             )
         analisados += 1
     logger.info(f"[analisar-similares] {analisados} analisados, {com_similar} com similar")
@@ -1586,8 +1596,9 @@ async def auto_encerrar_endpoint(current_user: dict = Depends(get_current_user))
 
 @router.post("/cancelamentos/analisar-similares")
 async def analisar_similares_endpoint(current_user: dict = Depends(get_current_user)):
-    """Roda a busca de similares para o passivo de AES pendentes ainda não analisados."""
-    return await _analisar_similares_pendentes(limit=500)
+    """Roda a busca de similares para o passivo de AES pendentes ainda não analisados.
+    Manual = força rodada completa (ignora o frescor de 1h usado pelo sync)."""
+    return await _analisar_similares_pendentes(limit=500, ignorar_frescor=True)
 
 
 @router.post("/cancelamentos/{cancelamento_id}/propor-similares")

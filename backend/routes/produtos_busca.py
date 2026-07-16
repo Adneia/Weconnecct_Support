@@ -19,6 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import httpx
+from starlette.concurrency import run_in_threadpool
 
 from utils.auth import get_current_user
 from utils.database import db
@@ -43,23 +44,28 @@ def _sku_vtex_id(cur, cod_terceiro: str) -> Optional[str]:
     return None
 
 
+def _sku_vtex_pg(sku_clean: str) -> Optional[str]:
+    """Bloco Postgres síncrono do buscar_imagem_vtex (roda em threadpool)."""
+    conn = None
+    try:
+        conn = _connect_pg()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            return _sku_vtex_id(cur, sku_clean)
+    finally:
+        if conn:
+            conn.close()
+
+
 async def buscar_imagem_vtex(sku: str) -> Optional[str]:
     """Busca a URL da imagem principal de um produto (cod_terceiro) via API pública VTEX. None se não achar."""
     sku_clean = (sku or "").strip().upper()
     if not sku_clean:
         return None
-    sku_vtex = None
-    conn = None
     try:
-        conn = _connect_pg()
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            sku_vtex = _sku_vtex_id(cur, sku_clean)
+        sku_vtex = await run_in_threadpool(_sku_vtex_pg, sku_clean)
     except Exception as e:
         logger.warning(f"[imagem-vtex] erro buscando sku_vtex de {sku_clean}: {e}")
         return None
-    finally:
-        if conn:
-            conn.close()
     if not sku_vtex:
         return None
     url = f"https://{VTEX_ACCOUNT}.vtexcommercestable.com.br/api/catalog_system/pub/products/search?fq=skuId:{sku_vtex}"
@@ -465,29 +471,16 @@ async def get_imagem_produto(sku: str, current_user: dict = Depends(get_current_
 _LIMITE_XD_OUTRA_FILIAL = 50
 
 
-@router.get("/produtos/estoque/{sku}")
-async def get_estoque_produto(sku: str, entrega: Optional[str] = None,
-                              current_user: dict = Depends(get_current_user)):
-    """Estoque (físico + XD) de um SKU por filial, com a DECISÃO de ação para o card
-    do atendimento. Regras (pedido sem estoque na origem):
-      - Físico na filial de origem      → nada
-      - Físico só em outra filial       → alerta_fisico_outra_filial (subir pedido manual)
-      - XD na filial de origem          → nada
-      - XD só em outra filial < 50 un   → propor_similar
-      - XD só em outra filial >= 50 un  → alerta_xd_outra_filial (subir pedido manual)
-      - Sem físico e sem XD             → propor_similar
-    """
-    sku_clean = (sku or "").strip().upper()
-    vazio = {"found": False, "fisico_total": 0, "xd_total": 0, "fisico_por_uf": {},
-             "xd_por_uf": {}, "uf_entrega": None, "acao": "nada", "xd_outras": 0,
-             "ufs_fisico": [], "ufs_xd": []}
+def _estoque_pg(sku_clean: str):
+    """Bloco Postgres síncrono do get_estoque_produto (roda em threadpool).
+    Retorna (produto, fisico_rows, xd_rows) ou None se o SKU não existe."""
     conn = None
     try:
         conn = _connect_pg()
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             p = _carrega_produto(cur, sku_clean)
             if not p:
-                return vazio
+                return None
             cod = p.get("cod_terceiro") or sku_clean
             # Estoque DISPONÍVEL por filial — ÚLTIMO snapshot global (mesma lógica da
             # v_estoque_consolidado). Usa qtd_disponivel/disp_venda (exclui reservado e
@@ -510,6 +503,33 @@ async def get_estoque_produto(sku: str, entrega: Optional[str] = None,
                 (cod,),
             )
             xd_rows = cur.fetchall()
+            return (p, fisico_rows, xd_rows)
+    finally:
+        if conn:
+            conn.close()
+
+
+@router.get("/produtos/estoque/{sku}")
+async def get_estoque_produto(sku: str, entrega: Optional[str] = None,
+                              current_user: dict = Depends(get_current_user)):
+    """Estoque (físico + XD) de um SKU por filial, com a DECISÃO de ação para o card
+    do atendimento. Regras (pedido sem estoque na origem):
+      - Físico na filial de origem      → nada
+      - Físico só em outra filial       → alerta_fisico_outra_filial (subir pedido manual)
+      - XD na filial de origem          → nada
+      - XD só em outra filial < 50 un   → propor_similar
+      - XD só em outra filial >= 50 un  → alerta_xd_outra_filial (subir pedido manual)
+      - Sem físico e sem XD             → propor_similar
+    """
+    sku_clean = (sku or "").strip().upper()
+    vazio = {"found": False, "fisico_total": 0, "xd_total": 0, "fisico_por_uf": {},
+             "xd_por_uf": {}, "uf_entrega": None, "acao": "nada", "xd_outras": 0,
+             "ufs_fisico": [], "ufs_xd": []}
+    try:
+        res = await run_in_threadpool(_estoque_pg, sku_clean)
+        if res is None:
+            return vazio
+        p, fisico_rows, xd_rows = res
 
         # Estoque DISPONÍVEL por UF (físico e XD)
         fisico_por_uf, xd_por_uf = {}, {}
@@ -563,42 +583,11 @@ async def get_estoque_produto(sku: str, entrega: Optional[str] = None,
     except Exception as e:
         logger.warning(f"[estoque] {sku_clean}: {e}")
         return vazio
-    finally:
-        if conn:
-            conn.close()
 
 
-@router.get("/produtos/sugerir-similar")
-async def sugerir_similar(
-    sku: str,
-    tipo: str = "similar",  # 'similar' | 'outra_tensao'
-    entrega: Optional[str] = None,
-    max_propostos: int = 3,
-    current_user: dict = Depends(get_current_user),
-):
-    if tipo not in ("similar", "outra_tensao"):
-        raise HTTPException(status_code=400, detail="tipo deve ser 'similar' ou 'outra_tensao'")
-
-    sku_clean = sku.strip().upper()
-
-    # Dados da entrega (mongo) — buscados antes para ajustar filtro de custo em NiceQuest
-    uf_entrega = None
-    parceiro_entrega = None
-    produto_entrega = None
-    eh_nicequest = False
-    if entrega:
-        entrega_clean = str(entrega).strip().split(".")[0]
-        pe = await db.pedidos_erp.find_one(
-            {"numero_pedido": entrega_clean},
-            {"_id": 0, "filial": 1, "uf": 1, "canal_vendas": 1, "produto": 1}
-        )
-        if pe:
-            uf_entrega = (pe.get("filial") or "").strip().upper() or None
-            parceiro_entrega = (pe.get("canal_vendas") or "").strip() or None
-            produto_entrega = (pe.get("produto") or "").strip() or None
-            if parceiro_entrega and parceiro_entrega.lower() in ("nicequest", "ncq"):
-                eh_nicequest = True
-
+def _sugerir_similar_pg(sku_clean: str, tipo: str, max_propostos: int, eh_nicequest: bool) -> dict:
+    """Bloco Postgres síncrono do sugerir_similar (roda em threadpool).
+    Pode levantar HTTPException 404 (SKU não encontrado) — propaga pro handler."""
     conn = None
     try:
         conn = _connect_pg()
@@ -706,6 +695,61 @@ async def sugerir_similar(
                 if not p.get("preco_venda"):
                     p["preco_venda"] = _ultimo_preco_venda(cur, p["cod_terceiro"])
 
+        return {
+            "sku_clean": sku_clean,
+            "original": original,
+            "propostos": propostos,
+            "voltagem_original": voltagem_original,
+            "voltagem_alvo": voltagem_alvo,
+            "aviso_fallback": aviso_fallback,
+            "preco_fallback_aplicado": preco_fallback_aplicado,
+        }
+    finally:
+        if conn:
+            conn.close()
+
+
+@router.get("/produtos/sugerir-similar")
+async def sugerir_similar(
+    sku: str,
+    tipo: str = "similar",  # 'similar' | 'outra_tensao'
+    entrega: Optional[str] = None,
+    max_propostos: int = 3,
+    current_user: dict = Depends(get_current_user),
+):
+    if tipo not in ("similar", "outra_tensao"):
+        raise HTTPException(status_code=400, detail="tipo deve ser 'similar' ou 'outra_tensao'")
+
+    sku_clean = sku.strip().upper()
+
+    # Dados da entrega (mongo) — buscados antes para ajustar filtro de custo em NiceQuest
+    uf_entrega = None
+    parceiro_entrega = None
+    produto_entrega = None
+    eh_nicequest = False
+    if entrega:
+        entrega_clean = str(entrega).strip().split(".")[0]
+        pe = await db.pedidos_erp.find_one(
+            {"numero_pedido": entrega_clean},
+            {"_id": 0, "filial": 1, "uf": 1, "canal_vendas": 1, "produto": 1}
+        )
+        if pe:
+            uf_entrega = (pe.get("filial") or "").strip().upper() or None
+            parceiro_entrega = (pe.get("canal_vendas") or "").strip() or None
+            produto_entrega = (pe.get("produto") or "").strip() or None
+            if parceiro_entrega and parceiro_entrega.lower() in ("nicequest", "ncq"):
+                eh_nicequest = True
+
+    try:
+        r = await run_in_threadpool(_sugerir_similar_pg, sku_clean, tipo, max_propostos, eh_nicequest)
+        sku_clean = r["sku_clean"]
+        original = r["original"]
+        propostos = r["propostos"]
+        voltagem_original = r["voltagem_original"]
+        voltagem_alvo = r["voltagem_alvo"]
+        aviso_fallback = r["aviso_fallback"]
+        preco_fallback_aplicado = r["preco_fallback_aplicado"]
+
         # Filial/parceiro/produto da entrega já foram carregados no topo (eh_nicequest depende deles).
 
         # Alertas por proposto: estoque em UF diferente da entrega
@@ -737,6 +781,43 @@ async def sugerir_similar(
     except Exception as e:
         logger.exception("[sugerir-similar] failed")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+def _similares_pg(sku_clean: str, eh_nicequest: bool, valor_vendido: float, max_propostos: int):
+    """Bloco Postgres síncrono do computar_similares_compactos (roda em threadpool).
+    Retorna (original_nome, aviso_preco, cands) ou None se o SKU não existe no catálogo."""
+    conn = None
+    try:
+        conn = _connect_pg()
+        with conn.cursor(cursor_factory=RealDictCursor) as cur:
+            original = _carrega_produto(cur, sku_clean)
+            if not original:
+                return None
+            original_nome = original.get("descricao") or ""
+            # Custo do original = preço de última compra (precos_compra_hist).
+            # NiceQuest: zera p/ liberar candidatos (pedido em pontos, não em R$).
+            original_custo = 0.0 if eh_nicequest else _ultimo_preco_compra(cur, sku_clean)
+            # Preço de venda do original — usado como piso (não oferecer item de valor inferior).
+            original_preco_venda = _ultimo_preco_venda(cur, sku_clean)
+            # Tenta primeiro com piso de 100%; se zerar, relaxa pra 80% com aviso.
+            aviso_preco = None
+            cands = _candidatos_similares(cur, original, limit=max_propostos,
+                                          original_custo=original_custo, valor_vendido=valor_vendido,
+                                          original_preco_venda=original_preco_venda,
+                                          preco_venda_fator=1.0)
+            if not cands and original_preco_venda > 0:
+                cands = _candidatos_similares(cur, original, limit=max_propostos,
+                                              original_custo=original_custo, valor_vendido=valor_vendido,
+                                              original_preco_venda=original_preco_venda,
+                                              preco_venda_fator=0.8)
+                if cands:
+                    aviso_preco = "Não achei similar de igual valor; mostrando próximos (até 20% abaixo)."
+            for p in cands:
+                enriched = _carrega_produto(cur, p["cod_terceiro"])
+                if enriched:
+                    p["ufs_com_estoque"] = enriched["ufs_com_estoque"]
+                    p["xd_por_estab"] = enriched["xd_por_estab"]
+            return (original_nome, aviso_preco, cands)
     finally:
         if conn:
             conn.close()
@@ -773,42 +854,17 @@ async def computar_similares_compactos(sku: str, entrega: Optional[str] = None, 
     except Exception:
         valor_vendido = 0.0
 
-    conn = None
     try:
-        conn = _connect_pg()
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            original = _carrega_produto(cur, sku_clean)
-            if not original:
-                return out
-            out["original_nome"] = original.get("descricao") or ""
-            # Custo do original = preço de última compra (precos_compra_hist).
-            # NiceQuest: zera p/ liberar candidatos (pedido em pontos, não em R$).
-            original_custo = 0.0 if eh_nicequest else _ultimo_preco_compra(cur, sku_clean)
-            # Preço de venda do original — usado como piso (não oferecer item de valor inferior).
-            original_preco_venda = _ultimo_preco_venda(cur, sku_clean)
-            # Tenta primeiro com piso de 100%; se zerar, relaxa pra 80% com aviso.
-            cands = _candidatos_similares(cur, original, limit=max_propostos,
-                                          original_custo=original_custo, valor_vendido=valor_vendido,
-                                          original_preco_venda=original_preco_venda,
-                                          preco_venda_fator=1.0)
-            if not cands and original_preco_venda > 0:
-                cands = _candidatos_similares(cur, original, limit=max_propostos,
-                                              original_custo=original_custo, valor_vendido=valor_vendido,
-                                              original_preco_venda=original_preco_venda,
-                                              preco_venda_fator=0.8)
-                if cands:
-                    out["aviso_preco"] = "Não achei similar de igual valor; mostrando próximos (até 20% abaixo)."
-            for p in cands:
-                enriched = _carrega_produto(cur, p["cod_terceiro"])
-                if enriched:
-                    p["ufs_com_estoque"] = enriched["ufs_com_estoque"]
-                    p["xd_por_estab"] = enriched["xd_por_estab"]
+        res = await run_in_threadpool(_similares_pg, sku_clean, eh_nicequest, valor_vendido, max_propostos)
     except Exception as e:
         logger.warning(f"[computar_similares] falhou para {sku_clean}: {e}")
         return out
-    finally:
-        if conn:
-            conn.close()
+    if res is None:
+        return out
+    original_nome, aviso_preco, cands = res
+    out["original_nome"] = original_nome
+    if aviso_preco:
+        out["aviso_preco"] = aviso_preco
 
     # UF/parceiro da entrega (Mongo)
     uf_entrega = None

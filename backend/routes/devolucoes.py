@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from utils.database import db
 from utils.auth import get_current_user
 from models.devolucao import DevolucaoCreate
+from starlette.concurrency import run_in_threadpool
 
 import logging
 logger = logging.getLogger(__name__)
@@ -40,7 +41,7 @@ async def create_devolucao(devolucao_data: DevolucaoCreate, current_user: dict =
             'status_galpao': devolucao_data.status_galpao or 'AGUARDANDO'
         }
 
-        result = sheets_client.add_devolucao_row(row_data)
+        result = await run_in_threadpool(sheets_client.add_devolucao_row, row_data)
         return {
             "message": "Devolução registrada com sucesso na planilha",
             "sync_status": "success" if result else "failed",

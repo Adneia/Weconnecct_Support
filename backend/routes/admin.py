@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from utils.database import db
 from utils.auth import get_current_user
+from starlette.concurrency import run_in_threadpool
 from data.motivo_pendencia_mapping import get_motivo_from_status, MOTIVOS_AUTO_ATUALIZAVEIS, STATUS_NAO_ALTERAR
 
 import uuid
@@ -581,7 +582,7 @@ async def sincronizar_correcoes_sheets(batch_size: int = 50, current_user: dict 
                     if chamado.get(key):
                         updates[key] = chamado[key]
                 if updates:
-                    resultado = sheets_client.update_atendimento(numero_pedido, updates)
+                    resultado = await run_in_threadpool(sheets_client.update_atendimento, numero_pedido, updates)
                     if resultado:
                         atualizados += 1
                     else:
@@ -871,10 +872,15 @@ async def atualizar_motivos_pendencia_automatico(numeros_pedido: list = None):
                 continue  # não aplica Ag. Parceiro nesta rodada
 
         # Regra: pedido entregue mas atendimento ainda pendente → Ag. Parceiro
-        # (ainda há algo a resolver com o parceiro/canal). Vale para qualquer motivo
-        # auto-atualizável que vire 'Entregue'. A reversa (acima) tem prioridade.
+        # (ainda há algo a resolver com o parceiro/canal). A reversa (acima) tem prioridade.
+        # EXCEÇÃO: se o atendimento só acompanhava o transporte ('Enviado') e o pedido
+        # foi ENTREGUE, mantém 'Entregue' — não há nada a tratar com o parceiro, pode
+        # encerrar. Idempotente: 'Entregue' permanece 'Entregue' (não volta p/ Ag.
+        # Parceiro no próximo sync). Demais motivos (Ag. Logística/Ag. Compras) que
+        # caem em entregue continuam indo para 'Ag. Parceiro'.
         if novo_motivo == 'Entregue':
-            novo_motivo = 'Ag. Parceiro'
+            if motivo_atual not in ('Enviado', 'Entregue'):
+                novo_motivo = 'Ag. Parceiro'
 
         # Classifica "Em devolução": tem reversa = Correios (emitimos a reversa).
         #   - postado pelo cliente → Em devolução - Correios

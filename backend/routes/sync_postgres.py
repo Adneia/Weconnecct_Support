@@ -9,6 +9,7 @@ import os, uuid, logging, asyncio
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from pymongo import UpdateOne
+from starlette.concurrency import run_in_threadpool
 
 from utils.database import db
 from utils.auth import get_current_user
@@ -277,7 +278,7 @@ async def _run_sync_tabelao(started_by: str):
     _set_state(key, running=True, started_at=started_at, finished_at=None,
                total=0, inserted=0, updated=0, errors=0, error_message=None, started_by=started_by)
     try:
-        rows = _pg_fetchall("SELECT * FROM v_elo_tabelao")
+        rows = await run_in_threadpool(_pg_fetchall, "SELECT * FROM v_elo_tabelao")
         logger.info(f"[sync tabelao] {len(rows)} rows")
         if not await _validate_view_schema(rows, EXPECTED_TABELAO_COLS, "v_elo_tabelao"):
             raise RuntimeError("schema da view v_elo_tabelao incompativel - sync abortado")
@@ -433,7 +434,7 @@ async def _run_sync_fornecedores(started_by: str):
     started_at = datetime.now(timezone.utc).isoformat()
     _set_state(key, running=True, started_at=started_at, finished_at=None, total=0, inserted=0, updated=0, errors=0, error_message=None, started_by=started_by)
     try:
-        rows = _pg_fetchall("SELECT * FROM v_elo_fornecedores")
+        rows = await run_in_threadpool(_pg_fetchall, "SELECT * FROM v_elo_fornecedores")
         if not await _validate_view_schema(rows, EXPECTED_FORNECEDORES_COLS, "v_elo_fornecedores"):
             raise RuntimeError("schema da view v_elo_fornecedores incompativel - sync abortado")
         existing = set()
@@ -495,7 +496,7 @@ async def _run_sync_sigeq(source: str, view_name: str, started_by: str, col_map:
     started_at = datetime.now(timezone.utc).isoformat()
     _set_state(key, running=True, started_at=started_at, finished_at=None, total=0, inserted=0, updated=0, errors=0, error_message=None, started_by=started_by)
     try:
-        rows = _pg_fetchall(f"SELECT * FROM {view_name}")
+        rows = await run_in_threadpool(_pg_fetchall, f"SELECT * FROM {view_name}")
         ops = []; now_iso = datetime.now(timezone.utc).isoformat()
         inserted = updated = errors = 0
         BATCH = 5000
@@ -658,7 +659,7 @@ async def _run_sync_tabelao_incremental(started_by: str, override_cutoff: str = 
                total=0, inserted=0, updated=0, errors=0, error_message=None,
                started_by=started_by, cutoff=cutoff_with_margin)
     try:
-        rows = _pg_fetchall("SELECT * FROM v_elo_tabelao WHERE last_changed_at > %s", (cutoff_with_margin,))
+        rows = await run_in_threadpool(_pg_fetchall, "SELECT * FROM v_elo_tabelao WHERE last_changed_at > %s", (cutoff_with_margin,))
         logger.info(f"[sync tabelao INC] {len(rows)} rows com last_changed_at > {cutoff_with_margin}")
         if not await _validate_view_schema(rows, EXPECTED_TABELAO_COLS, "v_elo_tabelao"):
             raise RuntimeError("schema da view v_elo_tabelao incompativel - sync incremental abortado")
@@ -806,7 +807,7 @@ async def _run_sync_tabelao_incremental(started_by: str, override_cutoff: str = 
             logger.warning(f"[sync inc] verificar-travado falhou: {e}")
         # Check divergencia (global, nao do batch): conta pedidos totais Postgres vs Mongo
         try:
-            row_pg = _pg_fetchone("SELECT COUNT(DISTINCT entrega) FROM v_elo_tabelao")
+            row_pg = await run_in_threadpool(_pg_fetchone, "SELECT COUNT(DISTINCT entrega) FROM v_elo_tabelao")
             postgres_n = row_pg[0] if row_pg else 0
             mongo_n = await db.pedidos_erp.count_documents({})
             await _check_divergence("tabelao_inc", mongo_n, postgres_n)
@@ -934,7 +935,7 @@ async def sync_health(current_user: dict = Depends(get_current_user)):
         mongo_count = -1
     postgres_count = -1
     try:
-        row = _pg_fetchone("SELECT COUNT(DISTINCT entrega) FROM v_elo_tabelao")
+        row = await run_in_threadpool(_pg_fetchone, "SELECT COUNT(DISTINCT entrega) FROM v_elo_tabelao")
         postgres_count = row[0] if row else -1
     except Exception as e:
         logger.error(f"[health] postgres count fail: {e}")

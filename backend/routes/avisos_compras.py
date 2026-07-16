@@ -24,6 +24,7 @@ from typing import Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel
 from datetime import datetime, timezone
+from starlette.concurrency import run_in_threadpool
 
 from utils.auth import get_current_user
 from utils.database import db
@@ -150,6 +151,102 @@ async def criar_aviso(aviso: AvisoCompraCreate, current_user: dict = Depends(get
     return {"ok": True, "novo": True, "aviso": doc}
 
 
+def _tratativa_pg(pedidos: list, skus: list):
+    """Bloco Postgres síncrono do _enriquecer_status_tratativa (roda em threadpool).
+    Retorna (bd, entregas_por_master, item_valor, xd_por_sku, fisico_por_sku)."""
+    from routes.produtos_busca import _connect_pg
+    bd = {}                      # id_entrega -> {pedido_bseller, status, dt_cancel, filial_id, frete}
+    entregas_por_master = {}     # pedido_bseller -> [{id_entrega, dt, status, skus}]
+    item_valor = {}              # (id_entrega, sku) -> preco_unit * qtd
+    xd_por_sku = {}              # sku -> disp_venda XD
+    fisico_por_sku = {}          # sku -> {filial_id: qtd}
+    conn = _connect_pg()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT p.id_entrega, p.pedido_bseller, p.status, p.filial_id,
+                       COALESCE(p.frete, 0),
+                       (SELECT MAX(te.data_ocorrencia)::date FROM tracking_eventos te
+                         WHERE te.pedido_bseller = p.id_entrega
+                           AND te.ponto_id IN ('CAN','I63'))
+                FROM pedidos p
+                WHERE p.id_entrega = ANY(%s)
+                """,
+                (pedidos,),
+            )
+            masters = set()
+            for id_ent, pb, status, filial_id, frete, dt_cancel in cur.fetchall():
+                bd[id_ent] = {"pedido_bseller": pb, "status": status, "dt_cancel": dt_cancel,
+                              "filial_id": filial_id, "frete": float(frete or 0)}
+                if pb:
+                    masters.add(pb)
+
+            # 2b) Valor do ITEM de cada aviso (preco_unit * qtd) por (id_entrega, sku)
+            cur.execute(
+                """
+                SELECT p.id_entrega, pi.cod_terceiro,
+                       COALESCE(pi.preco_unit_venda, 0) * COALESCE(pi.quantidade, 1)
+                FROM pedidos p JOIN pedido_itens pi ON pi.pedido_id = p.id
+                WHERE p.id_entrega = ANY(%s)
+                """,
+                (pedidos,),
+            )
+            for id_ent, cod, valor in cur.fetchall():
+                item_valor[(id_ent, cod)] = float(valor or 0)
+
+            # 2c) Estoque XD (disp_venda) por SKU — último snapshot por filial
+            if skus:
+                cur.execute(
+                    """
+                    SELECT cod_terceiro, SUM(disp_venda) FROM (
+                      SELECT DISTINCT ON (cod_terceiro, filial_id) cod_terceiro, filial_id, disp_venda
+                      FROM estoque_xd
+                      WHERE cod_terceiro = ANY(%s) AND tipo_deposito = 'XD'
+                      ORDER BY cod_terceiro, filial_id, snapshot_date DESC
+                    ) t GROUP BY cod_terceiro
+                    """,
+                    (skus,),
+                )
+                for cod, xd in cur.fetchall():
+                    xd_por_sku[cod] = int(xd or 0)
+
+                # 2d) Estoque FÍSICO por SKU e filial — último snapshot
+                cur.execute(
+                    """
+                    SELECT cod_terceiro, filial_id, SUM(qtd) FROM (
+                      SELECT DISTINCT ON (cod_terceiro, filial_id, deposito_id)
+                             cod_terceiro, filial_id, deposito_id, qtd_disponivel AS qtd
+                      FROM estoque_fisico
+                      WHERE cod_terceiro = ANY(%s)
+                      ORDER BY cod_terceiro, filial_id, deposito_id, snapshot_date DESC
+                    ) t GROUP BY cod_terceiro, filial_id HAVING SUM(qtd) > 0
+                    """,
+                    (skus,),
+                )
+                for cod, filial_id, qtd in cur.fetchall():
+                    fisico_por_sku.setdefault(cod, {})[filial_id] = int(qtd or 0)
+            if masters:
+                cur.execute(
+                    """
+                    SELECT p.pedido_bseller, p.id_entrega, p.data_pedido::date, p.status,
+                           array_agg(DISTINCT pi.cod_terceiro)
+                    FROM pedidos p JOIN pedido_itens pi ON pi.pedido_id = p.id
+                    WHERE p.pedido_bseller = ANY(%s)
+                    GROUP BY p.pedido_bseller, p.id_entrega, p.data_pedido, p.status
+                    """,
+                    (list(masters),),
+                )
+                for pb, id_ent, dt, status, sks in cur.fetchall():
+                    entregas_por_master.setdefault(pb, []).append({
+                        "id_entrega": id_ent, "dt": dt, "status": status,
+                        "skus": set(sks or []),
+                    })
+    finally:
+        conn.close()
+    return bd, entregas_por_master, item_valor, xd_por_sku, fisico_por_sku
+
+
 async def _enriquecer_status_tratativa(docs: list) -> list:
     """Calcula o status do CICLO de tratativa de cada aviso, cruzando 3 fontes:
        - aviso.status == 'faturado'  → Estado B (item voltou a ser faturado)
@@ -197,91 +294,8 @@ async def _enriquecer_status_tratativa(docs: list) -> list:
     xd_por_sku = {}              # sku -> disp_venda XD
     fisico_por_sku = {}          # sku -> {filial_id: qtd}
     try:
-        from routes.produtos_busca import _connect_pg
-        conn = _connect_pg()
-        try:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """
-                    SELECT p.id_entrega, p.pedido_bseller, p.status, p.filial_id,
-                           COALESCE(p.frete, 0),
-                           (SELECT MAX(te.data_ocorrencia)::date FROM tracking_eventos te
-                             WHERE te.pedido_bseller = p.id_entrega
-                               AND te.ponto_id IN ('CAN','I63'))
-                    FROM pedidos p
-                    WHERE p.id_entrega = ANY(%s)
-                    """,
-                    (pedidos,),
-                )
-                masters = set()
-                for id_ent, pb, status, filial_id, frete, dt_cancel in cur.fetchall():
-                    bd[id_ent] = {"pedido_bseller": pb, "status": status, "dt_cancel": dt_cancel,
-                                  "filial_id": filial_id, "frete": float(frete or 0)}
-                    if pb:
-                        masters.add(pb)
-
-                # 2b) Valor do ITEM de cada aviso (preco_unit * qtd) por (id_entrega, sku)
-                cur.execute(
-                    """
-                    SELECT p.id_entrega, pi.cod_terceiro,
-                           COALESCE(pi.preco_unit_venda, 0) * COALESCE(pi.quantidade, 1)
-                    FROM pedidos p JOIN pedido_itens pi ON pi.pedido_id = p.id
-                    WHERE p.id_entrega = ANY(%s)
-                    """,
-                    (pedidos,),
-                )
-                for id_ent, cod, valor in cur.fetchall():
-                    item_valor[(id_ent, cod)] = float(valor or 0)
-
-                # 2c) Estoque XD (disp_venda) por SKU — último snapshot por filial
-                if skus:
-                    cur.execute(
-                        """
-                        SELECT cod_terceiro, SUM(disp_venda) FROM (
-                          SELECT DISTINCT ON (cod_terceiro, filial_id) cod_terceiro, filial_id, disp_venda
-                          FROM estoque_xd
-                          WHERE cod_terceiro = ANY(%s) AND tipo_deposito = 'XD'
-                          ORDER BY cod_terceiro, filial_id, snapshot_date DESC
-                        ) t GROUP BY cod_terceiro
-                        """,
-                        (skus,),
-                    )
-                    for cod, xd in cur.fetchall():
-                        xd_por_sku[cod] = int(xd or 0)
-
-                    # 2d) Estoque FÍSICO por SKU e filial — último snapshot
-                    cur.execute(
-                        """
-                        SELECT cod_terceiro, filial_id, SUM(qtd) FROM (
-                          SELECT DISTINCT ON (cod_terceiro, filial_id, deposito_id)
-                                 cod_terceiro, filial_id, deposito_id, qtd_disponivel AS qtd
-                          FROM estoque_fisico
-                          WHERE cod_terceiro = ANY(%s)
-                          ORDER BY cod_terceiro, filial_id, deposito_id, snapshot_date DESC
-                        ) t GROUP BY cod_terceiro, filial_id HAVING SUM(qtd) > 0
-                        """,
-                        (skus,),
-                    )
-                    for cod, filial_id, qtd in cur.fetchall():
-                        fisico_por_sku.setdefault(cod, {})[filial_id] = int(qtd or 0)
-                if masters:
-                    cur.execute(
-                        """
-                        SELECT p.pedido_bseller, p.id_entrega, p.data_pedido::date, p.status,
-                               array_agg(DISTINCT pi.cod_terceiro)
-                        FROM pedidos p JOIN pedido_itens pi ON pi.pedido_id = p.id
-                        WHERE p.pedido_bseller = ANY(%s)
-                        GROUP BY p.pedido_bseller, p.id_entrega, p.data_pedido, p.status
-                        """,
-                        (list(masters),),
-                    )
-                    for pb, id_ent, dt, status, skus in cur.fetchall():
-                        entregas_por_master.setdefault(pb, []).append({
-                            "id_entrega": id_ent, "dt": dt, "status": status,
-                            "skus": set(skus or []),
-                        })
-        finally:
-            conn.close()
+        (bd, entregas_por_master, item_valor,
+         xd_por_sku, fisico_por_sku) = await run_in_threadpool(_tratativa_pg, pedidos, skus)
     except Exception as e:
         logger.warning(f"[avisos status] bigdata indisponível (status parcial): {e}")
 
@@ -415,6 +429,12 @@ async def listar_avisos(numero_pedido: str, current_user: dict = Depends(get_cur
         .sort("criado_em", -1)
         .to_list(50)
     )
+    # Enriquece com o desfecho REAL da tratativa (cancelado/similar/faturado/em tratativa)
+    # — é o que o Smart Compras lê de volta pra fechar o ciclo do aviso.
+    try:
+        docs = await _enriquecer_status_tratativa(docs)
+    except Exception as e:
+        logger.warning(f"[avisos] enriquecer tratativa falhou (retorna cru): {e}")
     return {"numero_pedido": pedido, "total": len(docs), "avisos": docs}
 
 
