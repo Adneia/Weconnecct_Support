@@ -179,14 +179,26 @@ async def finalizar_dia(current_user: dict = Depends(get_current_user)):
 # ============== NOTIFICACOES ==============
 
 @router.get("/notificacoes")
-async def list_notificacoes(current_user: dict = Depends(get_current_user)):
-    notificacoes = await db.notifications.find(
-        {"destinatario_email": current_user['email']}, {"_id": 0}
-    ).sort("data_criacao", -1).to_list(50)
-    nao_lidas = sum(1 for n in notificacoes if not n.get('lida', False))
+async def list_notificacoes(
+    limit: int = 50,
+    apenas_nao_lidas: bool = False,
+    current_user: dict = Depends(get_current_user),
+):
+    """Lista notificações do usuário (mais recentes primeiro).
+    limit: quantas retornar (máx. 2000; padrão 50 — o sininho usa o padrão).
+    apenas_nao_lidas=1: só as não lidas. Retorna também os TOTAIS reais
+    (contados no banco, independente do limit)."""
+    limit = max(1, min(int(limit or 50), 2000))
+    q = {"destinatario_email": current_user['email']}
+    total = await db.notifications.count_documents(q)
+    nao_lidas = await db.notifications.count_documents({**q, "lida": {"$ne": True}})
+    if apenas_nao_lidas:
+        q["lida"] = {"$ne": True}
+    notificacoes = await db.notifications.find(q, {"_id": 0}).sort("data_criacao", -1).to_list(limit)
     return {
         "notificacoes": notificacoes,
-        "nao_lidas": nao_lidas
+        "nao_lidas": nao_lidas,
+        "total": total,
     }
 
 

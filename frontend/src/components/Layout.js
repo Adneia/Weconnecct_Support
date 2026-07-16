@@ -75,7 +75,31 @@ export const Layout = ({ children }) => {
   const { user, logout, getAuthHeader, isDashboardOnly, isConsulta } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [notificacaoSelecionada, setNotificacaoSelecionada] = useState(null);
-  
+  // "Ver todas" as notificações (modal com a lista completa)
+  const [verTodasOpen, setVerTodasOpen] = useState(false);
+  const [todasNotifs, setTodasNotifs] = useState([]);
+  const [todasTotal, setTodasTotal] = useState(0);
+  const [filtroNaoLidas, setFiltroNaoLidas] = useState(false);
+  const [carregandoTodas, setCarregandoTodas] = useState(false);
+
+  const abrirVerTodas = async (soNaoLidas = filtroNaoLidas) => {
+    setVerTodasOpen(true);
+    setCarregandoTodas(true);
+    try {
+      const r = await axios.get(
+        `${API_URL}/api/notificacoes?limit=2000${soNaoLidas ? '&apenas_nao_lidas=1' : ''}`,
+        { headers: getAuthHeader() }
+      );
+      setTodasNotifs(r.data.notificacoes || []);
+      setTodasTotal(r.data.total || 0);
+      setNotificacoesNaoLidas(r.data.nao_lidas || 0);
+    } catch {
+      setTodasNotifs([]);
+    } finally {
+      setCarregandoTodas(false);
+    }
+  };
+
   // Buscar notificações ao carregar
   useEffect(() => {
     const fetchNotificacoes = async () => {
@@ -447,8 +471,81 @@ export const Layout = ({ children }) => {
                     ))
                   )}
                 </div>
+                <div className="p-2 border-t">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full text-xs text-blue-600 hover:text-blue-700"
+                    onClick={() => abrirVerTodas()}
+                  >
+                    Ver todas as notificações
+                  </Button>
+                </div>
               </PopoverContent>
             </Popover>}
+
+            {/* Modal: TODAS as notificações */}
+            <Dialog open={verTodasOpen} onOpenChange={(open) => { if (!open) setVerTodasOpen(false); }}>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center justify-between pr-6">
+                    <span>Todas as notificações ({todasTotal})</span>
+                  </DialogTitle>
+                  <DialogDescription asChild>
+                    <div className="flex items-center gap-2 pt-1">
+                      <Button
+                        variant={filtroNaoLidas ? 'default' : 'outline'}
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => { const novo = !filtroNaoLidas; setFiltroNaoLidas(novo); abrirVerTodas(novo); }}
+                      >
+                        Só não lidas ({notificacoesNaoLidas})
+                      </Button>
+                      {notificacoesNaoLidas > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs"
+                          onClick={async () => { await marcarTodasComoLidas(); abrirVerTodas(); }}
+                        >
+                          <Check className="h-3 w-3 mr-1" /> Marcar todas lidas
+                        </Button>
+                      )}
+                    </div>
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="max-h-[60vh] overflow-y-auto -mx-6 px-6 divide-y">
+                  {carregandoTodas ? (
+                    <p className="text-center text-muted-foreground py-8 text-sm">Carregando…</p>
+                  ) : todasNotifs.length === 0 ? (
+                    <p className="text-center text-muted-foreground py-8 text-sm">Nenhuma notificação{filtroNaoLidas ? ' não lida' : ''}.</p>
+                  ) : (
+                    todasNotifs.map((notif) => (
+                      <div
+                        key={notif.id}
+                        className={`py-2.5 px-1 hover:bg-muted/50 cursor-pointer transition-colors ${!notif.lida ? 'bg-blue-50 dark:bg-blue-950/20' : ''}`}
+                        onClick={() => {
+                          if (!notif.lida) {
+                            marcarComoLida(notif.id);
+                            setTodasNotifs(prev => prev.map(n => n.id === notif.id ? { ...n, lida: true } : n));
+                          }
+                          setNotificacaoSelecionada(notif);
+                        }}
+                      >
+                        <div className="flex items-start gap-2">
+                          {!notif.lida && <span className="h-2 w-2 rounded-full bg-blue-500 mt-2 flex-shrink-0" />}
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">{notif.titulo}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{notif.mensagem?.split('\n')[0]}</p>
+                            <p className="text-[11px] text-muted-foreground mt-1">{new Date(notif.data_criacao).toLocaleString('pt-BR')}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
 
             {/* Modal de Notificação Detalhada */}
             <Dialog open={!!notificacaoSelecionada} onOpenChange={(open) => !open && setNotificacaoSelecionada(null)}>
