@@ -871,16 +871,11 @@ async def atualizar_motivos_pendencia_automatico(numeros_pedido: list = None):
                 logger.info(f"[reenvio] {chamado.get('id_atendimento')}: entrega {numero_pedido} -> {nova_ent} ({motivo_novo_ent})")
                 continue  # não aplica Ag. Parceiro nesta rodada
 
-        # Regra: pedido entregue mas atendimento ainda pendente → Ag. Parceiro
-        # (ainda há algo a resolver com o parceiro/canal). A reversa (acima) tem prioridade.
-        # EXCEÇÃO: se o atendimento só acompanhava o transporte ('Enviado') e o pedido
-        # foi ENTREGUE, mantém 'Entregue' — não há nada a tratar com o parceiro, pode
-        # encerrar. Idempotente: 'Entregue' permanece 'Entregue' (não volta p/ Ag.
-        # Parceiro no próximo sync). Demais motivos (Ag. Logística/Ag. Compras) que
-        # caem em entregue continuam indo para 'Ag. Parceiro'.
-        if novo_motivo == 'Entregue':
-            if motivo_atual not in ('Enviado', 'Entregue'):
-                novo_motivo = 'Ag. Parceiro'
+        # Regra (definida pela Adneia em 17/07): pedido ENTREGUE → motivo 'Entregue',
+        # independente do motivo anterior (Ag. Logística, Ag. Compras, Enviado...).
+        # O fluxo segue pela caixa 'Entregue' (confirmação da entrega / prazo de 15
+        # dias / limpeza diária) — não vai mais para 'Ag. Parceiro'.
+        # (A reversa e o reenvio, tratados acima, continuam com prioridade.)
 
         # Classifica "Em devolução": tem reversa = Correios (emitimos a reversa).
         #   - postado pelo cliente → Em devolução - Correios
