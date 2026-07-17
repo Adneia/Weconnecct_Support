@@ -88,13 +88,34 @@ async def importar_base_aet(
     except ImportError:
         return {"ok": False, "message": "openpyxl não instalado"}
 
+    # Trava anti-concorrência: duas importações sobrepostas duplicavam os AES
+    # (a 2ª carregava os "existentes" antes de a 1ª gravar — caso real de 13/07,
+    # 71 pares). Trava expira sozinha em 15 min (caso um import morra no meio).
+    _agora = datetime.now(timezone.utc)
+    _lock = await db.import_locks.find_one({"chave": "aet"}, {"_id": 0})
+    if _lock and _lock.get("em_andamento"):
+        try:
+            _ini = datetime.fromisoformat(_lock.get("iniciado_em", ""))
+            if (_agora - _ini).total_seconds() < 900:
+                return {"ok": False, "message": "Já existe uma importação AET em andamento — aguarde ela terminar (ou tente de novo em alguns minutos)."}
+        except Exception:
+            pass
+    await db.import_locks.update_one(
+        {"chave": "aet"},
+        {"$set": {"em_andamento": True, "iniciado_em": _agora.isoformat(),
+                  "por": current_user.get("name") or current_user.get("email", "")}},
+        upsert=True,
+    )
+
     content = await file.read()
     try:
         wb = load_workbook(io.BytesIO(content), read_only=True, data_only=True)
     except Exception as e:
+        await db.import_locks.update_one({"chave": "aet"}, {"$set": {"em_andamento": False}})
         return {"ok": False, "message": f"Erro ao abrir Excel: {e}"}
 
     if "Analise" not in wb.sheetnames:
+        await db.import_locks.update_one({"chave": "aet"}, {"$set": {"em_andamento": False}})
         return {"ok": False, "message": "Aba 'Analise' não encontrada no arquivo. Não parece ser a AET."}
 
     ws = wb["Analise"]
@@ -102,6 +123,7 @@ async def importar_base_aet(
     try:
         headers = list(next(rows_iter))
     except StopIteration:
+        await db.import_locks.update_one({"chave": "aet"}, {"$set": {"em_andamento": False}})
         return {"ok": False, "message": "Arquivo vazio"}
 
     # Pré-scan: conta quantas vezes cada numero_pedido aparece no arquivo
@@ -279,12 +301,30 @@ async def importar_base_aet(
             erros += 1
             continue
 
-    # Inserir em lote
+    # Inserir em lote — antes, RECHECA no banco quem já existe (cinto e suspensório
+    # contra corrida: outra importação pode ter gravado durante o processamento).
+    if novos_docs:
+        ents_novos = list({d["numero_pedido"] for d in novos_docs})
+        ja_no_banco = set()
+        async for c in db.cancelamentos.find(
+                {"tipo": "aes", "numero_pedido": {"$in": ents_novos}},
+                {"_id": 0, "numero_pedido": 1}):
+            ja_no_banco.add(c["numero_pedido"])
+        if ja_no_banco:
+            antes = len(novos_docs)
+            novos_docs = [d for d in novos_docs if d["numero_pedido"] not in ja_no_banco]
+            pulados = antes - len(novos_docs)
+            inseridos -= pulados
+            ja_existiam += pulados
+            logger.warning(f"[AET] {pulados} doc(s) descartado(s) na rechecagem final (já existiam — corrida evitada)")
     if novos_docs:
         try:
             await db.cancelamentos.insert_many(novos_docs, ordered=False)
         except Exception as e:
             logger.error(f"Erro ao inserir cancelamentos AET: {e}")
+
+    # Libera a trava de importação
+    await db.import_locks.update_one({"chave": "aet"}, {"$set": {"em_andamento": False}})
 
     # Notificar admins
     try:
