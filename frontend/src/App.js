@@ -14,6 +14,7 @@ import DetalhesChamado from "./pages/DetalhesChamado";
 import ImportarPedidos from "./pages/ImportarPedidos";
 import Perfil from "./pages/Perfil";
 import TextosPadroes from "./pages/TextosPadroes";
+import TextosAtendimento from "./pages/TextosAtendimento";
 import AgRetirada from "./pages/AgRetirada";
 import PagamentoNaoAprovado from "./pages/PagamentoNaoAprovado";
 import Cancelamentos from "./pages/Cancelamentos";
@@ -143,6 +144,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <TextosPadroes />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/textos-atendimento"
+        element={
+          <ProtectedRoute>
+            <TextosAtendimento />
           </ProtectedRoute>
         }
       />

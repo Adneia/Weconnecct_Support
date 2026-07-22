@@ -1,12 +1,97 @@
 from fastapi import APIRouter, HTTPException, Depends
 from typing import List
 
+from bson import ObjectId
+from bson.errors import InvalidId
+
 from utils.database import db
 from utils.auth import get_current_user
 from data.textos_padroes import TEXTOS_PADROES, CATEGORIAS_EMERGENT, MOTIVOS_PENDENCIA_TEXTOS, get_motivo_for_categoria
 from datetime import datetime, timezone
 
 router = APIRouter(prefix="/api")
+
+
+async def _log_texto(acao: str, categoria: str, current_user: dict, fonte: str = "textos_atendimento"):
+    """Registra alteração no mesmo histórico da tela de Textos Padrões."""
+    try:
+        await db.textos_padroes_log.insert_one({
+            "acao": acao, "categoria": categoria,
+            "usuario": current_user.get("name", ""), "email_usuario": current_user.get("email", ""),
+            "data": datetime.now(timezone.utc).isoformat(), "visualizado": False,
+            "fonte": fonte,
+        })
+    except Exception:
+        pass
+
+
+# ===== Textos do Atendimento (coleção textos_por_motivo — o que o atendente clica) =====
+
+@router.get("/textos-motivo-editor")
+async def list_textos_motivo_editor(current_user: dict = Depends(get_current_user)):
+    docs = await db.textos_por_motivo.find({}).sort("motivo", 1).to_list(2000)
+    docs.sort(key=lambda d: (d.get("motivo") or "", d.get("causa") or "", d.get("titulo") or ""))
+    return [{
+        "id": str(d["_id"]),
+        "motivo": d.get("motivo", ""),
+        "causa": d.get("causa", ""),
+        "titulo": d.get("titulo", ""),
+        "texto": d.get("texto", ""),
+        "parceiro": d.get("parceiro", ""),
+    } for d in docs]
+
+
+@router.post("/textos-motivo-editor")
+async def create_texto_motivo(data: dict, current_user: dict = Depends(get_current_user)):
+    motivo = (data.get("motivo") or "").strip()
+    causa = (data.get("causa") or "").strip()
+    titulo = (data.get("titulo") or "").strip()
+    texto = (data.get("texto") or "").strip()
+    parceiro = (data.get("parceiro") or "").strip()
+    if not (motivo and titulo and texto):
+        raise HTTPException(status_code=400, detail="Motivo, título e texto são obrigatórios")
+    doc = {"motivo": motivo, "causa": causa, "titulo": titulo, "texto": texto}
+    if parceiro:
+        doc["parceiro"] = parceiro
+    res = await db.textos_por_motivo.insert_one(doc)
+    await _log_texto("criado", f"{motivo} / {causa} / {titulo}", current_user)
+    return {"id": str(res.inserted_id), "message": "Texto criado com sucesso"}
+
+
+@router.put("/textos-motivo-editor/{texto_id}")
+async def update_texto_motivo(texto_id: str, data: dict, current_user: dict = Depends(get_current_user)):
+    try:
+        oid = ObjectId(texto_id)
+    except (InvalidId, TypeError):
+        raise HTTPException(status_code=400, detail="ID inválido")
+    campos = {}
+    for k in ("motivo", "causa", "titulo", "texto", "parceiro"):
+        if k in data and isinstance(data[k], str):
+            campos[k] = data[k].strip()
+    if "texto" in campos and not campos["texto"]:
+        raise HTTPException(status_code=400, detail="O texto não pode ficar vazio")
+    if not campos:
+        raise HTTPException(status_code=400, detail="Nada para atualizar")
+    res = await db.textos_por_motivo.update_one({"_id": oid}, {"$set": campos})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Texto não encontrado")
+    d = await db.textos_por_motivo.find_one({"_id": oid}, {"_id": 0, "motivo": 1, "causa": 1, "titulo": 1})
+    await _log_texto("atualizado", f"{d.get('motivo')} / {d.get('causa')} / {d.get('titulo')}", current_user)
+    return {"message": "Texto atualizado com sucesso"}
+
+
+@router.delete("/textos-motivo-editor/{texto_id}")
+async def delete_texto_motivo(texto_id: str, current_user: dict = Depends(get_current_user)):
+    try:
+        oid = ObjectId(texto_id)
+    except (InvalidId, TypeError):
+        raise HTTPException(status_code=400, detail="ID inválido")
+    d = await db.textos_por_motivo.find_one({"_id": oid})
+    if not d:
+        raise HTTPException(status_code=404, detail="Texto não encontrado")
+    await db.textos_por_motivo.delete_one({"_id": oid})
+    await _log_texto("excluido", f"{d.get('motivo')} / {d.get('causa')} / {d.get('titulo')}", current_user)
+    return {"message": "Texto excluído com sucesso"}
 
 
 @router.get("/textos-padroes/{categoria}")

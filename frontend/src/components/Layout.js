@@ -55,6 +55,7 @@ const navItems = [
   { path: '/chamados/novo', label: 'Novo Atendimento', icon: Plus },
   { path: '/chamados', label: 'Atendimentos', icon: List },
   { path: '/textos-padroes', label: 'Textos Padrões', icon: FileText },
+  { path: '/textos-atendimento', label: 'Textos do Atendimento', icon: FileText },
   { path: '/retirada', label: 'Disp. p/ Retirada', icon: PackageOpen },
   { path: '/pagamento', label: 'Pag. Não Aprovado', icon: CreditCard },
   { path: '/cancelamentos', label: 'Cancelamentos', icon: XCircle },
