@@ -784,14 +784,15 @@ async def atualizar_motivos_pendencia_automatico(numeros_pedido: list = None):
         # ficaram defasados — ex.: preso em 'Ag. Logística' apesar de já entregue.
         # Motivos manuais (Ag. Parceiro, Ag. Cliente, etc.) seguem preservados abaixo.
         status_anterior = chamado.get('status_pedido', '') or ''
-        # A ENTREGA resolve o rastreio de transporte: um atendimento que estava
-        # aguardando a transportadora (Ag. Transportadora - *) e foi ENTREGUE deve
-        # ir para 'Entregue' — mesmo que o motivo seja "manual" ou que o status já
-        # estivesse sincronizado (caso comum de ficar preso em Ag. Transportadora).
+        # A ENTREGA resolve o rastreio de transporte, mas SÓ na transição: quando o
+        # pedido PASSA a 'Entregue' (status mudou), um atendimento em
+        # 'Ag. Transportadora - *' vai para 'Entregue'. Se o atendente colocou
+        # Ag. Transportadora DEPOIS de o pedido já estar entregue (status inalterado),
+        # preserva — é acompanhamento pós-entrega (contestação / acareação).
         _entregue_agora = get_motivo_from_status(status_pedido) == 'Entregue'
         _resolve_transporte = _entregue_agora and (motivo_atual or '').startswith('Ag. Transportadora')
 
-        if status_pedido == status_anterior and motivo_atual not in MOTIVOS_AUTO_ATUALIZAVEIS and not _resolve_transporte:
+        if status_pedido == status_anterior and motivo_atual not in MOTIVOS_AUTO_ATUALIZAVEIS:
             stats["ignorados_outros_motivos"] += 1
             continue
 
