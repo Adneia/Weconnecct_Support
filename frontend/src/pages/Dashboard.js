@@ -116,6 +116,12 @@ const Dashboard = () => {
     return [2, 4];                                                       // demais: terça e quinta
   };
   const verifDevida = (motivo) => diasVerif(motivo).includes(new Date().getDay());
+  // Motivos de limpeza DIÁRIA (Entregue e Ag. Transportadora - J&T) — mais críticos,
+  // destacados com um fundo vermelho bem claro no painel de Verificação de status.
+  const ehDiario = (motivo) => {
+    const m = (motivo || '').trim().toLowerCase();
+    return m === 'entregue' || m.includes('j&t');
+  };
   // Flags da "Próxima verif.": respeita a DATA marcada (ajuste manual vale — ex.:
   // feriado movido p/ o dia seguinte). Sem data marcada, cai na regra semanal.
   //   proxima < hoje  → atrasada (vermelho)  ·  proxima === hoje → "• hoje"
@@ -896,7 +902,7 @@ const Dashboard = () => {
                   const flags = flagsVerif(r.proxima || '', r.ultima || '', r.motivo, hoje);
                   return (
                     <React.Fragment key={r.motivo}>
-                      <tr className="border-b last:border-0 hover:bg-muted/40">
+                      <tr className={`border-b last:border-0 hover:bg-muted/40 ${ehDiario(r.motivo) ? 'bg-red-50/70 dark:bg-red-950/20' : ''}`}>
                         <td className="px-2 py-2 text-center">{checkBtn(r.motivo, '', r.ultima, false)}</td>
                         <td className="px-2 py-2 font-medium">
                           <span className="inline-flex items-center gap-1.5">
