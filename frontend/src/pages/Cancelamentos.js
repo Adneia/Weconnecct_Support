@@ -1282,12 +1282,25 @@ function TabelaCancelamentos({ tipo, refreshKey, onRefresh }) {
       const q = filtroCanal.trim().toLowerCase();
       arr = arr.filter(i => String(i.canal_vendas || i.parceiro_planilha || '').toLowerCase().includes(q));
     }
-    const getGrupo = (i) => {
-      const temTicket = i.ticket && i.ticket.trim();
-      if (temTicket) return 1;
-      if (i.tem_atendimento) return 2;
+    // Ordem da lista (definida com a Adneia). A DECISÃO DE SIMILAR é CONGELADA:
+    // quando o item entra na faixa "Similar" (entrou_similar), ele NÃO cai pro fim ao
+    // ser decidido cancelar — fica na mesma posição pra não sumir de vista enquanto
+    // é tratado. Prioridade, ticket, atendimento, estoque XD e >30 dias seguem ao vivo
+    // (podem SUBIR o item — só a queda do similar->cancelar é que é evitada).
+    //   1 estoque XD>10 · 2 priorizado · 3 similar(congelado) · 4 com ticket ·
+    //   5 com atendimento · 6 parado >30d · 7 cancelamento ≤R$300 · 8 cancelamento >R$300
+    const rankOf = (i) => {
+      if (tipo === 'aes' && Number(i.estoque_xd_disp || 0) > 10) return 1;
+      if (i.prioridade) return 2;
+      const foiSimilar = i.entrou_similar
+        || i.analise_similar === 'pendente' || i.analise_similar === 'proposto'
+        || (i.acao || '').toLowerCase().includes('similar');
+      if (foiSimilar) return 3;
+      if (i.ticket && String(i.ticket).trim()) return 4;
+      if (i.tem_atendimento) return 5;
+      if (diasPendentes(i) > 30) return 6;
       const valor = Number(String(i.preco_final || '0').replace(',', '.'));
-      return valor > 300 ? 4 : 3;
+      return valor > 300 ? 8 : 7;
     };
     // Na aba Encerrados: ordena apenas por data_encerramento DESC (mais recente fechado no topo)
     if (filtro === 'encerrado') {
@@ -1298,23 +1311,9 @@ function TabelaCancelamentos({ tipo, refreshKey, onRefresh }) {
       });
     }
     const ordenado = [...arr].sort((a, b) => {
-      // Tier -1: AES com estoque XD > 10 sobe ao TOPO ABSOLUTO (ação urgente: acionar Compras)
-      const aXd = (tipo === 'aes' && Number(a.estoque_xd_disp || 0) > 10) ? 0 : 1;
-      const bXd = (tipo === 'aes' && Number(b.estoque_xd_disp || 0) > 10) ? 0 : 1;
-      if (aXd !== bXd) return aXd - bXd;
-      // Tier 0: Priorizado sobe para o topo
-      const aPrio = a.prioridade ? 0 : 1;
-      const bPrio = b.prioridade ? 0 : 1;
-      if (aPrio !== bPrio) return aPrio - bPrio;
-      // Similar antes de Cancelamento
-      const aSim = isSimilar(a) ? 0 : 1;
-      const bSim = isSimilar(b) ? 0 : 1;
-      if (aSim !== bSim) return aSim - bSim;
-      // Depois, 4 grupos de ação
-      const ga = getGrupo(a);
-      const gb = getGrupo(b);
-      if (ga !== gb) return ga - gb;
-      // Por fim, data ASC
+      const ra = rankOf(a), rb = rankOf(b);
+      if (ra !== rb) return ra - rb;
+      // dentro da mesma faixa: mais antigo primeiro (data ASC)
       return String(a.data || '').localeCompare(String(b.data || ''));
     });
     // AES: agrupa itens do mesmo SKU juntos, preservando a ordem de prioridade

@@ -333,6 +333,9 @@ async def _analisar_similares_pendentes(limit: int = 200, ignorar_frescor: bool 
                     "analise_similar": "pendente",
                     "similares_sugeridos": res["propostos"],
                     "similares_analisado_em": _iso_now_utc(),
+                    # Congela a posição na faixa "Similar": mesmo que depois o analista
+                    # decida cancelar, o item NÃO cai pro fim (não some de vista).
+                    "entrou_similar": True,
                     "updated_at": _iso_now_utc(),
                 }},
             )
@@ -1664,6 +1667,7 @@ async def propor_similares(
             {"$set": {
                 "acao": "Similar",
                 "analise_similar": "proposto",
+                "entrou_similar": True,
                 "similares_propostos": skus,
                 # Detalhe (sku, nome, id, imagem) de cada similar escolhido — usado no texto padrão
                 "similares_propostos_detalhe": [
