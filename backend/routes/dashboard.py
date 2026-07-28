@@ -818,9 +818,11 @@ async def set_verificacao_status(payload: dict, current_user: dict = Depends(get
     if not motivo:
         return {"error": "motivo obrigatório"}
     parceiro = (payload.get("parceiro") or "").strip()
+    quem = current_user.get("name", current_user.get("email", "?"))
+    antigo = await db.dashboard_verificacao.find_one({"motivo": motivo, "parceiro": parceiro}, {"_id": 0}) or {}
     set_fields = {
         "motivo": motivo, "parceiro": parceiro,
-        "atualizado_por": current_user.get("name", current_user.get("email", "?")),
+        "atualizado_por": quem,
         "atualizado_em": datetime.now(timezone.utc).isoformat(),
     }
     for k in ("ultima", "proxima", "obs"):
@@ -831,6 +833,35 @@ async def set_verificacao_status(payload: dict, current_user: dict = Depends(get
         {"$set": set_fields},
         upsert=True,
     )
+
+    # Notifica a Adneia quando a DATA (última/próxima) da limpeza é alterada
+    # manualmente — empurrar a escala pra frente pode esconder pendências.
+    # (Não notifica a própria Adneia; o ✓ normal não passa por aqui.)
+    try:
+        import uuid
+        _fmt = lambda s: (f"{s[8:10]}/{s[5:7]}/{s[0:4]}" if s and len(s) >= 10 else (s or "—"))
+        mudancas = []
+        for campo, rotulo in (("ultima", "Última"), ("proxima", "Próxima")):
+            if campo in payload:
+                antes, depois = (antigo.get(campo) or ""), set_fields.get(campo, "")
+                if antes != depois:
+                    mudancas.append(f"{rotulo}: {_fmt(antes)} → {_fmt(depois)}")
+        email_dest = "adneia@weconnect360.com.br"
+        if mudancas and current_user.get("email") != email_dest:
+            alvo = motivo + (f" / {parceiro}" if parceiro else "")
+            await db.notifications.insert_one({
+                "id": str(uuid.uuid4()),
+                "tipo": "verificacao_alterada",
+                "destinatario_email": email_dest,
+                "titulo": f"Limpeza alterada: {alvo}",
+                "mensagem": f"{quem} alterou a data da verificação. {' · '.join(mudancas)}.",
+                "lida": False,
+                "data_criacao": datetime.now(timezone.utc).isoformat(),
+                "dados_extras": {"motivo": motivo, "parceiro": parceiro},
+            })
+    except Exception as e:
+        logger.warning(f"[verif] falha ao notificar alteração: {e}")
+
     return {"motivo": motivo, "parceiro": parceiro,
             "ultima": set_fields.get("ultima"), "proxima": set_fields.get("proxima"),
             "obs": set_fields.get("obs")}
