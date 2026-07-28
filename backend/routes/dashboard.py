@@ -699,6 +699,38 @@ def _verif_hoje():
     return (datetime.now(timezone.utc) - timedelta(hours=3)).strftime("%Y-%m-%d")
 
 
+def _dias_verif(motivo):
+    """Dias da semana em que o motivo deve ser verificado (isoweekday: 1=seg..7=dom).
+    Mesma escala do Dashboard: Entregue e J&T = diário (seg-sex); Ag. Parceiro =
+    quarta; demais = terça e quinta."""
+    m = (motivo or "").strip().lower()
+    if m == "entregue" or "j&t" in m:
+        return {1, 2, 3, 4, 5}
+    if m == "ag. parceiro":
+        return {3}
+    return {2, 4}
+
+
+def _proxima_verif(motivo, base_str, hoje_str):
+    """Próxima data de verificação (sempre > base/hoje) conforme a escala do motivo."""
+    dias = _dias_verif(motivo)
+    try:
+        hoje = datetime.strptime(hoje_str, "%Y-%m-%d")
+    except Exception:
+        hoje = datetime.now(timezone.utc) - timedelta(hours=3)
+    try:
+        base = datetime.strptime(base_str, "%Y-%m-%d") if base_str else None
+    except Exception:
+        base = None
+    ini = base if (base and base >= hoje) else hoje
+    d = ini
+    for _ in range(14):
+        d = d + timedelta(days=1)
+        if d.isoweekday() in dias:
+            return d.strftime("%Y-%m-%d")
+    return ""
+
+
 @router.get("/dashboard/verificacao-status")
 async def get_verificacao_status(current_user: dict = Depends(get_current_user)):
     """Backlog ao vivo por motivo + ultima/proxima/obs. Ag. Parceiro detalhado por parceiro."""
@@ -735,6 +767,31 @@ async def get_verificacao_status(current_user: dict = Depends(get_current_user))
 
     docs = await db.dashboard_verificacao.find({}, {"_id": 0}).to_list(500)
     salvos = {(d.get("motivo", ""), d.get("parceiro", "")): d for d in docs}
+
+    # Auto-marcar como FEITO os motivos JÁ rastreados que ZERARAM num dia devido.
+    # A limpeza é feita, o motivo some do backlog (pendente=0) e antes ficava como
+    # 'atrasada' porque não dava pra clicar o ✓. Agora: se zerou e estava devido,
+    # carimba última = hoje e avança a próxima automaticamente. (Só o motivo
+    # principal; sub-parceiros do Ag. Parceiro seguem manuais.)
+    hoje_str = _verif_hoje()
+    for (motivo, parceiro), s in list(salvos.items()):
+        if parceiro:
+            continue
+        if backlog.get(motivo, 0) != 0:
+            continue  # ainda há pendência → exige verificação manual
+        if s.get("ultima") == hoje_str:
+            continue  # já marcado hoje
+        prox = s.get("proxima", "")
+        if prox and prox > hoje_str:
+            continue  # ainda não é dia de verificar esse motivo
+        nova_prox = _proxima_verif(motivo, hoje_str, hoje_str)
+        await db.dashboard_verificacao.update_one(
+            {"motivo": motivo, "parceiro": ""},
+            {"$set": {"ultima": hoje_str, "proxima": nova_prox, "atualizado_por": "auto (zerado)"}},
+            upsert=True,
+        )
+        s["ultima"] = hoje_str
+        s["proxima"] = nova_prox
 
     def _campos(motivo, parceiro=""):
         s = salvos.get((motivo, parceiro), {})
