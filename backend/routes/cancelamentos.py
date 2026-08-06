@@ -707,6 +707,9 @@ async def _auto_importar_avisos_smart_compras() -> dict:
                         "nova_entrega": "",
                         # Marca a fonte (rastreabilidade)
                         "fonte": "smart_compras",
+                        # NOVO: chegou pela migração automática — some da faixa "Novos"
+                        # quando o analista decide (propor similar / seguir cancelamento).
+                        "novo": True,
                         "aviso_compras_id": av["id"],
                         "aviso_numero_po": av.get("numero_po"),
                         "aviso_po_id": av.get("po_id"),
@@ -1668,6 +1671,7 @@ async def propor_similares(
                 "acao": "Similar",
                 "analise_similar": "proposto",
                 "entrou_similar": True,
+                "novo": False,
                 "similares_propostos": skus,
                 # Detalhe (sku, nome, id, imagem) de cada similar escolhido — usado no texto padrão
                 "similares_propostos_detalhe": [
@@ -1716,6 +1720,7 @@ async def seguir_cancelamento(
             {"$set": {
                 "acao": "Cancelar",
                 "analise_similar": "cancelar",
+                "novo": False,
                 "observacao": nova_obs,
                 "updated_at": _iso_now_utc(),
             }},

@@ -1118,6 +1118,7 @@ function TabelaCancelamentos({ tipo, refreshKey, onRefresh }) {
   const [filtroProduto, setFiltroProduto] = useState('');
   const [filtroCanal, setFiltroCanal] = useState('');
   const [verCompras, setVerCompras] = useState(false);  // true = visualiza só os em_compras
+  const [filtroNovos, setFiltroNovos] = useState(false); // true = só os recém-chegados (novo=true)
   const [showNovo, setShowNovo] = useState(false);
   const [zapModal, setZapModal] = React.useState(null);
   const [textoModal, setTextoModal] = React.useState(null);
@@ -1282,6 +1283,11 @@ function TabelaCancelamentos({ tipo, refreshKey, onRefresh }) {
       const q = filtroCanal.trim().toLowerCase();
       arr = arr.filter(i => String(i.canal_vendas || i.parceiro_planilha || '').toLowerCase().includes(q));
     }
+    // Filtro "Novos": só os que chegaram pela migração automática e ainda não foram
+    // triados (novo=true). Some quando o analista propõe similar ou segue cancelamento.
+    if (filtroNovos) {
+      arr = arr.filter(i => i.novo === true);
+    }
     // Ordem da lista (definida com a Adneia). A DECISÃO DE SIMILAR é CONGELADA:
     // quando o item entra na faixa "Similar" (entrou_similar), ele NÃO cai pro fim ao
     // ser decidido cancelar — fica na mesma posição pra não sumir de vista enquanto
@@ -1328,7 +1334,7 @@ function TabelaCancelamentos({ tipo, refreshKey, onRefresh }) {
       return Array.from(grupos.values()).flat();
     }
     return ordenado;
-  }, [items, filtroParceiro, filtroEntrega, filtroProduto, filtroCanal, filtro, tipo, verCompras]);
+  }, [items, filtroParceiro, filtroEntrega, filtroProduto, filtroCanal, filtro, tipo, verCompras, filtroNovos]);
 
   // colunas: Dias, Data, Entrega, Parceiro, Cliente, Produto, [XD AES | Motivo ETR | MotivoRejeicao err], Valor, Ticket, Instância, [Template AES | Nova entrega err], Encerrado, Observação
   const colSpan = tipo === 'aes' ? 14 : tipo === 'etr' ? 13 : 14;
@@ -1338,7 +1344,7 @@ function TabelaCancelamentos({ tipo, refreshKey, onRefresh }) {
       {/* Filtros de status + ação */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex gap-2">
-          <Button size="sm" variant={filtro === 'pendente' ? 'default' : 'outline'} onClick={() => { setFiltro('pendente'); setFiltroParceiro(''); }}>
+          <Button size="sm" variant={filtro === 'pendente' ? 'default' : 'outline'} onClick={() => { setFiltro('pendente'); setFiltroParceiro(''); setFiltroNovos(false); }}>
             Pendentes
           </Button>
           <Button size="sm" variant={filtro === 'encerrado' ? 'default' : 'outline'} onClick={() => { setFiltro('encerrado'); setFiltroParceiro(''); }}>
@@ -1384,13 +1390,32 @@ function TabelaCancelamentos({ tipo, refreshKey, onRefresh }) {
       {(parceirosFiltrados.length > 0 || tipo === 'aes') && (
         <div className="flex items-center gap-2 flex-wrap py-1">
           <span className="text-xs text-slate-500 font-medium mr-1">Filtrar parceiro:</span>
+          {/* Botão "Novos" — recém-chegados pela migração automática (novo=true) */}
+          {tipo === 'aes' && (() => {
+            const qtdNovos = items.filter(i => i.novo === true && i.status !== 'encerrado').length;
+            return (
+              <button
+                type="button"
+                onClick={() => { setFiltroNovos(v => !v); setVerCompras(false); setFiltroParceiro(''); }}
+                className={`text-xs px-2.5 py-1 rounded-full border font-semibold transition-colors ${
+                  filtroNovos
+                    ? 'bg-emerald-600 text-white border-emerald-600'
+                    : 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
+                }`}
+                title="Cancelamentos que chegaram pela migração automática e ainda não foram analisados"
+              >
+                🆕 Novos
+                <span className={`ml-1 px-1.5 py-0 rounded ${filtroNovos ? 'bg-white/20' : 'bg-emerald-200'}`}>{qtdNovos}</span>
+              </button>
+            );
+          })()}
           {/* Botão "Compras" — só pra AES */}
           {tipo === 'aes' && (() => {
             const qtdCompras = items.filter(i => i.em_compras === true && (filtro === 'todos' ? true : (filtro === 'encerrado' ? i.status === 'encerrado' : i.status !== 'encerrado'))).length;
             return (
               <button
                 type="button"
-                onClick={() => { setVerCompras(v => !v); setFiltroParceiro(''); }}
+                onClick={() => { setVerCompras(v => !v); setFiltroParceiro(''); setFiltroNovos(false); }}
                 className={`text-xs px-2.5 py-1 rounded-full border font-semibold transition-colors ${
                   verCompras
                     ? 'bg-orange-600 text-white border-orange-600'
@@ -1407,7 +1432,7 @@ function TabelaCancelamentos({ tipo, refreshKey, onRefresh }) {
             <button
               key={nome}
               type="button"
-              onClick={() => setFiltroParceiro(filtroParceiro === nome ? '' : nome)}
+              onClick={() => { setFiltroParceiro(filtroParceiro === nome ? '' : nome); setFiltroNovos(false); }}
               className={`text-xs px-2.5 py-1 rounded-full border font-medium transition-colors ${
                 filtroParceiro === nome
                   ? 'bg-blue-600 text-white border-blue-600'
@@ -1566,6 +1591,10 @@ function TabelaCancelamentos({ tipo, refreshKey, onRefresh }) {
                     >
                       {item.numero_pedido} <Copy className="h-3 w-3 opacity-50" />
                     </button>
+                    {item.novo && (
+                      <span className="text-[10px] px-1.5 py-0 rounded-full bg-emerald-100 text-emerald-700 font-semibold w-fit"
+                        title="Chegou pela migração automática — ainda não analisado">🆕 Novo</span>
+                    )}
                     {item.tem_atendimento && (
                       <span
                         className="text-[10px] text-blue-700 dark:text-blue-400 font-semibold inline-flex items-center gap-1"
