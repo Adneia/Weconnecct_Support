@@ -251,37 +251,48 @@ async def importar_base_aet(
                 "updated_at": now_iso,
             }
 
-            # Enriquecer com tabelão
-            pedido = await db.pedidos_erp.find_one({"numero_pedido": entrega})
-            if pedido:
+            # Enriquecer com tabelão. Em pedido MULTI-ITEM, o pedidos_erp costuma ter
+            # só 1 dos N itens — então buscamos primeiro o ITEM da planilha (row[4]=SKU).
+            # Antes, sem o SKU, pegava um item qualquer do pedido e sobrescrevia o SKU
+            # correto vindo da AET (caso real: peneira virava caneca/tábua).
+            sku_planilha = (str(row[4]).strip() if len(row) > 4 and row[4] is not None else "")
+            pedido = None
+            if sku_planilha:
+                pedido = await db.pedidos_erp.find_one({"numero_pedido": entrega, "codigo_item_vtex": sku_planilha})
+            pedido_ordem = pedido or await db.pedidos_erp.find_one({"numero_pedido": entrega})
+            if pedido_ordem:
+                # Dados do PEDIDO (cliente/endereço/NF/transportadora) servem de qualquer item
                 doc.update({
-                    "canal_vendas": pedido.get("canal_vendas", ""),
-                    "nome_cliente": pedido.get("nome_cliente", ""),
-                    "cpf_cliente": pedido.get("cpf_cliente", ""),
-                    "fone_cliente": pedido.get("fone_cliente", ""),
-                    "email_cliente": pedido.get("email_cliente", ""),
-                    "cep": pedido.get("cep", ""),
-                    "cidade": pedido.get("cidade", ""),
-                    "uf": pedido.get("uf", ""),
-                    "endereco_rua": pedido.get("endereco_rua", ""),
-                    "endereco_numero": pedido.get("endereco_numero", ""),
-                    "endereco_complemento": pedido.get("endereco_complemento", ""),
-                    "endereco_bairro": pedido.get("endereco_bairro", ""),
-                    "produto": pedido.get("produto", ""),
-                    "codigo_item_bseller": pedido.get("codigo_item_bseller", ""),
-                    "codigo_item_vtex": pedido.get("codigo_item_vtex", ""),
-                    "codigo_fornecedor": pedido.get("codigo_fornecedor", ""),
-                    "departamento": pedido.get("departamento", ""),
-                    "filial": pedido.get("filial", ""),
-                    "nota_fiscal": pedido.get("nota_fiscal", ""),
-                    "serie_nf": pedido.get("serie_nf", ""),
-                    "chave_nota": pedido.get("chave_nota", ""),
-                    "preco_final": pedido.get("preco_final", ""),
-                    "quantidade": pedido.get("quantidade", ""),
-                    "transportadora": pedido.get("transportadora", ""),
-                    "status_pedido": pedido.get("status_pedido", ""),
-                    "data_status": pedido.get("data_status", ""),
+                    "canal_vendas": pedido_ordem.get("canal_vendas", ""),
+                    "nome_cliente": pedido_ordem.get("nome_cliente", ""),
+                    "cpf_cliente": pedido_ordem.get("cpf_cliente", ""),
+                    "fone_cliente": pedido_ordem.get("fone_cliente", ""),
+                    "email_cliente": pedido_ordem.get("email_cliente", ""),
+                    "cep": pedido_ordem.get("cep", ""),
+                    "cidade": pedido_ordem.get("cidade", ""),
+                    "uf": pedido_ordem.get("uf", ""),
+                    "endereco_rua": pedido_ordem.get("endereco_rua", ""),
+                    "endereco_numero": pedido_ordem.get("endereco_numero", ""),
+                    "endereco_complemento": pedido_ordem.get("endereco_complemento", ""),
+                    "endereco_bairro": pedido_ordem.get("endereco_bairro", ""),
+                    "filial": pedido_ordem.get("filial", ""),
+                    "nota_fiscal": pedido_ordem.get("nota_fiscal", ""),
+                    "serie_nf": pedido_ordem.get("serie_nf", ""),
+                    "chave_nota": pedido_ordem.get("chave_nota", ""),
+                    "transportadora": pedido_ordem.get("transportadora", ""),
+                    "status_pedido": pedido_ordem.get("status_pedido", ""),
+                    "data_status": pedido_ordem.get("data_status", ""),
                 })
+                # Dados do ITEM: usa o item CERTO (casado pelo SKU da planilha). Se o
+                # tabelão não tiver esse item (multi-item), preserva o que veio da AET.
+                item = pedido or {}
+                doc["produto"] = item.get("produto") or (str(row[3] or "") if len(row) > 3 else "")
+                doc["codigo_item_vtex"] = item.get("codigo_item_vtex") or sku_planilha
+                doc["codigo_item_bseller"] = item.get("codigo_item_bseller", "")
+                doc["codigo_fornecedor"] = item.get("codigo_fornecedor") or (str(row[5] or "") if len(row) > 5 else "")
+                doc["departamento"] = item.get("departamento") or (str(row[6] or "") if len(row) > 6 else "")
+                doc["preco_final"] = item.get("preco_final") or (str(row[8] or "") if len(row) > 8 else "")
+                doc["quantidade"] = item.get("quantidade") or (str(row[7] or "") if len(row) > 7 else "")
                 enriquecidos += 1
             else:
                 doc["produto"] = str(row[3] or "") if len(row) > 3 else ""
