@@ -531,6 +531,7 @@ function SimilarPropostaCell({ item, onSaved }) {
   const { getAuthHeader } = useAuth();
   const sugeridos = item.similares_sugeridos || [];
   const [sel, setSel] = React.useState(() => new Set());
+  const [skuManual, setSkuManual] = React.useState('');
   const [saving, setSaving] = React.useState(false);
 
   const toggle = (sku) => {
@@ -541,12 +542,16 @@ function SimilarPropostaCell({ item, onSaved }) {
     });
   };
 
+  const totalSel = sel.size + (skuManual.trim() ? 1 : 0);
+
   const propor = async () => {
-    if (sel.size === 0) { toast.error('Selecione ao menos um similar'); return; }
+    const skus = [...Array.from(sel)];
+    if (skuManual.trim()) skus.push(skuManual.trim().toUpperCase());
+    if (skus.length === 0) { toast.error('Selecione um similar ou digite o SKU'); return; }
     setSaving(true);
     try {
       await axios.post(`${API_URL}/api/cancelamentos/${item.id}/propor-similares`,
-        { skus: Array.from(sel) }, { headers: getAuthHeader() });
+        { skus }, { headers: getAuthHeader() });
       toast.success('Similar(es) proposto(s)');
       onSaved?.();
     } catch (e) {
@@ -569,8 +574,13 @@ function SimilarPropostaCell({ item, onSaved }) {
   return (
     <div className="flex flex-col gap-1 min-w-[200px]">
       <div className="text-[11px] font-semibold text-purple-700 flex items-center gap-1">
-        🔎 Similares sugeridos:
+        🔎 {sugeridos.length > 0 ? 'Similares sugeridos:' : 'Revisar similar'}
       </div>
+      {sugeridos.length === 0 && (
+        <div className="text-[10px] text-slate-500 leading-tight">
+          Sem similar automático — digite o SKU de um similar ou siga para o cancelamento.
+        </div>
+      )}
       <div className="flex flex-col gap-0.5 max-h-[120px] overflow-y-auto">
         {sugeridos.map((s, i) => (
           <label key={s.sku} className="flex items-start gap-1 text-[11px] cursor-pointer hover:bg-slate-50 rounded px-1 py-0.5">
@@ -595,10 +605,17 @@ function SimilarPropostaCell({ item, onSaved }) {
           </label>
         ))}
       </div>
+      <input
+        type="text"
+        value={skuManual}
+        onChange={(e) => setSkuManual(e.target.value.toUpperCase())}
+        placeholder="ou digite o SKU do similar"
+        className="text-[11px] px-1.5 py-1 rounded border border-slate-300 font-mono focus:outline-none focus:border-purple-400"
+      />
       <div className="flex gap-1 mt-0.5">
         <button onClick={propor} disabled={saving}
           className="flex-1 text-[11px] px-2 py-1 rounded bg-green-100 text-green-700 border border-green-300 hover:bg-green-200 font-semibold disabled:opacity-50">
-          Propor ({sel.size})
+          Propor ({totalSel})
         </button>
         <button onClick={seguirCancelamento} disabled={saving}
           className="flex-1 text-[11px] px-2 py-1 rounded bg-slate-100 text-slate-600 border border-slate-300 hover:bg-slate-200 disabled:opacity-50"
@@ -1676,7 +1693,12 @@ function TabelaCancelamentos({ tipo, refreshKey, onRefresh }) {
                 </td>
                 {tipo === 'aes' && (
                   <td className="px-2 py-2">
-                    {item.analise_similar === 'pendente' && (item.similares_sugeridos || []).length > 0 ? (
+                    {/* Regra (Adneia): todo item entra na REVISÃO de similar. Enquanto o
+                        analista não decidir (proposto/cancelar), mostra a caixa "Propor"
+                        — com sugestões automáticas OU busca manual de SKU — e o botão
+                        "seguir cancelamento". Só vai pro texto de cancelamento quando NÃO
+                        houver similar e o analista confirmar. */}
+                    {(!similar && item.analise_similar !== 'cancelar') ? (
                       <SimilarPropostaCell item={item} onSaved={() => { fetchItems(); onRefresh?.(); }} />
                     ) : similar ? (
                       <div className="flex flex-col gap-1">
