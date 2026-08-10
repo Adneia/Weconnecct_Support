@@ -13,7 +13,6 @@ import ListaChamados from "./pages/ListaChamados";
 import DetalhesChamado from "./pages/DetalhesChamado";
 import ImportarPedidos from "./pages/ImportarPedidos";
 import Perfil from "./pages/Perfil";
-import TextosPadroes from "./pages/TextosPadroes";
 import TextosAtendimento from "./pages/TextosAtendimento";
 import AgRetirada from "./pages/AgRetirada";
 import PagamentoNaoAprovado from "./pages/PagamentoNaoAprovado";
@@ -139,14 +138,8 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       />
-      <Route
-        path="/textos-padroes"
-        element={
-          <ProtectedRoute>
-            <TextosPadroes />
-          </ProtectedRoute>
-        }
-      />
+      {/* Rota antiga: unificada em /textos-atendimento (aba "Textos") */}
+      <Route path="/textos-padroes" element={<Navigate to="/textos-atendimento" replace />} />
       <Route
         path="/textos-atendimento"
         element={

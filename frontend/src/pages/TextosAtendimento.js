@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import { Card, CardContent } from '../components/ui/card';
@@ -14,7 +14,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '../components/ui/table';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2, FileText, Copy, Check } from 'lucide-react';
+import { Plus, Edit, Trash2, FileText, Copy, Check, History, Lock } from 'lucide-react';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -36,41 +36,69 @@ const PLACEHOLDERS = [
 const VAZIO = { id: '', motivo: '', causa: '', titulo: '', texto: '', parceiro: '' };
 
 export default function TextosAtendimento() {
-  const [textos, setTextos] = useState([]);
+  const { getAuthHeader, user } = useAuth();
+  const isAdmin = user?.email === 'adneia@weconnect360.com.br';
+
+  // Visão: 'atendimento' (editável) | 'sistema' (referência, só leitura)
+  const [view, setView] = useState('atendimento');
+  const [textos, setTextos] = useState([]);       // atendimento (textos_por_motivo)
+  const [sistema, setSistema] = useState(null);   // referência do sistema (TEXTOS_PADROES + custom)
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [atual, setAtual] = useState(VAZIO);
   const [copiedId, setCopiedId] = useState(null);
   const [filtroMotivo, setFiltroMotivo] = useState('');
-  const { getAuthHeader } = useAuth();
+  // Histórico
+  const [logAberto, setLogAberto] = useState(false);
+  const [logs, setLogs] = useState([]);
+  const [logCount, setLogCount] = useState(0);
 
-  useEffect(() => { fetchTextos(); }, []);
-
-  const fetchTextos = async () => {
+  const fetchTextos = useCallback(async () => {
     try {
       const r = await axios.get(`${API_URL}/api/textos-motivo-editor`, { headers: getAuthHeader() });
       setTextos(r.data || []);
-      // Primeiro motivo como filtro inicial (se ainda não escolhido)
       if (!filtroMotivo && r.data?.length) {
-        const motivos = [...new Set(r.data.map(t => t.motivo).filter(Boolean))];
-        if (motivos.includes('Ag. Parceiro')) setFiltroMotivo('Ag. Parceiro');
-        else if (motivos.length) setFiltroMotivo(motivos[0]);
+        const ms = [...new Set(r.data.map(t => t.motivo).filter(Boolean))];
+        setFiltroMotivo(ms.includes('Ag. Parceiro') ? 'Ag. Parceiro' : (ms[0] || ''));
       }
     } catch {
       toast.error('Erro ao carregar textos do atendimento');
     } finally {
       setLoading(false);
     }
-  };
+  }, [getAuthHeader]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const motivos = [...new Set(textos.map(t => t.motivo).filter(Boolean))].sort();
-  const filtrados = filtroMotivo ? textos.filter(t => t.motivo === filtroMotivo) : textos;
+  useEffect(() => { fetchTextos(); }, [fetchTextos]);
 
+  // Carrega a referência do sistema só quando a visão "Sistema" é aberta
+  useEffect(() => {
+    if (view === 'sistema' && sistema === null) {
+      axios.get(`${API_URL}/api/textos-padroes-lista`, { headers: getAuthHeader() })
+        .then(r => setSistema(r.data || []))
+        .catch(() => { setSistema([]); toast.error('Erro ao carregar textos do sistema'); });
+    }
+  }, [view, sistema, getAuthHeader]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    axios.get(`${API_URL}/api/textos-padroes-log/nao-visualizados`, { headers: getAuthHeader() })
+      .then(r => setLogCount(r.data?.count || 0)).catch(() => {});
+  }, [isAdmin, getAuthHeader]);
+
+  // ---- dados da visão ativa ----
+  const ehSistema = view === 'sistema';
+  const baseMotivos = ehSistema
+    ? [...new Set((sistema || []).map(t => t.motivo_pendencia).filter(Boolean))].sort()
+    : [...new Set(textos.map(t => t.motivo).filter(Boolean))].sort();
+  const filtrados = ehSistema
+    ? (sistema || []).filter(t => !filtroMotivo || t.motivo_pendencia === filtroMotivo)
+    : (filtroMotivo ? textos.filter(t => t.motivo === filtroMotivo) : textos);
+
+  // ---- ações (só na visão Atendimento) ----
   const salvar = async () => {
     if (!atual.motivo.trim() || !atual.titulo.trim() || !atual.texto.trim()) {
-      toast.error('Preencha Motivo, Título e Texto');
-      return;
+      toast.error('Preencha Motivo, Título e Texto'); return;
     }
     try {
       if (editMode) {
@@ -84,66 +112,96 @@ export default function TextosAtendimento() {
           { headers: getAuthHeader() });
         toast.success('Texto criado!');
       }
-      setShowDialog(false);
-      setAtual(VAZIO);
-      fetchTextos();
+      setShowDialog(false); setAtual(VAZIO); fetchTextos();
     } catch (e) {
       toast.error(e.response?.data?.detail || 'Erro ao salvar');
     }
   };
-
   const editar = (t) => { setAtual({ ...t }); setEditMode(true); setShowDialog(true); };
   const novo = () => { setAtual({ ...VAZIO, motivo: filtroMotivo || '' }); setEditMode(false); setShowDialog(true); };
-
   const excluir = async (t) => {
     if (!window.confirm(`Excluir o texto "${t.titulo}" (${t.motivo})?`)) return;
     try {
       await axios.delete(`${API_URL}/api/textos-motivo-editor/${t.id}`, { headers: getAuthHeader() });
-      toast.success('Texto excluído!');
-      fetchTextos();
-    } catch {
-      toast.error('Erro ao excluir');
-    }
+      toast.success('Texto excluído!'); fetchTextos();
+    } catch { toast.error('Erro ao excluir'); }
   };
-
-  const copiar = (t) => {
-    navigator.clipboard.writeText(t.texto);
-    setCopiedId(t.id);
-    toast.success('Texto copiado!');
+  const copiar = (id, texto) => {
+    navigator.clipboard.writeText(texto || '');
+    setCopiedId(id); toast.success('Texto copiado!');
     setTimeout(() => setCopiedId(null), 2000);
   };
 
+  const abrirHistorico = async () => {
+    setLogAberto(true);
+    try {
+      const r = await axios.get(`${API_URL}/api/textos-padroes-log`, { headers: getAuthHeader() });
+      setLogs(r.data || []);
+      await axios.post(`${API_URL}/api/textos-padroes-log/marcar-visualizados`, {}, { headers: getAuthHeader() });
+      setLogCount(0);
+    } catch { toast.error('Erro ao carregar histórico'); }
+  };
+
+  const pill = (v, label) => (
+    <button onClick={() => setView(v)}
+      className={`px-3 py-1 text-sm rounded-md transition-colors ${
+        view === v ? 'bg-white dark:bg-slate-700 shadow-sm font-medium text-slate-800 dark:text-slate-100'
+                   : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>
+      {label}
+    </button>
+  );
+
   if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
-    );
+    return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
   }
 
   return (
-    <div className="space-y-6" data-testid="textos-atendimento-page">
-      <div className="flex items-center justify-between">
+    <div className="space-y-5" data-testid="textos-page">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Textos do Atendimento</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Textos</h1>
           <p className="text-muted-foreground text-sm">
-            {filtrados.length} texto(s){filtroMotivo ? ` em ${filtroMotivo}` : ''} — estes são os textos que aparecem nos botões do atendimento e podem ser editados.
+            {ehSistema
+              ? 'Referência do sistema — molde de fábrica, somente leitura.'
+              : 'Textos que aparecem nos botões do atendimento — edite aqui.'}
           </p>
         </div>
-        <Button onClick={novo} data-testid="btn-novo-texto-atd">
-          <Plus className="h-4 w-4 mr-2" /> Novo Texto
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* Seletor sutil de visão */}
+          <div className="inline-flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5">
+            {pill('atendimento', 'Atendimento')}
+            {pill('sistema', 'Sistema')}
+          </div>
+          {isAdmin && (
+            <Button variant="outline" onClick={abrirHistorico} className="relative">
+              <History className="h-4 w-4 mr-2" /> Histórico
+              {logCount > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">{logCount}</span>}
+            </Button>
+          )}
+          {!ehSistema && (
+            <Button onClick={novo}><Plus className="h-4 w-4 mr-2" /> Novo Texto</Button>
+          )}
+        </div>
       </div>
+
+      {ehSistema && (
+        <div className="text-xs text-slate-500 flex items-center gap-1.5 bg-slate-50 dark:bg-slate-800/40 border rounded-lg px-3 py-2">
+          <Lock className="h-3.5 w-3.5" /> Estes são os textos embutidos no sistema (referência). Para editar o que o atendente usa, volte à visão <strong>Atendimento</strong>.
+        </div>
+      )}
 
       {/* Filtro por Motivo */}
       <div className="flex gap-2 flex-wrap">
-        {motivos.map(m => (
+        {baseMotivos.map(m => (
           <button key={m} onClick={() => setFiltroMotivo(m)}
             className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
               filtroMotivo === m ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-border hover:bg-muted'}`}>
             {m}
           </button>
         ))}
+        {filtroMotivo && (
+          <button onClick={() => setFiltroMotivo('')} className="px-2 py-1 text-xs text-slate-500 hover:text-slate-700">✕ todos</button>
+        )}
       </div>
 
       <Card>
@@ -152,14 +210,39 @@ export default function TextosAtendimento() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50 w-40">Causa</TableHead>
-                  <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50 w-56">Título</TableHead>
+                  {ehSistema ? (
+                    <>
+                      <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50 w-40">Motivo</TableHead>
+                      <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50 w-56">Categoria</TableHead>
+                    </>
+                  ) : (
+                    <>
+                      <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50 w-40">Causa</TableHead>
+                      <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50 w-56">Título</TableHead>
+                    </>
+                  )}
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50">Texto</TableHead>
                   <TableHead className="text-xs uppercase tracking-wider font-medium bg-muted/50 w-32 text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtrados.map(t => (
+                {ehSistema ? filtrados.map((t, i) => (
+                  <TableRow key={t.categoria + i}>
+                    <TableCell className="text-sm text-muted-foreground">{t.motivo_pendencia || '—'}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Badge variant="outline">{t.categoria}</Badge>
+                        {t.tipo === 'customizado' && <Badge className="bg-amber-100 text-amber-700 text-[10px]">customizado</Badge>}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm"><p className="line-clamp-2 text-muted-foreground">{(t.texto || '').substring(0, 150)}…</p></TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="sm" onClick={() => copiar(t.categoria, t.texto)}>
+                        {copiedId === t.categoria ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                )) : filtrados.map(t => (
                   <TableRow key={t.id} data-testid={`row-atd-${t.id}`}>
                     <TableCell className="text-sm text-muted-foreground">{t.causa || '—'}</TableCell>
                     <TableCell className="font-medium">
@@ -168,20 +251,14 @@ export default function TextosAtendimento() {
                         {t.parceiro && <Badge className="bg-violet-100 text-violet-700 text-[10px]">{t.parceiro}</Badge>}
                       </div>
                     </TableCell>
-                    <TableCell className="text-sm">
-                      <p className="line-clamp-2 text-muted-foreground">{(t.texto || '').substring(0, 150)}…</p>
-                    </TableCell>
+                    <TableCell className="text-sm"><p className="line-clamp-2 text-muted-foreground">{(t.texto || '').substring(0, 150)}…</p></TableCell>
                     <TableCell className="text-right">
                       <div className="flex gap-1 justify-end">
-                        <Button variant="ghost" size="sm" onClick={() => copiar(t)}>
+                        <Button variant="ghost" size="sm" onClick={() => copiar(t.id, t.texto)}>
                           {copiedId === t.id ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
                         </Button>
-                        <Button variant="ghost" size="sm" onClick={() => editar(t)} data-testid={`btn-edit-atd-${t.id}`}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="sm" onClick={() => excluir(t)} className="text-destructive hover:text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => editar(t)} data-testid={`btn-edit-atd-${t.id}`}><Edit className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="sm" onClick={() => excluir(t)} className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -195,7 +272,7 @@ export default function TextosAtendimento() {
         </CardContent>
       </Card>
 
-      {/* Dialog: Criar/Editar */}
+      {/* Dialog: Criar/Editar (só Atendimento) */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -207,7 +284,7 @@ export default function TextosAtendimento() {
               <div>
                 <Label>Motivo</Label>
                 <Input value={atual.motivo} onChange={e => setAtual(p => ({ ...p, motivo: e.target.value }))} placeholder="Ex: Ag. Parceiro" list="motivos-list" />
-                <datalist id="motivos-list">{motivos.map(m => <option key={m} value={m} />)}</datalist>
+                <datalist id="motivos-list">{baseMotivos.map(m => <option key={m} value={m} />)}</datalist>
               </div>
               <div>
                 <Label>Causa</Label>
@@ -241,6 +318,35 @@ export default function TextosAtendimento() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog: Histórico */}
+      {isAdmin && (
+        <Dialog open={logAberto} onOpenChange={setLogAberto}>
+          <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle><History className="h-5 w-5 inline mr-2" />Histórico de Alterações</DialogTitle>
+              <DialogDescription>Alterações feitas nos textos</DialogDescription>
+            </DialogHeader>
+            {logs.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">Nenhuma alteração registrada</div>
+            ) : (
+              <Table>
+                <TableHeader><TableRow><TableHead>Data</TableHead><TableHead>Ação</TableHead><TableHead>Categoria</TableHead><TableHead>Usuário</TableHead></TableRow></TableHeader>
+                <TableBody>
+                  {logs.map((l, i) => (
+                    <TableRow key={i} className={!l.visualizado ? 'bg-yellow-50 dark:bg-yellow-950/20' : ''}>
+                      <TableCell className="text-sm">{l.data ? new Date(l.data).toLocaleString('pt-BR') : '—'}</TableCell>
+                      <TableCell><Badge variant="outline">{l.acao}</Badge></TableCell>
+                      <TableCell className="font-medium text-sm">{l.categoria}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{l.usuario}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
